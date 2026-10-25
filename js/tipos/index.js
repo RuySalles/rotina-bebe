@@ -32,6 +32,23 @@ import fralda from './fralda.js';
 import banho from './banho.js';
 import vacina from './vacina.js';
 
+import { lerRemedios, criarTipoRemedio } from './remedio.js';
+
+/** Tipos fixos (os que estão no código). */
 export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina];
 
 export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
+
+/**
+ * Tipos fixos + remédios cadastrados em Ajustes (config.remedios).
+ * todos: inclui remédios encerrados (o histórico deles continua); visiveis: os que têm botão na tela inicial.
+ */
+export function montarTipos(config = {}) {
+  const remedios = lerRemedios(config).map(criarTipoRemedio);
+  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina];
+  return {
+    todos,
+    visiveis: todos.filter((t) => !t.remedio || t.remedio.ativo),
+    mapa: Object.fromEntries(todos.map((t) => [t.id, t]))
+  };
+}

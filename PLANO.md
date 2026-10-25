@@ -18,7 +18,7 @@ algo) dizem isso em "Você vai precisar".
 | Fase | Melhoria | Situação |
 |---|---|---|
 | 1 | Desfazer logo depois de registrar | ✅ |
-| 2 | Remédio novo sem precisar de programação | ⬜ |
+| 2 | Remédio novo sem precisar de programação | 🧪 |
 | 3 | Abrir o app sem internet | ⬜ |
 | 4 | Alertas no celular pelo Google Agenda | ⬜ |
 | 5 | Mamada completa (peito, lado, tempo) | ⬜ |
@@ -62,19 +62,26 @@ dependeria de mim.
 - jeito de dar: **horários fixos** (como a amoxicilina, com plano e contador de doses), **a cada X horas**, ou
   **só se precisar** (como o Tylenol: nunca entra no card PRÓXIMO, só mostra quando está liberado);
 - intervalo mínimo entre doses (aviso se registrar antes);
-- encerrar o remédio quando o tratamento acabar (o histórico continua).
+- máximo de doses em 24 horas e um lembrete na hora de registrar (opcionais);
+- encerrar o remédio quando o tratamento acabar (o histórico continua) ou reativar depois;
+- excluir um remédio cadastrado por engano (só aparece se ele não tiver nenhuma dose).
 
 Cada remédio cadastrado ganha botão na tela inicial, entra no Resumo, no Histórico (com filtro) e na linha do tempo.
 Amoxicilina e Tylenol continuam exatamente como estão.
 
 **Você vai precisar:** nada (os remédios ficam na aba config da planilha; o Web App não muda).
 
-**Como testar:**
-- [ ] Cadastrar um remédio de teste "a cada 8 horas" e registrar uma dose: aparece "Próxima" 8h depois.
-- [ ] Registrar outra dose antes do intervalo: o app pede confirmação.
-- [ ] Cadastrar um "só se precisar": nunca aparece no card PRÓXIMO.
-- [ ] Cadastrar um com horários fixos: contador "1 de N doses" e aviso de atraso, como a amoxicilina.
-- [ ] Encerrar o remédio de teste: o botão some, os registros continuam no Histórico.
+**Como testar** (Ajustes → Remédios; use nomes como "Teste 1" para achar fácil):
+- [ ] Cadastrar "Teste 1", **A cada X h**, a cada 8 horas, intervalo mínimo 6, dose "1 mL". O botão aparece na tela
+      inicial; ao registrar, a dose já vem "1 mL" e o botão mostra "Próxima" 8h depois.
+- [ ] Registrar outra dose de "Teste 1" logo em seguida: o app pede confirmação (intervalo mínimo).
+- [ ] Cadastrar "Teste 2", **Só se precisar**, máximo 2 em 24h. Registrar 2 doses: o botão mostra "Limite atingido"
+      e ele nunca aparece no card PRÓXIMO.
+- [ ] Cadastrar "Teste 3", **Horários fixos**; em Planos de horário aparece "Teste 3": salvar 2 horários de hoje.
+      O botão mostra "0 de 2 doses" e a próxima, como a amoxicilina.
+- [ ] No outro celular, depois de sincronizar, os 3 remédios aparecem.
+- [ ] Encerrar "Teste 1": o botão some; no Histórico, o filtro "Teste 1" ainda mostra as doses.
+- [ ] Limpeza: desfazer/apagar as doses de teste e, em cada remédio de teste, tocar em **Excluir remédio**.
 - [ ] Amoxicilina e Tylenol seguem iguais.
 
 ---

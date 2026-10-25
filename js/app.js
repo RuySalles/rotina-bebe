@@ -1,7 +1,8 @@
 // Telas e navegação. Lê/grava dados só pelo store.js e calcula tudo pelo regras.js.
 
 import * as store from './store.js';
-import { TIPOS, LISTA_TIPOS } from './tipos/index.js';
+import { montarTipos } from './tipos/index.js';
+import { lerRemedios, corPara, MODOS } from './tipos/remedio.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -18,6 +19,12 @@ let vista = 'inicio';
 let filtroHistorico = '';
 let diaResumo = 0; // 0 = hoje, -1 = ontem
 let urlDoConfig = '';
+let remedioEditando = ''; // id do remédio aberto no formulário de Ajustes ('' = novo)
+
+// Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
+let TIPOS = {};
+let LISTA_TIPOS = []; // com botão na tela inicial
+let TODOS_TIPOS = []; // inclui remédios encerrados (histórico e resumo)
 
 const ICONES = {
   inicio: '<svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19z"/></svg>',
@@ -39,6 +46,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const maiuscula = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function contexto() {
+  ({ mapa: TIPOS, visiveis: LISTA_TIPOS, todos: TODOS_TIPOS } = montarTipos(estado.config));
   return criarContexto({
     eventos: resolverEventos(estado.eventos, TIPOS),
     planos: resolverPlanos(estado.planos),
@@ -378,6 +386,9 @@ function rodape() {
   return '<footer class="rodape">Ferramenta de organização. Não substitui orientação médica.</footer>';
 }
 
+/** Nome do tipo no meio da frase: tipos fixos em minúscula, remédios cadastrados como foram escritos. */
+const nomeNaFrase = (tipo) => (tipo.remedio ? tipo.rotulo : tipo.rotulo.toLowerCase());
+
 const estiloCor = (tipo) => `style="--cor:${esc(tipo.cor)}"`;
 
 // ---------------------------------------------------------------------------
@@ -425,7 +436,7 @@ function cardProximo(item, depois) {
         </div>
         <p class="proximo-hora">${esc(quandoCurto(item.t, ctx.agora))}</p>
       </div>
-      <button class="botao botao--cheio botao--grande" data-acao="registrar" data-tipo="${tipo.id}">Registrar ${esc(tipo.rotulo.toLowerCase())}</button>
+      <button class="botao botao--cheio botao--grande" data-acao="registrar" data-tipo="${tipo.id}">Registrar ${esc(nomeNaFrase(tipo))}</button>
       ${depois ? `<p class="proximo-depois">Depois: ${esc(depois.titulo)} · ${esc(quandoCurto(depois.t, ctx.agora))}</p>` : ''}
     </section>`;
 }
@@ -450,7 +461,7 @@ function tile(tipo) {
 function resumoDoDia() {
   const hoje = chaveDia(ctx.agora);
   const dia = somarDias(hoje, diaResumo);
-  const itens = LISTA_TIPOS
+  const itens = TODOS_TIPOS
     .map((tipo) => ({ tipo, r: tipo.resumoDia ? tipo.resumoDia(ctx, dia) : null }))
     .filter((i) => i.r);
   const botao = (n, rotulo) =>
@@ -529,7 +540,8 @@ function vistaHistorico() {
   const eventos = ctx.eventos
     .filter((e) => TIPOS[e.tipo] && (!filtroHistorico || e.tipo === filtroHistorico))
     .sort((a, b) => b.t - a.t);
-  const chips = [['', 'Todos'], ...LISTA_TIPOS.map((t) => [t.id, t.rotulo])]
+  const comChip = TODOS_TIPOS.filter((t) => LISTA_TIPOS.includes(t) || ctx.doTipo(t.id).length);
+  const chips = [['', 'Todos'], ...comChip.map((t) => [t.id, t.rotulo])]
     .map(([id, rotulo]) => `<button class="chip ${filtroHistorico === id ? 'chip--ativo' : ''}" data-acao="filtro" data-tipo="${id}">${esc(rotulo)}</button>`)
     .join('');
   if (!eventos.length) {
@@ -650,6 +662,8 @@ function vistaAjustes() {
       </form>
     </section>
 
+    ${secaoRemedios()}
+
     <section class="secao">
       <h2 class="secao-titulo">Planos de horário</h2>
       ${planos}
@@ -690,6 +704,116 @@ function vistaAjustes() {
         <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
       </div>
     </section>`;
+}
+
+/** Cadastro de remédios (config.remedios): lista + formulário de novo/edição. */
+function secaoRemedios() {
+  const lista = lerRemedios(estado.config);
+  const r = lista.find((x) => x.id === remedioEditando) || null;
+  const modo = r?.modo || 'intervalo';
+  const num = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+  const descricao = (x) => [
+    x.modo === 'intervalo' && x.cadaH ? `A cada ${num(x.cadaH)}h` : MODOS[x.modo],
+    x.dose
+  ].filter(Boolean).join(' · ');
+  const itens = lista.map((x) => `
+    <li>
+      <button class="registro registro--remedio" type="button" data-acao="editar-remedio" data-id="${esc(x.id)}" style="--cor:${esc(x.cor)}">
+        <span class="icone icone--pequeno">${TIPOS[`remedio_${x.id}`]?.icone || ''}</span>
+        <span class="registro-textos">
+          <span class="registro-tipo">${esc(x.nome)}${x.ativo ? '' : ' <span class="selo">encerrado</span>'}</span>
+          <span class="registro-resumo">${esc(descricao(x))}</span>
+        </span>
+        <span class="registro-editar">${ICONES.lapis}</span>
+      </button>
+    </li>`).join('');
+  return `
+    <section class="secao" id="remedios">
+      <h2 class="secao-titulo">Remédios</h2>
+      ${lista.length ? `<ul class="cartao lista">${itens}</ul>` : '<p class="ajuda">Remédios receitados (vitamina, antibiótico, xarope…) ganham botão na tela inicial, contador e avisos. Amoxicilina e Tylenol continuam como estão.</p>'}
+      <form class="cartao form" data-form="remedio" data-id="${esc(r?.id || '')}" ${r ? `style="--cor:${esc(r.cor)}"` : ''}>
+        <strong>${r ? `Editar ${esc(r.nome)}` : 'Adicionar remédio'}</strong>
+        <label class="campo">
+          <span>Nome</span>
+          <input name="nome" maxlength="40" autocomplete="off" value="${esc(r?.nome || '')}" placeholder="Ex.: Vitamina D">
+        </label>
+        <label class="campo">
+          <span>Dose</span>
+          <input name="dose" maxlength="40" autocomplete="off" value="${esc(r?.dose || '')}" placeholder="Como na receita, ex. 4 mL ou 2 gotas">
+          <small>Já vem preenchida ao registrar.</small>
+        </label>
+        <div class="campo">
+          <span>Como dar</span>
+          <div class="seg seg--largo">
+            ${Object.entries(MODOS).map(([id, rotulo]) => `<label><input type="radio" name="modo" value="${id}" ${modo === id ? 'checked' : ''}><span>${esc(rotulo.replace('A cada X horas', 'A cada X h'))}</span></label>`).join('')}
+          </div>
+          <small class="so-fixo">Horários fixos: depois de salvar, preencha os horários em Planos de horário (como a amoxicilina).</small>
+          <small class="so-se_precisar">Só se precisar: nunca aparece como próximo; o app só mostra quando está liberado.</small>
+        </div>
+        <label class="campo so-intervalo">
+          <span>A cada quantas horas</span>
+          <input name="cadaH" inputmode="decimal" value="${esc(num(r?.cadaH))}" placeholder="Ex.: 8">
+        </label>
+        <label class="campo">
+          <span>Intervalo mínimo entre doses (horas)</span>
+          <input name="minimoH" inputmode="decimal" value="${esc(num(r?.minimoH))}" placeholder="Opcional">
+          <small>Avisa se alguém registrar antes disso.</small>
+        </label>
+        <label class="campo">
+          <span>Máximo de doses em 24 horas</span>
+          <input name="maxDia" inputmode="numeric" value="${esc(num(r?.maxDia))}" placeholder="Opcional, conforme a bula">
+        </label>
+        <label class="campo">
+          <span>Lembrete na hora de registrar</span>
+          <input name="lembrete" maxlength="200" autocomplete="off" value="${esc(r?.lembrete || '')}" placeholder="Opcional, ex. dar depois de mamar">
+        </label>
+        <div class="botoes">
+          <button class="botao botao--cheio" type="submit">${r ? 'Salvar alterações' : 'Adicionar remédio'}</button>
+          ${r ? '<button class="botao botao--leve" type="button" data-acao="cancelar-remedio">Cancelar</button>' : ''}
+        </div>
+        ${r ? `<button class="botao botao--perigo" type="button" data-acao="encerrar-remedio" data-id="${esc(r.id)}">${r.ativo ? 'Encerrar remédio' : 'Reativar remédio'}</button>
+        <p class="ajuda">${r.ativo ? 'Encerrar tira o botão da tela inicial. As doses continuam no Histórico.' : 'Reativar volta o botão para a tela inicial.'}</p>
+        ${ctx.doTipo(`remedio_${r.id}`).length ? '' : `<button class="botao botao--perigo" type="button" data-acao="excluir-remedio" data-id="${esc(r.id)}">Excluir remédio</button>
+        <p class="ajuda">Só aparece para remédio sem nenhuma dose registrada (ex. cadastrado por engano).</p>`}` : ''}
+      </form>
+    </section>`;
+}
+
+/** Grava a lista inteira de remédios (aba config, chave "remedios"). */
+function salvarRemedios(lista) {
+  store.salvarConfig('remedios', JSON.stringify(lista));
+}
+
+function salvarFormRemedio(form) {
+  const lista = lerRemedios(estado.config);
+  const nome = form.nome.value.trim().slice(0, 40);
+  const modo = MODOS[form.modo.value] ? form.modo.value : 'intervalo';
+  const ler = (campo) => (form[campo].value.trim() ? numero(form[campo].value) : null);
+  const cadaH = ler('cadaH');
+  const minimoH = ler('minimoH');
+  const maxDia = ler('maxDia');
+  if (!nome) return toast('Escreva o nome do remédio');
+  if (lista.some((x) => x.nome.toLowerCase() === nome.toLowerCase() && x.id !== form.dataset.id)) return toast('Já existe um remédio com esse nome');
+  if (modo === 'intervalo' && (cadaH === null || cadaH < 0.5 || cadaH > 72)) return toast('Diga de quantas em quantas horas (ex.: 8)');
+  if (form.cadaH.value.trim() && cadaH === null) return toast('Confira as horas (ex.: 8)');
+  if (form.minimoH.value.trim() && (minimoH === null || minimoH <= 0 || minimoH > 72)) return toast('Confira o intervalo mínimo em horas (ex.: 6)');
+  if (form.maxDia.value.trim() && (maxDia === null || !Number.isInteger(maxDia) || maxDia < 1 || maxDia > 24)) return toast('O máximo em 24 horas precisa ser um número inteiro');
+  const dados = {
+    nome,
+    dose: form.dose.value.trim().slice(0, 40),
+    modo,
+    cadaH: modo === 'intervalo' ? cadaH : null,
+    minimoH,
+    maxDia,
+    lembrete: form.lembrete.value.trim().slice(0, 200)
+  };
+  const atual = lista.find((x) => x.id === form.dataset.id);
+  if (atual) Object.assign(atual, dados);
+  else lista.push({ id: Date.now().toString(36), ativo: true, cor: corPara(lista.length), ...dados });
+  salvarRemedios(lista);
+  remedioEditando = '';
+  toast(atual ? 'Remédio salvo' : modo === 'fixo' ? 'Remédio adicionado. Preencha os horários em Planos de horário.' : 'Remédio adicionado', modo === 'fixo' && !atual ? 4500 : 2800);
+  render();
 }
 
 const mascarar = (k) => (k ? `••••••••${k.slice(-4)}` : '—');
@@ -745,6 +869,8 @@ function salvarFormAjustes(form) {
     }
     toast(mudou ? 'Ajustes salvos' : 'Nada mudou');
     render();
+  } else if (tipoForm === 'remedio') {
+    salvarFormRemedio(form);
   } else if (tipoForm === 'plano') {
     const ano = chaveDia(Date.now()).slice(0, 4);
     const linhas = form.horarios.value.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -884,7 +1010,7 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
   if (!dias.includes(diaInicial)) dias.push(diaInicial);
   const [horaInicial, minutoInicial] = fmtHora(inicial).split(':');
   const rotDia = (d) => (d === hoje ? 'Hoje' : d === somarDias(hoje, -1) ? 'Ontem' : fmtData(Date.parse(`${d}T12:00:00-03:00`)));
-  const titulo = extra.titulo || `${evento ? 'Editar' : 'Registrar'} ${tipo.rotulo.toLowerCase()}`;
+  const titulo = extra.titulo || `${evento ? 'Editar' : 'Registrar'} ${nomeNaFrase(tipo)}`;
   const lembrete = typeof tipo.lembrete === 'function' ? tipo.lembrete(ctx) : tipo.lembrete;
 
   folha.innerHTML = `
@@ -1057,6 +1183,39 @@ app.addEventListener('click', async (e) => {
     compartilharLink();
   } else if (acao === 'copiar-link') {
     copiarLink();
+  } else if (acao === 'editar-remedio' || acao === 'cancelar-remedio') {
+    remedioEditando = acao === 'editar-remedio' ? b.dataset.id : '';
+    render();
+    document.querySelector('form[data-form="remedio"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } else if (acao === 'encerrar-remedio') {
+    if (b.dataset.armado !== '1') {
+      b.dataset.armado = '1';
+      b.textContent = 'Toque de novo para confirmar';
+      return;
+    }
+    const lista = lerRemedios(estado.config);
+    const r = lista.find((x) => x.id === b.dataset.id);
+    if (!r) return;
+    r.ativo = !r.ativo;
+    salvarRemedios(lista);
+    remedioEditando = '';
+    toast(r.ativo ? `${r.nome} voltou para a tela inicial` : `${r.nome} encerrado. As doses continuam no Histórico.`, 3500);
+    render();
+  } else if (acao === 'excluir-remedio') {
+    // Só existe para remédio sem doses: nenhum registro da aba eventos fica sem dono.
+    if (ctx.doTipo(`remedio_${b.dataset.id}`).length) return toast('Esse remédio já tem doses. Use Encerrar.');
+    if (b.dataset.armado !== '1') {
+      b.dataset.armado = '1';
+      b.textContent = 'Toque de novo para excluir';
+      return;
+    }
+    const lista = lerRemedios(estado.config);
+    const r = lista.find((x) => x.id === b.dataset.id);
+    if (!r) return;
+    salvarRemedios(lista.filter((x) => x !== r));
+    remedioEditando = '';
+    toast(`${r.nome} excluído`);
+    render();
   } else if (acao === 'desativar-plano') {
     const form = b.closest('form');
     if (b.dataset.armado !== '1') {

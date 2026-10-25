@@ -775,6 +775,12 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* Cadastro de remédios: campos que só valem para um jeito de dar. */
+.form:has(input[name="modo"][value="intervalo"]:not(:checked)) .so-intervalo,
+.form:has(input[name="modo"][value="fixo"]:not(:checked)) .so-fixo,
+.form:has(input[name="modo"][value="se_precisar"]:not(:checked)) .so-se_precisar { display: none; }
+.registro--remedio { grid-template-columns: auto 1fr 18px; }
+
 .seg--largo { display: flex; flex-wrap: nowrap; }
 .seg--largo label { flex: 1; }
 .seg--largo span { padding: 0 8px; text-align: center; }

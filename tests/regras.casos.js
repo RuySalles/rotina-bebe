@@ -3,7 +3,8 @@ import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois
 } from '../js/regras.js';
-import { TIPOS } from '../js/tipos/index.js';
+import { TIPOS, montarTipos } from '../js/tipos/index.js';
+import { lerRemedios } from '../js/tipos/remedio.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -427,6 +428,76 @@ export function casos({ grupo, teste }) {
   teste('Dia sem registros: nenhum tipo aparece', () => {
     const ctx = montar([], t('25', '13:00'), {}, []);
     igual(Object.values(TIPOS).map((tp) => tp.resumoDia?.(ctx, '2026-10-25') ?? null).filter(Boolean), []);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Remédios cadastrados em Ajustes');
+  const remedios = (lista) => ({ remedios: JSON.stringify(lista) });
+  const VIT = { id: 'vit', nome: 'Vitamina X', dose: '2 gotas', modo: 'intervalo', cadaH: 8, minimoH: 6, ativo: true };
+  const XAR = { id: 'xar', nome: 'Xarope Y', dose: '3 mL', modo: 'se_precisar', minimoH: 4, maxDia: 3, ativo: true };
+  const ANT = { id: 'ant', nome: 'Antibiótico Z', dose: '5 mL', modo: 'fixo', ativo: true };
+  function montarComRemedios(config, linhas, agora, planos = []) {
+    const { mapa } = montarTipos(config);
+    return criarContexto({ eventos: resolverEventos(linhas, mapa), planos: resolverPlanos(planos), config, agora, tipos: mapa });
+  }
+  teste('Remédio cadastrado vira tipo com botão; encerrado sai da tela mas fica no mapa', () => {
+    const { visiveis, mapa } = montarTipos(remedios([VIT, { ...XAR, ativo: false }]));
+    verdade(visiveis.some((tp) => tp.id === 'remedio_vit'));
+    verdade(!visiveis.some((tp) => tp.id === 'remedio_xar') && mapa.remedio_xar, 'encerrado fora da tela, mas no mapa');
+    verdade(visiveis.some((tp) => tp.id === 'amoxicilina') && visiveis.some((tp) => tp.id === 'tylenol'));
+  });
+  teste('Config inválida ou vazia não quebra (sem remédios)', () => {
+    igual(lerRemedios({ remedios: 'isso não é json' }), []);
+    igual(lerRemedios({}), []);
+    igual(lerRemedios(remedios([{ id: 'X Y', nome: 'id inválido' }, { id: 'ok', nome: '' }])), []);
+  });
+  teste('"A cada X horas": próxima = última + X e atraso depois de 30 min', () => {
+    const cfg = remedios([VIT]);
+    const linhas = [linha('remedio_vit', T('25', '08:00'), { dose: '2 gotas' })];
+    const ctx = montarComRemedios(cfg, linhas, t('25', '12:00'));
+    const r = ctx.tipos.remedio_vit.regras;
+    igual(r.status(ctx).linhas, ['Última 08:00', 'Próxima 16:00']);
+    igual(r.proximos(ctx)[0].t, t('25', '16:00'));
+    const tarde = montarComRemedios(cfg, linhas, t('25', '16:40'));
+    igual([r.status(tarde).linhas[1], r.status(tarde).alerta], ['Atrasada há 40 min', true]);
+    const { principal } = escolherProximo(montarAgenda(tarde));
+    igual(principal.tipo, 'remedio_vit');
+  });
+  teste('Intervalo mínimo e dose da receita já preenchida', () => {
+    const cfg = remedios([VIT]);
+    const ctx = montarComRemedios(cfg, [linha('remedio_vit', T('25', '08:00'))], t('25', '12:00'));
+    const tipo = ctx.tipos.remedio_vit;
+    igual(tipo.padroes(), { dose: '2 gotas' });
+    verdade(tipo.regras.avisos(ctx, t('25', '12:00'), {}, '').some((a) => a.confirmar && a.texto.includes('14:00')));
+    igual(tipo.regras.avisos(ctx, t('25', '14:00'), {}, ''), []);
+  });
+  teste('"Só se precisar": nunca vai para o card PRÓXIMO e respeita o máximo em 24h', () => {
+    const cfg = remedios([XAR]);
+    const linhas = ['01:00', '06:00', '11:00'].map((h) => linha('remedio_xar', T('25', h)));
+    const ctx = montarComRemedios(cfg, linhas, t('25', '12:00'));
+    const r = ctx.tipos.remedio_xar.regras;
+    igual(r.status(ctx).linhas, ['Liberado a partir de 15:00', 'Limite atingido: 3 de 3 em 24h']);
+    verdade(r.status(ctx).alerta);
+    const agenda = montarAgenda(ctx);
+    verdade(agenda.find((i) => i.tipo === 'remedio_xar').informativo);
+    verdade(!escolherProximo(agenda).principal || escolherProximo(agenda).principal.tipo !== 'remedio_xar');
+    verdade(r.avisos(ctx, t('25', '16:00'), {}, '').some((a) => a.confirmar && a.texto.startsWith('Limite')));
+  });
+  teste('"Horários fixos": usa o plano próprio (contador e atraso como a amoxicilina)', () => {
+    const cfg = remedios([ANT]);
+    const plano = planoLinha([T('25', '08:00'), T('25', '20:00'), T('26', '08:00')], { tipo: 'remedio_ant' });
+    const ctx = montarComRemedios(cfg, [linha('remedio_ant', T('25', '08:05'))], t('25', '20:45'), [plano]);
+    const r = ctx.tipos.remedio_ant.regras;
+    verdade(r.usaPlano);
+    igual([r.status(ctx).linhas, r.status(ctx).alerta], [['1 de 3 doses', 'Atrasada há 45 min'], true]);
+    igual(r.infoRegistro(ctx, t('25', '20:45'), ''), 'Dose 2 de 3 · prevista 20:00');
+    verdade(r.avisos(ctx, t('25', '08:30'), {}, '').some((a) => a.texto.startsWith('A dose 1 já foi registrada')));
+  });
+  teste('Remédio encerrado: some da agenda, mas as doses continuam no resumo do dia', () => {
+    const cfg = remedios([{ ...VIT, ativo: false }]);
+    const ctx = montarComRemedios(cfg, [linha('remedio_vit', T('25', '08:00'))], t('25', '12:00'));
+    igual(montarAgenda(ctx).filter((i) => i.tipo === 'remedio_vit'), []);
+    igual(ctx.tipos.remedio_vit.resumoDia(ctx, '2026-10-25'), { valor: '1 dose', detalhe: '08:00' });
   });
 
   // ---------------------------------------------------------------------

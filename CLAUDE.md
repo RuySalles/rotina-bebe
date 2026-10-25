@@ -21,6 +21,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
 - `js/regras.js` → cálculos puros: tempo (fuso America/Sao_Paulo, 24h), leitura das linhas, `substitui_id`, planos, janelas, agenda
 - `js/tipos/index.js` → registro central; `js/tipos/<id>.js` → um arquivo por tipo de evento
+- `js/tipos/remedio.js` → remédios cadastrados em Ajustes (config `remedios`, JSON); cada um vira o tipo
+  `remedio_<id>` (plano na aba planos com o mesmo tipo). `montarTipos(config)` junta tipos fixos + remédios.
 - `apps-script/Code.gs` → backend; `apps-script/Seed.example.gs` → modelo do seed (o `Seed.gs` real é local)
 - `tests/regras.casos.js` → casos; `tests/regras.test.html` (navegador) e `tests/rodar.mjs` (terminal)
 - `.claude/launch.json` → abre o app pelo `tests/servidor.mjs` (porta 8080) no navegador do Claude.

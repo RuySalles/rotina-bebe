@@ -57,12 +57,51 @@ function quandoCurto(t, agora = Date.now()) {
 }
 
 let toastTimer = null;
-function toast(texto, duracao = 2800) {
-  toastEl.textContent = texto;
+let toastAcao = null;
+/** acao: { rotulo, fn } mostra um botão no aviso (ex. Desfazer). */
+function toast(texto, duracao = 2800, acao = null) {
+  const span = document.createElement('span');
+  span.textContent = texto;
+  toastEl.replaceChildren(span);
+  toastAcao = acao;
+  if (acao) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'toast-acao';
+    b.textContent = acao.rotulo;
+    toastEl.append(b);
+  }
+  toastEl.classList.toggle('toast--acao', !!acao);
   toastEl.classList.add('toast--visivel');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove('toast--visivel'), duracao);
+  toastTimer = setTimeout(() => { toastEl.classList.remove('toast--visivel'); toastAcao = null; }, duracao);
 }
+
+toastEl.addEventListener('click', (e) => {
+  if (!e.target.closest('.toast-acao') || !toastAcao) return;
+  const { fn } = toastAcao;
+  toastAcao = null;
+  toastEl.classList.remove('toast--visivel');
+  fn();
+});
+
+const DESFAZER_MS = 8000;
+
+/** Aviso com "Desfazer" por alguns segundos. desfazer() grava uma linha nova (a aba eventos só recebe linhas). */
+function oferecerDesfazer(texto, desfazer, duracao = DESFAZER_MS) {
+  toast(texto, Math.max(duracao, DESFAZER_MS), {
+    rotulo: 'Desfazer',
+    fn: () => {
+      try { desfazer(); toast('Desfeito'); } catch { toast('Não foi possível desfazer. Corrija pelo Histórico.', 4000); }
+    }
+  });
+}
+
+/** Dados para voltar à versão anterior: campos que a edição criou ficam vazios (editarEvento mescla). */
+const dadosParaVoltar = (antes, depois) => ({
+  ...Object.fromEntries(Object.keys(depois || {}).map((k) => [k, ''])),
+  ...(antes || {})
+});
 
 // ---------------------------------------------------------------------------
 // Início do app: link secreto, endereço do backend e apelido
@@ -940,9 +979,9 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
         setTimeout(() => { if (b.isConnected) { b.dataset.armado = ''; b.textContent = 'Apagar registro'; } }, 4000);
         return;
       }
-      store.apagarEvento(b.dataset.id);
+      const idApagado = store.apagarEvento(b.dataset.id);
       folha.close();
-      toast('Registro apagado');
+      oferecerDesfazer('Registro apagado', () => store.editarEvento(idApagado, {}));
     }
   });
   form.addEventListener('submit', (e) => {
@@ -951,15 +990,16 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
     const h = horario();
     const dados = lerCampos(form, tipo, h);
     if (evento) {
-      store.editarEvento(evento.id, { horario: h, dados });
+      const novoId = store.editarEvento(evento.id, { horario: h, dados });
       folha.close();
-      toast(extra.titulo ? 'Registrado' : 'Alteração salva');
+      oferecerDesfazer(extra.titulo ? 'Registrado' : 'Alteração salva',
+        () => store.editarEvento(novoId, { horario: evento.horario, dados: dadosParaVoltar(evento.dados, dados) }));
       return;
     }
-    store.adicionarEvento(tipo.id, h, dados);
+    const novoId = store.adicionarEvento(tipo.id, h, dados);
     folha.close();
     const depois = tipo.regras?.aposRegistrar ? tipo.regras.aposRegistrar(ctx, h, dados) : '';
-    toast(depois ? `Registrado. ${depois}` : 'Registrado', depois ? 7000 : 2500);
+    oferecerDesfazer(depois ? `Registrado. ${depois}` : 'Registrado', () => store.apagarEvento(novoId), depois ? 10000 : DESFAZER_MS);
   });
 
   atualizar();

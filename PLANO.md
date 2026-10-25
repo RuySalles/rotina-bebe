@@ -17,7 +17,7 @@ algo) dizem isso em "Você vai precisar".
 
 | Fase | Melhoria | Situação |
 |---|---|---|
-| 1 | Desfazer logo depois de registrar | ⬜ |
+| 1 | Desfazer logo depois de registrar | 🧪 |
 | 2 | Remédio novo sem precisar de programação | ⬜ |
 | 3 | Abrir o app sem internet | ⬜ |
 | 4 | Alertas no celular pelo Google Agenda | ⬜ |
@@ -36,9 +36,9 @@ algo) dizem isso em "Você vai precisar".
 
 **Por quê:** um toque errado de madrugada hoje exige ir ao Histórico, abrir o registro e apagar.
 
-**O que muda:** depois de registrar (ou salvar uma alteração), aparece por alguns segundos um aviso com o botão
-**Desfazer**. Tocar nele apaga o registro que acabou de ser feito (pela regra de sempre: uma linha nova de exclusão,
-nada é sobrescrito).
+**O que muda:** depois de registrar, salvar uma alteração ou apagar, aparece por 8 segundos um aviso com o botão
+**Desfazer**. Ele apaga o registro novo, volta a alteração ou traz de volta o apagado (pela regra de sempre: uma linha
+nova na planilha, nada é sobrescrito).
 
 **Você vai precisar:** nada.
 
@@ -46,6 +46,8 @@ nada é sobrescrito).
 - [ ] Registrar uma fralda e tocar em **Desfazer**: o registro some do Histórico e do Resumo.
 - [ ] Registrar outra e **não** tocar em Desfazer: o aviso some sozinho e o registro fica.
 - [ ] Registrar o despertar de um sono e desfazer: o sono volta a aparecer como "Dormindo".
+- [ ] Editar um registro (ex. mudar a hora), desfazer: volta como estava.
+- [ ] Apagar um registro pelo Histórico, desfazer: ele volta.
 - [ ] No outro celular, depois de sincronizar, o registro desfeito também não aparece.
 
 ---

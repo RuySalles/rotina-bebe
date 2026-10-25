@@ -287,6 +287,20 @@ export function casos({ grupo, teste }) {
     const b2 = linha('alimentacao', T('25', '09:20'), {}, { id: 'B2', substitui_id: 'A', criado_em: T('25', '10:01') });
     igual(resolverEventos([a, b2, b1], TIPOS).map((e) => e.id), ['B2']);
   });
+  teste('Desfazer exclusão: linha nova sobre a exclusão traz o registro de volta', () => {
+    const a = linha('fralda', T('25', '09:00'), { conteudo: 'Xixi' }, { id: 'A' });
+    const del = linha('fralda', T('25', '09:00'), { conteudo: 'Xixi' }, { id: 'D', substitui_id: 'A', apagado: true, criado_em: T('25', '09:01') });
+    const volta = linha('fralda', T('25', '09:00'), { conteudo: 'Xixi' }, { id: 'V', substitui_id: 'D', criado_em: T('25', '09:02') });
+    igual(resolverEventos([a, del], TIPOS).length, 0);
+    igual(resolverEventos([a, del, volta], TIPOS).map((e) => [e.id, e.dados.conteudo]), [['V', 'Xixi']]);
+  });
+  teste('Desfazer despertar: sono volta a ficar sem horário de acordar', () => {
+    const a = linha('sono', T('25', '13:00'), {}, { id: 'A' });
+    const acordou = linha('sono', T('25', '13:00'), { fim: T('25', '14:00') }, { id: 'B', substitui_id: 'A', criado_em: T('25', '14:00') });
+    const volta = linha('sono', T('25', '13:00'), { fim: '' }, { id: 'C', substitui_id: 'B', criado_em: T('25', '14:01') });
+    const ctx = montar([a, acordou, volta], t('25', '14:02'));
+    igual(TIPOS.sono.regras.status(ctx).linhas[0], 'Dormindo há 1h 02min');
+  });
   teste('Edição que perdeu o original (linha ausente) ainda aparece uma vez', () => {
     const b = linha('alimentacao', T('25', '09:10'), {}, { id: 'B', substitui_id: 'SUMIU' });
     igual(resolverEventos([b], TIPOS).map((e) => e.id), ['B']);

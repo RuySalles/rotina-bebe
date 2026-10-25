@@ -674,6 +674,18 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   z-index: 30;
 }
 .toast--visivel { opacity: 1; transform: translate(-50%, 0); }
+.toast--acao { display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; text-align: left; }
+.toast--acao.toast--visivel { pointer-events: auto; }
+.toast-acao {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--fundo) 18%, transparent);
+  color: var(--fundo);
+  font-weight: 700;
+  font-size: 15px;
+}
 
 /* --- Aviso de nova versão ------------------------------------------------- */
 

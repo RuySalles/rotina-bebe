@@ -68,13 +68,18 @@ function toast(texto, duracao = 2800) {
 // ---------------------------------------------------------------------------
 
 function lerLink() {
-  if (!location.hash) return;
   const p = new URLSearchParams(location.hash.slice(1));
   const k = p.get('k');
   const u = p.get('u');
   if (k) store.salvarChave(k.trim());
   if (u) store.salvarUrlBackend(u.trim());
-  if (k || u) history.replaceState(null, '', location.pathname + location.search);
+  // Limpa a chave e o ?v= (usado só para a prévia do WhatsApp) da barra de endereço.
+  const busca = new URLSearchParams(location.search);
+  busca.delete('v');
+  const resto = busca.toString();
+  if (k || u || location.search !== (resto ? `?${resto}` : '')) {
+    history.replaceState(null, '', location.pathname + (resto ? `?${resto}` : ''));
+  }
 }
 
 async function iniciar() {
@@ -531,7 +536,8 @@ async function compartilharLink() {
   const chave = store.lerChave();
   let hash = `k=${encodeURIComponent(chave)}`;
   if (!urlDoConfig && store.urlBackendDoLink()) hash += `&u=${encodeURIComponent(store.urlBackendDoLink())}`;
-  const link = `${location.origin}${location.pathname}#${hash}`;
+  // ?v= diferente a cada envio: o WhatsApp trata como link novo e monta a prévia com imagem de novo.
+  const link = `${location.origin}${location.pathname}?v=${Date.now().toString(36)}#${hash}`;
   const nome = String(estado.config.nome_bebe || '').trim();
   const texto = nome ? `Rotina de ${nome}` : 'Rotina do bebê';
   try {

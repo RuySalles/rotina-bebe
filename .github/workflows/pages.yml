@@ -39,7 +39,7 @@ jobs:
       - name: Montar site
         run: |
           mkdir _site
-          cp -r index.html config.js css js tests _site/
+          cp -r index.html manifest.webmanifest config.js css js img tests _site/
 
       - uses: actions/configure-pages@v5
 

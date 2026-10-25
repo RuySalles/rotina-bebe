@@ -1,7 +1,7 @@
 {
   "name": "Rotina do bebê",
   "short_name": "Rotina",
-  "description": "Remédios, alimentação e febre, no celular de quem cuida.",
+  "description": "Remédios, febre, mamadas, sono, fraldas e vacinas, no celular de quem cuida.",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

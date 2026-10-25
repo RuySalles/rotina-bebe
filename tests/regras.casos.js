@@ -127,6 +127,11 @@ export function casos({ grupo, teste }) {
     verdade(!tyl.avisos(ctx, t('25', '11:50'), {}, editando).some((a) => a.texto.startsWith('Limite')));
   });
 
+  teste('Dose da receita em Ajustes já vem preenchida no registro', () => {
+    igual(TIPOS.tylenol.padroes(montar([], t('25', '13:00'), { tylenol_dose_ml: '1.25' })), { dose: '1,25 mL' });
+    igual(TIPOS.tylenol.padroes(montar([], t('25', '13:00'), {})), {});
+  });
+
   // ---------------------------------------------------------------------
   grupo('Tylenol — proximidade com a amoxicilina');
   teste('A menos de 30 min de uma dose: "Separe 30–60 min da amoxicilina"', () => {

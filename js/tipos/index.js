@@ -8,6 +8,7 @@
 //   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'hora', opcoes?, min?, max?, passo?, placeholder?, ajuda? }],
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
 //   resumo(dados, ctx, evento?) → { texto, destaque? },
+//   padroes?(ctx) → dados                 (valores já preenchidos num registro novo)
 //   resumoDia?(ctx, dia) → { valor, detalhe?, destaque? } | null   (cartão "Resumo" e cabeçalho do histórico filtrado)
 //   migrar?(dados, versao) → dados        (ler schema_version antigo)
 //   painel?(ctx) → { titulo, itens }      (bloco extra na tela principal)

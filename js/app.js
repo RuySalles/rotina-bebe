@@ -576,8 +576,13 @@ function vistaAjustes() {
         </label>
         <label class="campo">
           <span>Tylenol: máximo de doses em 24 horas</span>
-          <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="Conforme a bula">
+          <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="A bula diz 5">
           <small>${c.tylenol_max_24h ? 'Confira sempre com a bula ou a orientação médica.' : 'Ainda não preenchido. Preencha conforme a bula ou a orientação médica.'}</small>
+        </label>
+        <label class="campo">
+          <span>Tylenol: dose da receita (mL)</span>
+          <input name="tylenol_dose_ml" inputmode="decimal" value="${esc(String(c.tylenol_dose_ml ?? '').replace('.', ','))}" placeholder="Como na receita do pediatra">
+          <small>Já vem preenchida ao registrar uma dose. Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
         </label>
         <button class="botao botao--cheio" type="submit">Salvar</button>
       </form>
@@ -644,8 +649,14 @@ function salvarFormAjustes(form) {
     const valores = {
       nome_bebe: form.nome_bebe.value.trim(),
       febre_limite_c: form.febre_limite_c.value.trim(),
-      tylenol_max_24h: form.tylenol_max_24h.value.trim()
+      tylenol_max_24h: form.tylenol_max_24h.value.trim(),
+      tylenol_dose_ml: form.tylenol_dose_ml.value.trim()
     };
+    const dose = numero(valores.tylenol_dose_ml);
+    if (valores.tylenol_dose_ml && (dose === null || dose <= 0 || dose > 10)) {
+      return toast('Confira a dose em mL (ex.: 1,2)');
+    }
+    valores.tylenol_dose_ml = valores.tylenol_dose_ml ? String(dose) : '';
     if (valores.febre_limite_c && (numero(valores.febre_limite_c) === null || numero(valores.febre_limite_c) < 36 || numero(valores.febre_limite_c) > 40)) {
       return toast('Confira o limite de febre (ex.: 37,8)');
     }
@@ -789,7 +800,8 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
   const tipo = TIPOS[tipoId];
   if (!tipo) return;
   const evento = eventoId ? ctx.eventos.find((e) => e.id === eventoId) : null;
-  const dadosIniciais = { ...(evento?.dados || {}), ...(extra.dados || {}) };
+  const padroes = !evento && tipo.padroes ? tipo.padroes(ctx) : {};
+  const dadosIniciais = { ...padroes, ...(evento?.dados || {}), ...(extra.dados || {}) };
   const inicial = evento ? evento.t : Date.now();
   const hoje = chaveDia(Date.now());
   const dias = [hoje, somarDias(hoje, -1)];

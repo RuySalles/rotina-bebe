@@ -21,7 +21,7 @@ export default {
   rotulo: 'Tylenol',
   cor: '#8070C4',
   icone: '<svg viewBox="0 0 24 24"><path d="M12 3.2c3.6 4.3 6 7.4 6 10.6a6 6 0 0 1-12 0c0-3.2 2.4-6.3 6-10.6z"/><path d="M9.4 14.2a2.6 2.6 0 0 0 2.6 2.6"/></svg>',
-  lembrete: 'Só se tiver febre. Registre apenas doses dadas por causa de febre.',
+  lembrete: 'Só se tiver febre. Registre apenas doses dadas por causa de febre. Pela bula: no máximo 5 doses em 24 horas, sempre com a seringa dosadora (nunca direto do frasco).',
   campos: [
     { id: 'dose', rotulo: 'Dose', tipo: 'texto', placeholder: 'Opcional, como na receita' },
     { id: 'observacao', rotulo: 'Observação', tipo: 'texto', placeholder: 'Opcional' }
@@ -29,6 +29,12 @@ export default {
 
   resumo(dados) {
     return { texto: [dados.dose, dados.observacao].filter(Boolean).join(' · ') || 'Dose dada' };
+  },
+
+  /** Registro novo já vem com a dose da receita (Ajustes → tylenol_dose_ml). */
+  padroes(ctx) {
+    const ml = ctx.numeroConfig('tylenol_dose_ml');
+    return ml ? { dose: `${ml.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} mL` } : {};
   },
 
   resumoDia(ctx, dia) {

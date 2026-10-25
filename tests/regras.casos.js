@@ -184,6 +184,38 @@ export function casos({ grupo, teste }) {
     igual(amox.status(ctx).linhas, ['14 de 14 doses', 'Tratamento concluído']);
   });
 
+  grupo('Amoxicilina — bula');
+  teste('Dose a 1 hora ou menos da anterior pede confirmação (com ou sem plano)', () => {
+    for (const planos of [undefined, []]) {
+      const ctx = montar(base(), t('25', '03:00'), {}, planos);
+      const avisos = amox.avisos(ctx, t('25', '02:30'), {}, '');
+      verdade(avisos.some((a) => a.confirmar && a.texto.includes('1 hora ou menos') && a.texto.includes('01:30')), JSON.stringify(avisos));
+    }
+  });
+  teste('Mais de 1 hora depois: sem o aviso de 1 hora', () => {
+    const ctx = montar(base(), t('25', '03:00'), {}, []);
+    igual(amox.avisos(ctx, t('25', '02:31'), {}, ''), []);
+  });
+  teste('Ao editar, a própria dose não conta para o aviso de 1 hora', () => {
+    const linhas = base();
+    const ctx = montar(linhas, t('25', '03:00'), {}, []);
+    igual(amox.avisos(ctx, t('25', '01:45'), {}, linhas[0].id), []);
+  });
+  teste('Dose da receita em Ajustes já vem preenchida', () => {
+    igual(TIPOS.amoxicilina.padroes(montar([], t('25', '13:00'), { amoxicilina_dose_ml: '2.5' })), { dose: '2,5 mL' });
+    igual(TIPOS.amoxicilina.resumo({ dose: '2,5 mL' }).texto, '2,5 mL');
+  });
+  teste('Frasco preparado: vale 14 dias', () => {
+    const ctx = montar(base(), t('25', '10:00'), { amoxicilina_frasco_preparado: '2026-10-25' });
+    igual(amox.status(ctx).linhas, ['1 de 14 doses', 'Próxima 12:30', 'Frasco vale até 08/11']);
+  });
+  teste('Frasco vencido: destaque no botão e confirmação ao registrar', () => {
+    const ctx = montar(base(), t('25', '10:00'), { amoxicilina_frasco_preparado: '2026-10-10' });
+    const st = amox.status(ctx);
+    igual([st.linhas[2], st.aviso], ['Frasco vencido em 24/10', true]);
+    verdade(amox.avisos(ctx, t('25', '12:30'), {}, '').some((a) => a.confirmar && a.texto.includes('venceu em 24/10')));
+  });
+
   // ---------------------------------------------------------------------
   grupo('Alimentação');
   teste('Próxima = 3h após a última', () => {

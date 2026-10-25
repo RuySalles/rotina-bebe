@@ -117,6 +117,9 @@ export function numero(valor) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** 1.25 → "1,25 mL"; 2 → "2 mL". */
+export const fmtMl = (n) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} mL`;
+
 export const fmtNumero = (n, casas = 1) =>
   n === null || n === undefined ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas });
 

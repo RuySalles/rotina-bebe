@@ -1,4 +1,4 @@
-import { liberacao, contarEmJanela, maisProximo, casarPlano, fmtHora } from '../regras.js';
+import { liberacao, contarEmJanela, maisProximo, casarPlano, fmtHora, fmtMl } from '../regras.js';
 
 const INTERVALO_H = 6;
 const MIN = 60 * 1000;
@@ -34,7 +34,7 @@ export default {
   /** Registro novo já vem com a dose da receita (Ajustes → tylenol_dose_ml). */
   padroes(ctx) {
     const ml = ctx.numeroConfig('tylenol_dose_ml');
-    return ml ? { dose: `${ml.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} mL` } : {};
+    return ml ? { dose: fmtMl(ml) } : {};
   },
 
   resumoDia(ctx, dia) {

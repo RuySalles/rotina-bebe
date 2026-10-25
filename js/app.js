@@ -584,6 +584,16 @@ function vistaAjustes() {
           <input name="tylenol_dose_ml" inputmode="decimal" value="${esc(String(c.tylenol_dose_ml ?? '').replace('.', ','))}" placeholder="Como na receita do pediatra">
           <small>Já vem preenchida ao registrar uma dose. Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
         </label>
+        <label class="campo">
+          <span>Amoxicilina: dose da receita (mL)</span>
+          <input name="amoxicilina_dose_ml" inputmode="decimal" value="${esc(String(c.amoxicilina_dose_ml ?? '').replace('.', ','))}" placeholder="Como na receita do pediatra">
+          <small>Já vem preenchida ao registrar uma dose.</small>
+        </label>
+        <label class="campo">
+          <span>Amoxicilina: frasco preparado em</span>
+          <input name="amoxicilina_frasco_preparado" type="date" max="${chaveDia(ctx.agora)}" value="${esc(c.amoxicilina_frasco_preparado || '')}">
+          <small>Depois de misturado com água, a bula diz que vale 14 dias na geladeira. Ao preparar um frasco novo, troque a data.</small>
+        </label>
         <button class="botao botao--cheio" type="submit">Salvar</button>
       </form>
     </section>
@@ -650,13 +660,21 @@ function salvarFormAjustes(form) {
       nome_bebe: form.nome_bebe.value.trim(),
       febre_limite_c: form.febre_limite_c.value.trim(),
       tylenol_max_24h: form.tylenol_max_24h.value.trim(),
-      tylenol_dose_ml: form.tylenol_dose_ml.value.trim()
+      tylenol_dose_ml: form.tylenol_dose_ml.value.trim(),
+      amoxicilina_dose_ml: form.amoxicilina_dose_ml.value.trim(),
+      amoxicilina_frasco_preparado: form.amoxicilina_frasco_preparado.value.trim()
     };
-    const dose = numero(valores.tylenol_dose_ml);
-    if (valores.tylenol_dose_ml && (dose === null || dose <= 0 || dose > 10)) {
-      return toast('Confira a dose em mL (ex.: 1,2)');
+    for (const chave of ['tylenol_dose_ml', 'amoxicilina_dose_ml']) {
+      const dose = numero(valores[chave]);
+      if (valores[chave] && (dose === null || dose <= 0 || dose > 10)) {
+        return toast('Confira a dose em mL (ex.: 1,2)');
+      }
+      valores[chave] = valores[chave] ? String(dose) : '';
     }
-    valores.tylenol_dose_ml = valores.tylenol_dose_ml ? String(dose) : '';
+    const preparo = valores.amoxicilina_frasco_preparado;
+    if (preparo && (!/^\d{4}-\d{2}-\d{2}$/.test(preparo) || preparo > chaveDia(Date.now()))) {
+      return toast('Confira a data em que o frasco foi preparado');
+    }
     if (valores.febre_limite_c && (numero(valores.febre_limite_c) === null || numero(valores.febre_limite_c) < 36 || numero(valores.febre_limite_c) > 40)) {
       return toast('Confira o limite de febre (ex.: 37,8)');
     }

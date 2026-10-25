@@ -666,6 +666,9 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 }
 .atualizacao svg { font-size: 18px; }
 .versao { text-align: center; }
+.instalar { gap: 10px; }
+.instalar .ajuda { color: var(--texto-2); line-height: 1.5; }
+.simbolo { display: inline-block; vertical-align: -2px; color: var(--primaria); }
 
 /* --- Telas de entrada ----------------------------------------------------- */
 

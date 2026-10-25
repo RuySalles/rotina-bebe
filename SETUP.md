@@ -90,8 +90,11 @@ https://ruysalles.github.io/rotina-bebe/#k=SUA_CHAVE
 2. Em **Ajustes**, preencha o **nome do bebê** e o **máximo de doses de Tylenol em 24h** (conforme a bula).
 3. Ainda em **Ajustes**, toque em **Compartilhar link de acesso** e envie para sua esposa.
    Ela abre o link, escolhe **Mãe** e pronto.
-4. Dica: no celular, use **Adicionar à tela de início** (Android: menu ⋮; iPhone: botão Compartilhar)
-   para abrir como um app.
+4. Dica: instale como app (as instruções também aparecem em **Ajustes**):
+   - **Android (Chrome):** menu ⋮ → **Adicionar à tela inicial** (ou **Instalar app**).
+   - **iPhone (Safari):** em **Ajustes**, toque em **Copiar link**. Depois, no Safari, toque em Compartilhar →
+     **Adicionar à Tela de Início** → **Adicionar**. Abra pelo ícone novo e cole o link quando ele pedir
+     (o iPhone guarda o app instalado separado do Safari, por isso pede o link uma vez).
 
 Depois do primeiro acesso a chave fica guardada no celular e some da barra de endereço.
 

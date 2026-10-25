@@ -149,11 +149,60 @@ async function iniciar() {
     if (/^https?:\/\//.test(url)) urlDoConfig = url;
   } catch { /* sem config.js: o endereço pode vir no link */ }
   store.configurarBackend(urlDoConfig);
+  seguir();
+}
 
-  if (!store.lerChave()) return telaAviso('Abra pelo link de acesso', 'Este aplicativo é aberto por um link próprio, enviado por quem cuida do bebê com você. Peça o link e abra-o neste celular.');
+function seguir() {
+  if (!store.lerChave()) return telaChave(seguir);
   if (!store.temBackend()) return telaAviso('Quase pronto', 'Falta ligar o aplicativo à planilha. Siga o passo “Preencher o config.js” do guia de instalação (SETUP.md).');
   if (!store.lerApelido()) return telaApelido(entrar);
   entrar();
+}
+
+const instalado = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+
+/** Aceita o link inteiro (…#k=CHAVE) ou só a chave. Devolve true se achou uma chave. */
+function lerChaveColada(texto) {
+  const s = String(texto || '').trim();
+  const i = s.indexOf('#');
+  if (i >= 0) {
+    const p = new URLSearchParams(s.slice(i + 1));
+    if (p.get('u')) store.salvarUrlBackend(p.get('u').trim());
+    if (p.get('k')) { store.salvarChave(p.get('k').trim()); return true; }
+    return false;
+  }
+  if (/^[A-Za-z0-9_-]{16,}$/.test(s)) { store.salvarChave(s); return true; }
+  return false;
+}
+
+/**
+ * Sem chave. Acontece no primeiro acesso sem o link e no iPhone ao abrir pelo ícone da tela de início,
+ * que guarda os dados separado do Safari: por isso dá para colar o link aqui.
+ */
+function telaChave(depois) {
+  app.innerHTML = `
+    <div class="entrada">
+      <form class="entrada-cartao" id="form-chave">
+        <span class="entrada-marca">${ICONES.lua}</span>
+        <h1>Abra pelo link de acesso</h1>
+        <p>${instalado()
+          ? 'Falta só um passo: copie o link de acesso que você recebeu (na conversa ou em Ajustes no navegador) e cole aqui.'
+          : 'Este aplicativo é aberto por um link próprio, enviado por quem cuida do bebê com você. Toque nele ou cole aqui.'}</p>
+        <label class="campo">
+          <span>Link de acesso</span>
+          <input name="link" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Cole aqui o link">
+        </label>
+        <button class="botao botao--cheio botao--grande" type="submit">Entrar</button>
+      </form>
+      ${rodape()}
+    </div>`;
+  const form = document.getElementById('form-chave');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!lerChaveColada(form.link.value)) return toast('Não reconheci o link. Copie a mensagem inteira com o link e cole de novo.', 4000);
+    store.configurarBackend(urlDoConfig);
+    depois();
+  });
 }
 
 function telaAviso(titulo, texto) {
@@ -526,8 +575,17 @@ function vistaAjustes() {
           <button class="botao botao--leve" type="button" data-acao="mostrar-chave">Mostrar</button>
         </div>
         <button class="botao botao--cheio" type="button" data-acao="compartilhar">${ICONES.compartilhar} Compartilhar link de acesso</button>
+        <button class="botao botao--leve" type="button" data-acao="copiar-link">Copiar link</button>
         <p class="ajuda">Quem tiver o link consegue ver e registrar. Envie só para quem cuida do bebê.</p>
       </div>
+      ${instalado() ? '' : `
+      <div class="cartao form instalar">
+        <strong>Instalar na tela de início</strong>
+        <p class="ajuda"><b>iPhone (Safari):</b> toque em <b>Copiar link</b> acima. Depois toque em Compartilhar
+          <span class="simbolo">${ICONES.compartilhar}</span> → <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.
+          Abra pelo ícone novo e cole o link quando pedir (o iPhone guarda o app separado do Safari).</p>
+        <p class="ajuda"><b>Android (Chrome):</b> menu <b>⋮</b> → <b>Adicionar à tela inicial</b> (ou <b>Instalar app</b>).</p>
+      </div>`}
       <div class="cartao form">
         <p class="ajuda" id="status-sync">${esc(textoSyncDetalhado())}</p>
         <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
@@ -592,12 +650,25 @@ function salvarFormAjustes(form) {
   }
 }
 
-async function compartilharLink() {
-  const chave = store.lerChave();
-  let hash = `k=${encodeURIComponent(chave)}`;
+function linkDeAcesso() {
+  let hash = `k=${encodeURIComponent(store.lerChave())}`;
   if (!urlDoConfig && store.urlBackendDoLink()) hash += `&u=${encodeURIComponent(store.urlBackendDoLink())}`;
   // ?v= diferente a cada envio: o WhatsApp trata como link novo e monta a prévia com imagem de novo.
-  const link = `${location.origin}${location.pathname}?v=${Date.now().toString(36)}#${hash}`;
+  return `${location.origin}${location.pathname}?v=${Date.now().toString(36)}#${hash}`;
+}
+
+async function copiarLink() {
+  const link = linkDeAcesso();
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('Link copiado');
+  } catch {
+    prompt('Copie o link:', link);
+  }
+}
+
+async function compartilharLink() {
+  const link = linkDeAcesso();
   const nome = String(estado.config.nome_bebe || '').trim();
   const texto = nome ? `Rotina de ${nome}` : 'Rotina do bebê';
   try {
@@ -820,6 +891,8 @@ app.addEventListener('click', async (e) => {
     b.textContent = mostrando ? 'Mostrar' : 'Ocultar';
   } else if (acao === 'compartilhar') {
     compartilharLink();
+  } else if (acao === 'copiar-link') {
+    copiarLink();
   } else if (acao === 'desativar-plano') {
     const form = b.closest('form');
     if (b.dataset.armado !== '1') {

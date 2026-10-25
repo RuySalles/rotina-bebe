@@ -36,10 +36,8 @@ jobs:
         run: |
           node -e "require('fs').writeFileSync('config.js', 'export const CONFIG = { webAppUrl: ' + JSON.stringify(process.env.WEBAPP_URL || '') + ' };\n')"
 
-      - name: Montar site
-        run: |
-          mkdir _site
-          cp -r index.html manifest.webmanifest config.js css js img tests _site/
+      - name: Montar site (com pasta por versão, para a atualização automática)
+        run: bash scripts/montar-site.sh "$(echo "$GITHUB_SHA" | cut -c1-8)" _site
 
       - uses: actions/configure-pages@v5
 

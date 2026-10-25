@@ -8,8 +8,12 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 
 - `index.html`, `css/app.css`, `manifest.webmanifest`
 - `img/` → imagem de prévia do link (`compartilhar.png`, 1200x630) e ícones; as fontes HTML ficam em `img/fontes/`
-  (gerar de novo com o Edge headless, instruções no topo de cada fonte). Arquivos novos na raiz ou pastas novas
-  precisam entrar no passo "Montar site" de `.github/workflows/pages.yml`.
+  (gerar de novo com o Edge headless, instruções no topo de cada fonte).
+- `scripts/montar-site.sh` → monta o site publicado. Arquivos novos na raiz ou pastas novas precisam entrar nele.
+  **Atualização automática:** o JS/CSS vai para `v/<sha>/`, o `index.html` recebe `<meta name="versao">` e o
+  `versao.json` diz a versão mais recente; o `app.js` compara e recarrega sozinho. Por isso, no `index.html`,
+  mantenha exatamente `src="js/app.js"`, `href="css/app.css"` e `<meta name="versao" content="dev">` (o script
+  falha se não encontrar). Imports entre módulos devem ser sempre relativos.
 - `js/app.js` → telas e navegação (só fala com `store.js` e `regras.js`)
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
 - `js/regras.js` → cálculos puros: tempo (fuso America/Sao_Paulo, 24h), leitura das linhas, `substitui_id`, planos, janelas, agenda

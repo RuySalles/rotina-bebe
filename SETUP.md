@@ -103,6 +103,10 @@ Depois do primeiro acesso a chave fica guardada no celular e some da barra de en
 Cole o código novo no editor, salve e vá em **Implantar → Gerenciar implantações → lápis (editar) →
 Versão: Nova versão → Implantar**. A URL continua a mesma; não precisa mexer no segredo.
 
+**Atualizações do app:** chegam sozinhas. Ao abrir o app ou voltar para ele, o celular confere se há versão
+nova e recarrega (se alguém estiver digitando, aparece "Nova versão disponível · Atualizar" no topo).
+A versão instalada aparece no fim da tela **Ajustes**.
+
 **Conferir os testes:** abra https://ruysalles.github.io/rotina-bebe/tests/regras.test.html
 (ou rode `node tests/rodar.mjs` na pasta do projeto).
 

@@ -11,3 +11,6 @@ desktop.ini
 .vscode/
 .idea/
 node_modules/
+
+# Site montado localmente (scripts/montar-site.sh)
+_site/

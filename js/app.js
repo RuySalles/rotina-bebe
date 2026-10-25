@@ -73,17 +73,76 @@ function lerLink() {
   const u = p.get('u');
   if (k) store.salvarChave(k.trim());
   if (u) store.salvarUrlBackend(u.trim());
-  // Limpa a chave e o ?v= (usado só para a prévia do WhatsApp) da barra de endereço.
+  // Limpa a chave, o ?v= (prévia do WhatsApp) e o ?atualizar= da barra de endereço.
   const busca = new URLSearchParams(location.search);
   busca.delete('v');
+  busca.delete('atualizar');
   const resto = busca.toString();
   if (k || u || location.search !== (resto ? `?${resto}` : '')) {
     history.replaceState(null, '', location.pathname + (resto ? `?${resto}` : ''));
   }
 }
 
+// ---------------------------------------------------------------------------
+// Atualização automática (versão vem da <meta name="versao">, gravada na publicação)
+// ---------------------------------------------------------------------------
+
+const VERSAO = document.querySelector('meta[name="versao"]')?.content || 'dev';
+const CHECAR_VERSAO_MS = 5 * 60 * 1000;
+let avisoAtualizacao = null;
+
+const ssLer = (k) => { try { return sessionStorage.getItem(k); } catch { return null; } };
+const ssGravar = (k, v) => { try { sessionStorage.setItem(k, v); } catch { /* sem armazenamento */ } };
+
+async function versaoPublicada() {
+  try {
+    const r = await fetch(`versao.json?t=${Date.now()}`, { cache: 'no-store' });
+    return r.ok ? (await r.json()).versao || null : null;
+  } catch { return null; }
+}
+
+/** Recarrega por um endereço novo, para o celular não reaproveitar a página guardada. */
+function recarregarPara(versao, forcar = false) {
+  if (!forcar && ssLer('rb_atualizando') === versao) return false; // já tentou: evita repetir sem parar
+  ssGravar('rb_atualizando', versao);
+  location.replace(`${location.pathname}?atualizar=${encodeURIComponent(versao)}`);
+  return true;
+}
+
+const ocupado = () => folha.open || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+
+/** silencioso: ao abrir ou voltar para o app, recarrega direto se ninguém estiver digitando. */
+async function verificarAtualizacao(silencioso) {
+  if (VERSAO === 'dev') return;
+  const nova = await versaoPublicada();
+  if (!nova || nova === VERSAO) return;
+  if (silencioso && !ocupado() && recarregarPara(nova)) return;
+  mostrarAvisoAtualizacao(nova);
+}
+
+function mostrarAvisoAtualizacao(versao) {
+  if (!avisoAtualizacao) {
+    avisoAtualizacao = document.createElement('button');
+    avisoAtualizacao.className = 'atualizacao';
+    avisoAtualizacao.innerHTML = `${ICONES.sync}<span>Nova versão disponível · <strong>Atualizar</strong></span>`;
+    document.body.append(avisoAtualizacao);
+  }
+  avisoAtualizacao.onclick = () => recarregarPara(versao, true);
+}
+
+function ligarAtualizacaoAutomatica() {
+  if (VERSAO === 'dev') return;
+  verificarAtualizacao(true);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') verificarAtualizacao(true);
+  });
+  setInterval(() => { if (document.visibilityState === 'visible') verificarAtualizacao(false); }, CHECAR_VERSAO_MS);
+}
+
 async function iniciar() {
+  ssGravar('rb_falhas', '0');
   lerLink();
+  ligarAtualizacaoAutomatica();
   try {
     const { CONFIG } = await import('../config.js');
     const url = CONFIG?.webAppUrl || '';
@@ -472,6 +531,7 @@ function vistaAjustes() {
       <div class="cartao form">
         <p class="ajuda" id="status-sync">${esc(textoSyncDetalhado())}</p>
         <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
+        <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
       </div>
     </section>`;
 }

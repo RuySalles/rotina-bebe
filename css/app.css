@@ -643,6 +643,30 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 }
 .toast--visivel { opacity: 1; transform: translate(-50%, 0); }
 
+/* --- Aviso de nova versão ------------------------------------------------- */
+
+.atualizacao {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 10px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--primaria);
+  color: var(--primaria-texto);
+  font-size: 14.5px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  z-index: 40;
+  animation: subir 0.24s ease;
+}
+.atualizacao svg { font-size: 18px; }
+.versao { text-align: center; }
+
 /* --- Telas de entrada ----------------------------------------------------- */
 
 .entrada {

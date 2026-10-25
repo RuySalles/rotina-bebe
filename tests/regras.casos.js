@@ -74,15 +74,15 @@ export function casos({ grupo, teste }) {
   grupo('Tylenol — próximo liberado');
   teste('6h após a última dose: "Liberado a partir de 17:45"', () => {
     const ctx = montar(base(), t('25', '13:00'));
-    igual(tyl.status(ctx).linhas[0], 'Liberado a partir de 17:45 (se tiver febre)');
+    igual(tyl.status(ctx).linhas[0], 'Liberado a partir de 17:45 (se febre ou dor)');
   });
   teste('Depois de 6h: "Liberado agora"', () => {
     const ctx = montar(base(), t('25', '17:45'));
-    igual(tyl.status(ctx).linhas[0], 'Liberado agora (se tiver febre)');
+    igual(tyl.status(ctx).linhas[0], 'Liberado agora (se febre ou dor)');
   });
   teste('Sem nenhuma dose: liberado agora', () => {
     const ctx = montar([], t('25', '13:00'));
-    igual(tyl.status(ctx).linhas[0], 'Liberado agora (se tiver febre)');
+    igual(tyl.status(ctx).linhas[0], 'Liberado agora (se febre ou dor)');
   });
   teste('Registrar antes de 6h pede confirmação', () => {
     const ctx = montar(base(), t('25', '13:00'), { tylenol_max_24h: '5' });
@@ -130,6 +130,29 @@ export function casos({ grupo, teste }) {
   teste('Dose da receita em Ajustes já vem preenchida no registro', () => {
     igual(TIPOS.tylenol.padroes(montar([], t('25', '13:00'), { tylenol_dose_ml: '1.25' })), { dose: '1,25 mL' });
     igual(TIPOS.tylenol.padroes(montar([], t('25', '13:00'), {})), {});
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Tylenol — remédio em uso (Tylenol Bebê ou gotas)');
+  const configDois = { tylenol_dose_ml: '1.2', tylenol_dose_gotas: '7', tylenol_max_24h: '5' };
+  teste('Sem escolha: Tylenol Bebê, dose em mL e lembrete da seringa', () => {
+    const ctx = montar([], t('25', '13:00'), configDois);
+    igual(TIPOS.tylenol.padroes(ctx), { dose: '1,2 mL' });
+    verdade(TIPOS.tylenol.lembrete(ctx).includes('seringa dosadora'));
+    verdade(TIPOS.tylenol.lembrete(ctx).startsWith('Só se tiver febre (a partir de 37,8 °C) ou dor'));
+  });
+  teste('Gotas: dose em gotas e lembrete do conta-gotas', () => {
+    const ctx = montar([], t('25', '13:00'), { ...configDois, tylenol_apresentacao: 'gotas' });
+    igual(TIPOS.tylenol.padroes(ctx), { dose: '7 gotas' });
+    verdade(TIPOS.tylenol.lembrete(ctx).includes('conta-gotas'));
+  });
+  teste('Dose na unidade do outro remédio pede confirmação', () => {
+    const susp = montar([], t('25', '13:00'), configDois);
+    verdade(tyl.avisos(susp, t('25', '13:00'), { dose: '7 gotas' }, '').some((a) => a.confirmar && a.texto.includes('em gotas')));
+    igual(tyl.avisos(susp, t('25', '13:00'), { dose: '1,2 mL' }, ''), []);
+    const gotas = montar([], t('25', '13:00'), { ...configDois, tylenol_apresentacao: 'gotas' });
+    verdade(tyl.avisos(gotas, t('25', '13:00'), { dose: '1,2ml' }, '').some((a) => a.confirmar && a.texto.includes('em mL')));
+    igual(tyl.avisos(gotas, t('25', '13:00'), { dose: '7 gotas' }, ''), []);
   });
 
   // ---------------------------------------------------------------------

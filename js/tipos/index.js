@@ -4,7 +4,7 @@
 //
 // Formato de um tipo:
 // {
-//   id, rotulo, cor, icone (SVG), lembrete?,
+//   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto),
 //   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'hora', opcoes?, min?, max?, passo?, placeholder?, ajuda? }],
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
 //   resumo(dados, ctx, evento?) → { texto, destaque? },

@@ -1,7 +1,33 @@
-import { liberacao, contarEmJanela, maisProximo, casarPlano, fmtHora, fmtMl } from '../regras.js';
+import { liberacao, contarEmJanela, maisProximo, casarPlano, fmtHora, fmtMl, fmtNumero } from '../regras.js';
 
 const INTERVALO_H = 6;
 const MIN = 60 * 1000;
+const LIMITE_FEBRE_PADRAO = 37.8;
+
+// Dois remédios de paracetamol com concentrações diferentes: a dose de um NÃO vale para o outro.
+// Ajustes → tylenol_apresentacao escolhe qual está em uso (vazio = suspensão).
+const APRESENTACOES = {
+  suspensao: {
+    nome: 'Tylenol Bebê (100 mg/mL)',
+    unidade: 'mL',
+    lembrete: 'Tylenol Bebê (100 mg/mL): pela bula, no máximo 5 doses em 24 horas, sempre com a seringa dosadora (nunca direto do frasco).'
+  },
+  gotas: {
+    nome: 'Paracetamol em gotas (200 mg/mL)',
+    unidade: 'gotas',
+    lembrete: 'Paracetamol em gotas (200 mg/mL): use o conta-gotas do frasco e confira na bula dele o máximo por dia. A dose em gotas não vale para o Tylenol Bebê.'
+  }
+};
+
+export const apresentacao = (ctx) => (ctx.config.tylenol_apresentacao === 'gotas' ? 'gotas' : 'suspensao');
+
+/** Unidade escrita na dose ("7 gotas", "1,2 mL"), ou null se não der para saber. */
+function unidadeDaDose(texto) {
+  const s = String(texto || '').toLowerCase();
+  if (/gota|gts?\b/.test(s)) return 'gotas';
+  if (/\bml\b|\d\s*ml/.test(s)) return 'mL';
+  return null;
+}
 
 /** Doses de Tylenol nas 24h que terminam em "ate" (sem contar o registro em edição). */
 function dosesEm24h(ctx, ate, ignorarId = '') {
@@ -21,7 +47,10 @@ export default {
   rotulo: 'Tylenol',
   cor: '#8070C4',
   icone: '<svg viewBox="0 0 24 24"><path d="M12 3.2c3.6 4.3 6 7.4 6 10.6a6 6 0 0 1-12 0c0-3.2 2.4-6.3 6-10.6z"/><path d="M9.4 14.2a2.6 2.6 0 0 0 2.6 2.6"/></svg>',
-  lembrete: 'Só se tiver febre. Registre apenas doses dadas por causa de febre. Pela bula: no máximo 5 doses em 24 horas, sempre com a seringa dosadora (nunca direto do frasco).',
+  lembrete(ctx) {
+    const limite = fmtNumero(ctx.numeroConfig('febre_limite_c') ?? LIMITE_FEBRE_PADRAO);
+    return `Só se tiver febre (a partir de ${limite} °C) ou dor, como na receita. ${APRESENTACOES[apresentacao(ctx)].lembrete}`;
+  },
   campos: [
     { id: 'dose', rotulo: 'Dose', tipo: 'texto', placeholder: 'Opcional, como na receita' },
     { id: 'observacao', rotulo: 'Observação', tipo: 'texto', placeholder: 'Opcional' }
@@ -31,8 +60,12 @@ export default {
     return { texto: [dados.dose, dados.observacao].filter(Boolean).join(' · ') || 'Dose dada' };
   },
 
-  /** Registro novo já vem com a dose da receita (Ajustes → tylenol_dose_ml). */
+  /** Registro novo já vem com a dose do remédio em uso (Ajustes → tylenol_dose_ml ou tylenol_dose_gotas). */
   padroes(ctx) {
+    if (apresentacao(ctx) === 'gotas') {
+      const gotas = ctx.numeroConfig('tylenol_dose_gotas');
+      return gotas ? { dose: `${gotas} ${gotas === 1 ? 'gota' : 'gotas'}` } : {};
+    }
     const ml = ctx.numeroConfig('tylenol_dose_ml');
     return ml ? { dose: fmtMl(ml) } : {};
   },
@@ -49,7 +82,7 @@ export default {
 
     status(ctx) {
       const { liberadoEm, liberado } = liberacao(ctx.ultimo('tylenol', ctx.agora), INTERVALO_H, ctx.agora);
-      const linhas = [liberado ? 'Liberado agora (se tiver febre)' : `Liberado a partir de ${fmtHora(liberadoEm)} (se tiver febre)`];
+      const linhas = [liberado ? 'Liberado agora (se febre ou dor)' : `Liberado a partir de ${fmtHora(liberadoEm)} (se febre ou dor)`];
       const max = ctx.numeroConfig('tylenol_max_24h');
       const n = dosesEm24h(ctx, ctx.agora);
       if (max === null) return { linhas: [...linhas, 'Defina o máximo em 24h em Ajustes'], aviso: true };
@@ -60,11 +93,16 @@ export default {
     proximos(ctx) {
       const { liberadoEm, liberado } = liberacao(ctx.ultimo('tylenol', ctx.agora), INTERVALO_H, ctx.agora);
       if (liberado) return [];
-      return [{ t: liberadoEm, titulo: 'Tylenol liberado', detalhe: 'Só se tiver febre', informativo: true }];
+      return [{ t: liberadoEm, titulo: 'Tylenol liberado', detalhe: 'Só se febre ou dor', informativo: true }];
     },
 
     avisos(ctx, horario, dados, editandoId) {
       const avisos = [];
+      const emUso = APRESENTACOES[apresentacao(ctx)];
+      const unidade = unidadeDaDose(dados.dose);
+      if (!editandoId && unidade && unidade !== emUso.unidade) {
+        avisos.push({ texto: `A dose está em ${unidade}, mas o remédio em uso é o ${emUso.nome}, medido em ${emUso.unidade}. Confira o frasco e a dose (troque em Ajustes se mudaram de remédio).`, confirmar: true });
+      }
       const anterior = ctx.ultimo('tylenol', horario, editandoId);
       const { liberadoEm, liberado } = liberacao(anterior, INTERVALO_H, horario);
       if (!liberado) {

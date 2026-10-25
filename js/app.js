@@ -574,15 +574,28 @@ function vistaAjustes() {
           <span>Febre a partir de (°C)</span>
           <input name="febre_limite_c" inputmode="decimal" value="${esc(String(c.febre_limite_c ?? '').replace('.', ','))}" placeholder="37,8">
         </label>
+        <div class="campo">
+          <span>Tylenol: remédio em uso</span>
+          <div class="seg seg--largo">
+            <label><input type="radio" name="tylenol_apresentacao" value="suspensao" ${c.tylenol_apresentacao === 'gotas' ? '' : 'checked'}><span>Tylenol Bebê</span></label>
+            <label><input type="radio" name="tylenol_apresentacao" value="gotas" ${c.tylenol_apresentacao === 'gotas' ? 'checked' : ''}><span>Paracetamol gotas</span></label>
+          </div>
+          <small>As concentrações são diferentes (100 mg/mL e 200 mg/mL): a dose de um não vale para o outro. Ao trocar de remédio, troque aqui.</small>
+        </div>
         <label class="campo">
           <span>Tylenol: máximo de doses em 24 horas</span>
-          <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="A bula diz 5">
-          <small>${c.tylenol_max_24h ? 'Confira sempre com a bula ou a orientação médica.' : 'Ainda não preenchido. Preencha conforme a bula ou a orientação médica.'}</small>
+          <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="${c.tylenol_apresentacao === 'gotas' ? 'Conforme a bula das gotas' : 'A bula do Tylenol Bebê diz 5'}">
+          <small>${c.tylenol_max_24h ? 'Confira sempre com a bula do remédio em uso ou a orientação médica.' : 'Ainda não preenchido. Preencha conforme a bula ou a orientação médica.'}</small>
         </label>
         <label class="campo">
-          <span>Tylenol: dose da receita (mL)</span>
-          <input name="tylenol_dose_ml" inputmode="decimal" value="${esc(String(c.tylenol_dose_ml ?? '').replace('.', ','))}" placeholder="Como na receita do pediatra">
-          <small>Já vem preenchida ao registrar uma dose. Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
+          <span>Tylenol Bebê (100 mg/mL): dose em mL</span>
+          <input name="tylenol_dose_ml" inputmode="decimal" value="${esc(String(c.tylenol_dose_ml ?? '').replace('.', ','))}" placeholder="Como orientado pelo pediatra">
+          <small>Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
+        </label>
+        <label class="campo">
+          <span>Paracetamol em gotas (200 mg/mL): dose em gotas</span>
+          <input name="tylenol_dose_gotas" inputmode="numeric" value="${esc(c.tylenol_dose_gotas || '')}" placeholder="Como na receita do pediatra">
+          <small>A dose do remédio em uso já vem preenchida ao registrar.</small>
         </label>
         <label class="campo">
           <span>Amoxicilina: dose da receita (mL)</span>
@@ -660,7 +673,9 @@ function salvarFormAjustes(form) {
       nome_bebe: form.nome_bebe.value.trim(),
       febre_limite_c: form.febre_limite_c.value.trim(),
       tylenol_max_24h: form.tylenol_max_24h.value.trim(),
+      tylenol_apresentacao: form.tylenol_apresentacao.value === 'gotas' ? 'gotas' : 'suspensao',
       tylenol_dose_ml: form.tylenol_dose_ml.value.trim(),
+      tylenol_dose_gotas: form.tylenol_dose_gotas.value.trim(),
       amoxicilina_dose_ml: form.amoxicilina_dose_ml.value.trim(),
       amoxicilina_frasco_preparado: form.amoxicilina_frasco_preparado.value.trim()
     };
@@ -670,6 +685,9 @@ function salvarFormAjustes(form) {
         return toast('Confira a dose em mL (ex.: 1,2)');
       }
       valores[chave] = valores[chave] ? String(dose) : '';
+    }
+    if (valores.tylenol_dose_gotas && !(/^\d+$/.test(valores.tylenol_dose_gotas) && Number(valores.tylenol_dose_gotas) >= 1 && Number(valores.tylenol_dose_gotas) <= 60)) {
+      return toast('A dose em gotas precisa ser um número inteiro (ex.: 7)');
     }
     const preparo = valores.amoxicilina_frasco_preparado;
     if (preparo && (!/^\d{4}-\d{2}-\d{2}$/.test(preparo) || preparo > chaveDia(Date.now()))) {
@@ -828,6 +846,7 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
   const [horaInicial, minutoInicial] = fmtHora(inicial).split(':');
   const rotDia = (d) => (d === hoje ? 'Hoje' : d === somarDias(hoje, -1) ? 'Ontem' : fmtData(Date.parse(`${d}T12:00:00-03:00`)));
   const titulo = extra.titulo || `${evento ? 'Editar' : 'Registrar'} ${tipo.rotulo.toLowerCase()}`;
+  const lembrete = typeof tipo.lembrete === 'function' ? tipo.lembrete(ctx) : tipo.lembrete;
 
   folha.innerHTML = `
     <form class="folha-corpo" id="form-registro" ${estiloCor(tipo)} novalidate>
@@ -840,7 +859,7 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
         </div>
         <button type="button" class="fechar" data-acao="fechar" aria-label="Fechar">${ICONES.fechar}</button>
       </header>
-      ${tipo.lembrete ? `<p class="lembrete">${esc(tipo.lembrete)}</p>` : ''}
+      ${lembrete ? `<p class="lembrete">${esc(lembrete)}</p>` : ''}
       <div class="campo">
         <span>Horário</span>
         <div class="quando">

@@ -762,3 +762,7 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.seg--largo { display: flex; flex-wrap: nowrap; }
+.seg--largo label { flex: 1; }
+.seg--largo span { padding: 0 8px; text-align: center; }

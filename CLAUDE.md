@@ -53,6 +53,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 
 - Interface em português do Brasil, sem termos técnicos. Horários sempre 24h no fuso America/Sao_Paulo
   (use `fmtHora`, `isoSP`, `deDataHoraSP` de `regras.js`; nunca `toLocaleTimeString` sem fuso).
-- Tylenol nunca é sugerido sem febre: itens dele na agenda são `informativo` e não entram no card PRÓXIMO.
+- Tylenol nunca é sugerido: só se febre ou dor (como na receita). Itens dele na agenda são `informativo` e não
+  entram no card PRÓXIMO. Há dois remédios de paracetamol com concentrações diferentes (Tylenol Bebê 100 mg/mL em mL
+  e gotas 200 mg/mL): `tylenol_apresentacao` escolhe o em uso; nunca converter dose de um para o outro.
 - O rodapé "Ferramenta de organização. Não substitui orientação médica." aparece em todas as telas.
 - Tema claro/escuro automático via tokens CSS em `:root`. Cores de cada tipo vêm de `tipo.cor` (`--cor`).

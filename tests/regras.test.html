@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testes de regras</title>
+  <style>
+    :root { color-scheme: light dark; --ok: #2f7d4f; --falha: #c2412d; }
+    body { font: 15px/1.45 system-ui, sans-serif; margin: 0 auto; max-width: 760px; padding: 20px 16px; background: Canvas; color: CanvasText; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    #resumo { font-weight: 700; margin: 8px 0 18px; padding: 10px 14px; border-radius: 10px; }
+    #resumo.ok { background: color-mix(in srgb, var(--ok) 15%, Canvas); color: var(--ok); }
+    #resumo.falha { background: color-mix(in srgb, var(--falha) 15%, Canvas); color: var(--falha); }
+    h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; margin: 18px 0 6px; }
+    li { list-style: none; padding: 3px 0; }
+    .ok::before { content: "✓ "; color: var(--ok); font-weight: 700; }
+    .falha { color: var(--falha); }
+    .falha::before { content: "✗ "; font-weight: 700; }
+    pre { margin: 2px 0 6px 18px; font-size: 13px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Testes de regras</h1>
+  <p>Abra por um servidor (GitHub Pages ou local). Não precisa de internet nem de planilha.</p>
+  <div id="resumo">Rodando…</div>
+  <div id="saida"></div>
+
+  <script type="module">
+    import { casos } from './regras.casos.js';
+
+    const saida = document.getElementById('saida');
+    const resultados = [];
+    let grupoAtual = null;
+
+    function grupo(nome) {
+      const h = document.createElement('h2');
+      h.textContent = nome;
+      saida.append(h);
+      grupoAtual = document.createElement('ul');
+      saida.append(grupoAtual);
+    }
+    function teste(nome, fn) {
+      const li = document.createElement('li');
+      li.textContent = nome;
+      try {
+        fn();
+        li.className = 'ok';
+        resultados.push(true);
+      } catch (e) {
+        li.className = 'falha';
+        const pre = document.createElement('pre');
+        pre.textContent = e.message;
+        li.append(pre);
+        resultados.push(false);
+        console.error(nome, e);
+      }
+      grupoAtual.append(li);
+    }
+    casos({ grupo, teste });
+
+    const falhas = resultados.filter((r) => !r).length;
+    const resumo = document.getElementById('resumo');
+    resumo.textContent = falhas ? `${falhas} de ${resultados.length} testes falharam` : `Todos os ${resultados.length} testes passaram`;
+    resumo.className = falhas ? 'falha' : 'ok';
+    window.RESULTADO_TESTES = { total: resultados.length, falhas };
+  </script>
+</body>
+</html>

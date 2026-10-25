@@ -1,0 +1,13 @@
+# Endereço do Web App (gerado na publicação a partir do segredo ROTINA_WEBAPP_URL)
+config.js
+
+# Dados iniciais reais (dados de saúde) — só no computador
+apps-script/Seed.gs
+
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+node_modules/

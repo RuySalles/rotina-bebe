@@ -23,6 +23,12 @@ export default {
     return { texto: [dados.quantidade, dados.observacao].filter(Boolean).join(' · ') || 'Alimentou' };
   },
 
+  resumoDia(ctx, dia) {
+    const lista = ctx.doDia('alimentacao', dia);
+    if (!lista.length) return null;
+    return { valor: lista.length === 1 ? '1 vez' : `${lista.length} vezes`, detalhe: `última ${fmtHora(lista.at(-1).t)}` };
+  },
+
   regras: {
     prioridade: 30,
     recorrenciaH: RECORRENCIA_H,

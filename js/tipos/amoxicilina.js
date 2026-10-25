@@ -23,6 +23,13 @@ export default {
     return { texto: dados.observacao || 'Dose dada' };
   },
 
+  resumoDia(ctx, dia) {
+    const n = ctx.doDia('amoxicilina', dia).length;
+    const previstas = (ctx.plano('amoxicilina')?.horarios || []).filter((t) => chaveDia(t) === dia).length;
+    if (!n && !previstas) return null;
+    return { valor: n === 1 ? '1 dose' : `${n} doses`, detalhe: previstas ? `de ${previstas} no plano` : '' };
+  },
+
   regras: {
     prioridade: 100,
     usaPlano: true,

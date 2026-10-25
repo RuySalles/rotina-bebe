@@ -65,6 +65,23 @@ export function somarDias(dia, n) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Primeiro instante a partir de "inicio" em que o relógio de São Paulo marca "HH:MM" (passa da meia-noite se preciso). */
+export function horaDepois(inicio, hora) {
+  const dia = chaveDia(inicio);
+  const t = deDataHoraSP(dia, hora);
+  return t >= inicio ? t : deDataHoraSP(somarDias(dia, 1), hora);
+}
+
+/** [início, fim) de um dia "AAAA-MM-DD" no fuso de São Paulo. */
+export function limitesDia(dia) {
+  return [deDataHoraSP(dia, '00:00'), deDataHoraSP(somarDias(dia, 1), '00:00')];
+}
+
+/** Minutos do intervalo [a, b) que caem dentro de [inicio, fim). */
+export function minutosDentro(a, b, inicio, fim) {
+  return Math.max(0, Math.min(b, fim) - Math.max(a, inicio)) / MIN;
+}
+
 /** "Hoje", "Ontem" ou "sábado, 24 de outubro". */
 export function rotuloDia(dia, agora) {
   const hoje = chaveDia(agora);
@@ -302,6 +319,7 @@ export function criarContexto({ eventos = [], planos = {}, config = {}, agora = 
     config,
     tipos,
     doTipo: (id) => porTipo[id] || [],
+    doDia: (id, dia) => (porTipo[id] || []).filter((e) => chaveDia(e.t) === dia),
     ultimo: (id, ate = Infinity, ignorarId = '') => ultimoAte(porTipo[id] || [], ate, ignorarId),
     plano: (id) => planos[id] || null,
     numeroConfig: (chave) => numero(config[chave])

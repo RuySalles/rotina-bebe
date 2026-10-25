@@ -20,6 +20,10 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 - `js/tipos/index.js` → registro central; `js/tipos/<id>.js` → um arquivo por tipo de evento
 - `apps-script/Code.gs` → backend; `apps-script/Seed.example.gs` → modelo do seed (o `Seed.gs` real é local)
 - `tests/regras.casos.js` → casos; `tests/regras.test.html` (navegador) e `tests/rodar.mjs` (terminal)
+- `.claude/launch.json` → abre o app pelo `tests/servidor.mjs` (porta 8080) no navegador do Claude.
+  Para testar telas sem tocar na planilha real: no `localStorage`, grave `rb_chave` (qualquer texto com 16+ letras),
+  `rb_url` = `http://127.0.0.1:9/exec` (endereço falso) e `rb_apelido`. Os registros ficam só na fila local.
+  Ao terminar, rode `localStorage.clear()`.
 
 ## Regras (não negociáveis)
 

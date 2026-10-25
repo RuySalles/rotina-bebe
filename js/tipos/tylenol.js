@@ -31,6 +31,12 @@ export default {
     return { texto: [dados.dose, dados.observacao].filter(Boolean).join(' · ') || 'Dose dada' };
   },
 
+  resumoDia(ctx, dia) {
+    const lista = ctx.doDia('tylenol', dia);
+    if (!lista.length) return null;
+    return { valor: lista.length === 1 ? '1 dose' : `${lista.length} doses`, detalhe: lista.map((e) => fmtHora(e.t)).join(', ') };
+  },
+
   regras: {
     prioridade: 50,
     intervaloMinimoH: INTERVALO_H,

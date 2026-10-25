@@ -156,6 +156,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 }
 .icone--grande { width: 52px; height: 52px; border-radius: 17px; font-size: 27px; }
 .icone--pequeno { width: 34px; height: 34px; border-radius: 11px; font-size: 18px; }
+.icone--mini { width: 24px; height: 24px; border-radius: 8px; font-size: 14px; }
 
 /* --- Card PRÓXIMO --------------------------------------------------------- */
 
@@ -263,6 +264,34 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .tile--alerta { border-color: color-mix(in srgb, var(--alerta) 45%, transparent); background: color-mix(in srgb, var(--alerta) 6%, var(--superficie)); }
 .tile--alerta .tile-linha:last-child, .tile--alerta .tile-forte { color: var(--alerta); }
 .tile--aviso .tile-linha:last-child { color: var(--aviso); }
+.tile--ativo { border-color: color-mix(in srgb, var(--cor) 45%, transparent); background: color-mix(in srgb, var(--cor) 8%, var(--superficie)); }
+.tile--ativo .tile-forte { color: var(--cor); }
+
+/* --- Resumo do dia -------------------------------------------------------- */
+
+.secao-acoes { display: flex; gap: 6px; margin-left: auto; text-transform: none; letter-spacing: 0; }
+.chip--pequeno { min-height: 32px; padding: 5px 13px; font-size: 13px; }
+.resumo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.resumo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--raio);
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  text-align: left;
+}
+.resumo-rotulo { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--texto-2); }
+.resumo-valor { font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resumo-valor--alto { color: var(--alerta); }
+.resumo-detalhe { font-size: 13px; color: var(--texto-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile--ok .tile-linha:last-child { color: var(--ok); }
 
 /* --- Linha do tempo ------------------------------------------------------- */
@@ -423,7 +452,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .campo > span { font-size: 14px; font-weight: 600; color: var(--texto-2); }
 .campo small, .ajuda { color: var(--texto-3); font-size: 13.5px; }
 
-input[type="text"], input:not([type]), input[type="time"], textarea {
+input[type="text"], input:not([type]), input[type="time"], input[type="date"], textarea {
   width: 100%;
   min-height: 50px;
   padding: 12px 14px;
@@ -459,8 +488,11 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   cursor: pointer;
 }
 .hora select:focus { border-color: var(--cor); outline: none; }
+.hora .botao { flex: none; min-height: 58px; }
+.dia-outro { margin-top: 4px; color: var(--texto); font: inherit; font-size: 17px; }
+.dia-outro[hidden] { display: none; }
 
-.seg { display: inline-flex; padding: 4px; border-radius: 16px; background: var(--superficie-2); gap: 2px; }
+.seg { display: inline-flex; flex-wrap: wrap; padding: 4px; border-radius: 16px; background: var(--superficie-2); gap: 2px; }
 .seg label { position: relative; }
 .seg input { position: absolute; opacity: 0; pointer-events: none; }
 .seg span {

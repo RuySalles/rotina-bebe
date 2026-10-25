@@ -34,6 +34,16 @@ export default {
     return texto(dados, ctx);
   },
 
+  resumoDia(ctx, dia) {
+    const lista = ctx.doDia('febre', dia);
+    if (!lista.length) return null;
+    const temps = lista.map((e) => numero(e.dados.temperatura)).filter((v) => v !== null);
+    const medicoes = lista.length === 1 ? '1 medição' : `${lista.length} medições`;
+    if (!temps.length) return { valor: medicoes };
+    const maxima = Math.max(...temps);
+    return { valor: `${fmtNumero(maxima)} °C`, detalhe: `máxima · ${medicoes}`, destaque: maxima >= limite(ctx) };
+  },
+
   regras: {
     prioridade: 10,
 

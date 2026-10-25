@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rotina",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["tests/servidor.mjs"],
+      "port": 8080
+    }
+  ]
+}

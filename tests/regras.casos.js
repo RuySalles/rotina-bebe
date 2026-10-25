@@ -1,7 +1,7 @@
 // Casos de teste das regras. Rodam no navegador (regras.test.html) e no Node (node tests/rodar.mjs).
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
-  statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela
+  statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois
 } from '../js/regras.js';
 import { TIPOS } from '../js/tipos/index.js';
 
@@ -253,8 +253,106 @@ export function casos({ grupo, teste }) {
     igual(resolverEventos([atual], TIPOS)[0].dados, { temperatura: 37.5, temp: 'x' });
   });
   teste('Tipo desconhecido (de versão futura) não quebra a leitura', () => {
-    const futuro = linha('sono', T('25', '08:00'), { duracao: 90 }, { schema_version: '2' });
+    const futuro = linha('tipo_do_futuro', T('25', '08:00'), { duracao: 90 }, { schema_version: '2' });
     igual(resolverEventos([futuro], TIPOS)[0].dados, { duracao: 90 });
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Sono');
+  const sono = TIPOS.sono;
+  teste('horaDepois passa da meia-noite quando o horário é menor', () => {
+    igual(horaDepois(t('25', '22:30'), '06:15'), t('26', '06:15'));
+    igual(horaDepois(t('25', '13:00'), '14:40'), t('25', '14:40'));
+  });
+  teste('Sono sem horário de acordar: "Dormindo há 40 min" e o botão marca o despertar', () => {
+    const linhas = [linha('sono', T('25', '13:00'), {}, { id: 'S1' })];
+    const ctx = montar(linhas, t('25', '13:40'));
+    const st = sono.regras.status(ctx);
+    igual([st.linhas[0], st.ativo], ['Dormindo há 40 min', true]);
+    const como = sono.regras.registrarComo(ctx);
+    igual([como.editarId, como.dados.fim], ['S1', isoSP(t('25', '13:40'))]);
+  });
+  teste('Depois de acordar: "Acordado há" e total do dia', () => {
+    const linhas = [
+      linha('sono', T('25', '09:00'), { fim: T('25', '10:30') }),
+      linha('sono', T('25', '13:00'), { fim: T('25', '14:10') })
+    ];
+    const ctx = montar(linhas, t('25', '15:00'));
+    igual(sono.regras.status(ctx).linhas, ['Acordado há 50 min', 'Hoje: 2h 40min de sono']);
+    igual(sono.regras.registrarComo(ctx), null);
+  });
+  teste('Sono da noite é dividido entre os dois dias', () => {
+    const linhas = [linha('sono', T('25', '21:00'), { fim: T('26', '06:00') })];
+    const ctx = montar(linhas, t('26', '12:00'));
+    igual(sono.resumoDia(ctx, '2026-10-25').valor, '3h');
+    igual(sono.resumoDia(ctx, '2026-10-26').valor, '6h');
+  });
+  teste('Sono em andamento conta até agora no resumo do dia', () => {
+    const linhas = [linha('sono', T('25', '13:00'))];
+    const ctx = montar(linhas, t('25', '14:30'));
+    igual(sono.resumoDia(ctx, '2026-10-25'), { valor: '1h 30min', detalhe: '1 sono' });
+  });
+  teste('Resumo no histórico mostra até quando e quanto durou', () => {
+    const linhas = [linha('sono', T('25', '13:00'), { fim: T('25', '14:10') })];
+    const ctx = montar(linhas, t('25', '15:00'));
+    igual(sono.resumo(ctx.eventos[0].dados, ctx, ctx.eventos[0]).texto, 'Até 14:10 · 1h 10min');
+  });
+  teste('Sono de mais de 14h pede confirmação', () => {
+    const ctx = montar([], t('26', '12:00'));
+    const avisos = sono.regras.avisos(ctx, t('25', '20:00'), { fim: isoSP(t('26', '11:00')) }, '');
+    verdade(avisos.some((a) => a.confirmar), JSON.stringify(avisos));
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Fralda, banho e vacinas');
+  teste('Fralda: contagem do dia e último cocô', () => {
+    const linhas = [
+      linha('fralda', T('24', '22:00'), { conteudo: 'Cocô' }),
+      linha('fralda', T('25', '08:00'), { conteudo: 'Xixi' }),
+      linha('fralda', T('25', '11:00'), { conteudo: 'Os dois' }),
+      linha('fralda', T('25', '14:00'), { conteudo: 'Xixi' })
+    ];
+    const ctx = montar(linhas, t('25', '15:00'));
+    igual(TIPOS.fralda.regras.status(ctx).linhas, ['Última 14:00 · Xixi', 'Hoje: 3 trocas', 'Último cocô 11:00']);
+    igual(TIPOS.fralda.resumoDia(ctx, '2026-10-25'), { valor: '3 trocas', detalhe: '1 com cocô' });
+    igual(TIPOS.fralda.resumoDia(ctx, '2026-10-23'), null);
+  });
+  teste('Banho: "Hoje às", "Ontem às" e "Há N dias"', () => {
+    const b = TIPOS.banho.regras;
+    const linhas = [linha('banho', T('25', '19:00'))];
+    igual(b.status(montar(linhas, t('25', '20:00'))).linhas, ['Hoje às 19:00']);
+    igual(b.status(montar(linhas, t('26', '08:00'))).linhas, ['Ontem às 19:00']);
+    igual(b.status(montar(linhas, t('28', '08:00'))).linhas[0], 'Há 3 dias');
+  });
+  teste('Vacina: nome com dose e contagem', () => {
+    const linhas = [
+      linha('vacina', T('10', '09:00'), { vacina: 'Vacina A', dose: '1ª' }),
+      linha('vacina', T('24', '10:00'), { vacina: 'Vacina B', dose: 'Reforço', local: 'coxa esquerda' })
+    ];
+    const ctx = montar(linhas, t('25', '12:00'));
+    igual(TIPOS.vacina.regras.status(ctx).linhas, ['Vacina B · reforço', 'Última em 24/10 · 2 registradas']);
+    igual(TIPOS.vacina.resumo(ctx.eventos[1].dados).texto, 'Vacina B · reforço · coxa esquerda');
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Resumo do dia');
+  teste('Febre: máxima do dia em destaque acima do limite', () => {
+    const linhas = [
+      linha('febre', T('25', '08:00'), { temperatura: 37.2 }),
+      linha('febre', T('25', '12:00'), { temperatura: 38.4 })
+    ];
+    const ctx = montar(linhas, t('25', '13:00'));
+    igual(TIPOS.febre.resumoDia(ctx, '2026-10-25'), { valor: '38,4 °C', detalhe: 'máxima · 2 medições', destaque: true });
+  });
+  teste('Amoxicilina, Tylenol e alimentação do dia', () => {
+    const ctx = montar(base(), t('25', '13:00'));
+    igual(TIPOS.amoxicilina.resumoDia(ctx, '2026-10-25'), { valor: '1 dose', detalhe: 'de 3 no plano' });
+    igual(TIPOS.tylenol.resumoDia(ctx, '2026-10-25'), { valor: '2 doses', detalhe: '03:00, 11:45' });
+    igual(TIPOS.alimentacao.resumoDia(ctx, '2026-10-25'), { valor: '2 vezes', detalhe: 'última 12:25' });
+  });
+  teste('Dia sem registros: nenhum tipo aparece', () => {
+    const ctx = montar([], t('25', '13:00'), {}, []);
+    igual(Object.values(TIPOS).map((tp) => tp.resumoDia?.(ctx, '2026-10-25') ?? null).filter(Boolean), []);
   });
 
   // ---------------------------------------------------------------------

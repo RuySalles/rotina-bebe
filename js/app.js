@@ -5,7 +5,7 @@ import { TIPOS, LISTA_TIPOS } from './tipos/index.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
-  numero, fmtNumero
+  numero, fmtNumero, ms, isoSP, horaDepois
 } from './regras.js';
 
 const app = document.getElementById('app');
@@ -16,6 +16,7 @@ let estado = store.obterEstado();
 let ctx = null;
 let vista = 'inicio';
 let filtroHistorico = '';
+let diaResumo = 0; // 0 = hoje, -1 = ontem
 let urlDoConfig = '';
 
 const ICONES = {
@@ -353,6 +354,7 @@ function vistaInicio() {
       <h2 class="secao-titulo">Registrar</h2>
       <div class="grade">${LISTA_TIPOS.map(tile).join('')}</div>
     </section>
+    ${resumoDoDia()}
     <section class="secao">
       <h2 class="secao-titulo">Próximas 24 horas</h2>
       ${linhaDoTempo(agenda)}
@@ -392,7 +394,7 @@ function cardProximo(item, depois) {
 function tile(tipo) {
   const st = tipo.regras?.status ? tipo.regras.status(ctx) : { linhas: [] };
   const [forte = '', ...resto] = st.linhas || [];
-  const classe = st.alerta ? 'tile--alerta' : st.aviso ? 'tile--aviso' : st.ok ? 'tile--ok' : '';
+  const classe = st.alerta ? 'tile--alerta' : st.aviso ? 'tile--aviso' : st.ativo ? 'tile--ativo' : st.ok ? 'tile--ok' : '';
   return `
     <button class="tile ${classe}" data-acao="registrar" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
       <span class="tile-topo">
@@ -403,6 +405,30 @@ function tile(tipo) {
       <span class="tile-forte">${esc(forte)}</span>
       ${resto.map((l) => `<span class="tile-linha">${esc(l)}</span>`).join('')}
     </button>`;
+}
+
+/** Totais do dia por tipo (cada tipo diz o seu em resumoDia). */
+function resumoDoDia() {
+  const hoje = chaveDia(ctx.agora);
+  const dia = somarDias(hoje, diaResumo);
+  const itens = LISTA_TIPOS
+    .map((tipo) => ({ tipo, r: tipo.resumoDia ? tipo.resumoDia(ctx, dia) : null }))
+    .filter((i) => i.r);
+  const botao = (n, rotulo) =>
+    `<button class="chip chip--pequeno ${diaResumo === n ? 'chip--ativo' : ''}" data-acao="dia-resumo" data-dia="${n}">${rotulo}</button>`;
+  return `
+    <section class="secao">
+      <h2 class="secao-titulo">Resumo <span class="secao-acoes">${botao(0, 'Hoje')}${botao(-1, 'Ontem')}</span></h2>
+      ${itens.length ? `
+      <div class="resumo">
+        ${itens.map(({ tipo, r }) => `
+          <button class="resumo-item" data-acao="ver-historico" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
+            <span class="resumo-rotulo"><span class="icone icone--mini">${tipo.icone}</span>${esc(tipo.rotulo)}</span>
+            <span class="resumo-valor ${r.destaque ? 'resumo-valor--alto' : ''}">${esc(r.valor)}</span>
+            ${r.detalhe ? `<span class="resumo-detalhe">${esc(r.detalhe)}</span>` : ''}
+          </button>`).join('')}
+      </div>` : `<p class="vazio">Nada registrado ${diaResumo === 0 ? 'hoje' : 'ontem'}.</p>`}
+    </section>`;
 }
 
 function linhaDoTempo(agenda) {
@@ -476,13 +502,18 @@ function vistaHistorico() {
     if (!dias.has(d)) dias.set(d, []);
     dias.get(d).push(e);
   }
+  const filtrado = TIPOS[filtroHistorico];
+  const conta = (dia, lista) => {
+    const r = filtrado?.resumoDia ? filtrado.resumoDia(ctx, dia) : null;
+    return r ? [r.valor, r.detalhe].filter(Boolean).join(' · ') : `${lista.length} ${lista.length === 1 ? 'registro' : 'registros'}`;
+  };
   const blocos = [...dias.entries()].map(([dia, lista]) => `
     <section class="secao">
-      <h2 class="secao-titulo">${esc(maiuscula(rotuloDia(dia, ctx.agora)))} <span class="secao-conta">${lista.length} ${lista.length === 1 ? 'registro' : 'registros'}</span></h2>
+      <h2 class="secao-titulo">${esc(maiuscula(rotuloDia(dia, ctx.agora)))} <span class="secao-conta">${esc(conta(dia, lista))}</span></h2>
       <ul class="cartao lista">
         ${lista.map((e) => {
           const tipo = TIPOS[e.tipo];
-          const r = tipo.resumo ? tipo.resumo(e.dados, ctx) : { texto: '' };
+          const r = tipo.resumo ? tipo.resumo(e.dados, ctx, e) : { texto: '' };
           return `
             <li>
               <button class="registro" data-acao="editar" data-id="${esc(e.id)}" ${estiloCor(tipo)} aria-label="Editar ${esc(tipo.rotulo)} das ${fmtHora(e.t)}">
@@ -702,6 +733,21 @@ function opcoesNumero(n, selecionado) {
 function campoHtml(campo, dados) {
   const valor = dados ? dados[campo.id] : '';
   const nome = `c_${campo.id}`;
+  if (campo.tipo === 'hora') {
+    const t = ms(valor);
+    const [h, m] = Number.isFinite(t) ? fmtHora(t).split(':') : ['', ''];
+    return `
+      <div class="campo">
+        <span>${esc(campo.rotulo)}</span>
+        <div class="hora">
+          <select name="${nome}_h" aria-label="${esc(campo.rotulo)}: hora"><option value="">--</option>${opcoesNumero(24, h)}</select>
+          <span aria-hidden="true">:</span>
+          <select name="${nome}_m" aria-label="${esc(campo.rotulo)}: minuto"><option value="">--</option>${opcoesNumero(60, m)}</select>
+          <button type="button" class="botao botao--leve botao--pequeno" data-acao="agora-campo" data-campo="${esc(campo.id)}">Agora</button>
+        </div>
+        ${campo.ajuda ? `<small>${esc(campo.ajuda)}</small>` : ''}
+      </div>`;
+  }
   if (campo.tipo === 'opcoes') {
     return `
       <div class="campo">
@@ -719,9 +765,16 @@ function campoHtml(campo, dados) {
     </label>`;
 }
 
-function lerCampos(form, tipo) {
+/** horario: o do registro; um campo 'hora' vira o primeiro HH:MM a partir dele. */
+function lerCampos(form, tipo, horario) {
   const dados = {};
   for (const campo of tipo.campos || []) {
+    if (campo.tipo === 'hora') {
+      const h = form.elements[`c_${campo.id}_h`]?.value || '';
+      const m = form.elements[`c_${campo.id}_m`]?.value || '00';
+      dados[campo.id] = h && Number.isFinite(horario) ? isoSP(horaDepois(horario, `${h}:${m}`)) : '';
+      continue;
+    }
     const el = form.elements[`c_${campo.id}`];
     if (!el) continue;
     const bruto = el.value ?? '';
@@ -730,11 +783,13 @@ function lerCampos(form, tipo) {
   return dados;
 }
 
-function abrirFolha(tipoId, eventoId = null) {
+/** extra: { dados, titulo } para abrir já preenchido (ex. marcar o despertar de um sono). */
+function abrirFolha(tipoId, eventoId = null, extra = {}) {
   ctx = contexto();
   const tipo = TIPOS[tipoId];
   if (!tipo) return;
   const evento = eventoId ? ctx.eventos.find((e) => e.id === eventoId) : null;
+  const dadosIniciais = { ...(evento?.dados || {}), ...(extra.dados || {}) };
   const inicial = evento ? evento.t : Date.now();
   const hoje = chaveDia(Date.now());
   const dias = [hoje, somarDias(hoje, -1)];
@@ -742,6 +797,7 @@ function abrirFolha(tipoId, eventoId = null) {
   if (!dias.includes(diaInicial)) dias.push(diaInicial);
   const [horaInicial, minutoInicial] = fmtHora(inicial).split(':');
   const rotDia = (d) => (d === hoje ? 'Hoje' : d === somarDias(hoje, -1) ? 'Ontem' : fmtData(Date.parse(`${d}T12:00:00-03:00`)));
+  const titulo = extra.titulo || `${evento ? 'Editar' : 'Registrar'} ${tipo.rotulo.toLowerCase()}`;
 
   folha.innerHTML = `
     <form class="folha-corpo" id="form-registro" ${estiloCor(tipo)} novalidate>
@@ -749,7 +805,7 @@ function abrirFolha(tipoId, eventoId = null) {
       <header class="folha-topo">
         <span class="icone">${tipo.icone}</span>
         <div class="folha-titulos">
-          <h2>${evento ? 'Editar' : 'Registrar'} ${esc(tipo.rotulo.toLowerCase())}</h2>
+          <h2>${esc(titulo)}</h2>
           <p class="folha-info" id="folha-info"></p>
         </div>
         <button type="button" class="fechar" data-acao="fechar" aria-label="Fechar">${ICONES.fechar}</button>
@@ -760,22 +816,24 @@ function abrirFolha(tipoId, eventoId = null) {
         <div class="quando">
           <div class="seg">
             ${dias.map((d) => `<label><input type="radio" name="dia" value="${d}" ${d === diaInicial ? 'checked' : ''}><span>${esc(rotDia(d))}</span></label>`).join('')}
+            <label><input type="radio" name="dia" value="outro"><span>Outro dia</span></label>
           </div>
           <button type="button" class="botao botao--leve botao--pequeno" data-acao="agora">Agora</button>
         </div>
+        <input type="date" name="dia_outro" class="dia-outro" max="${hoje}" value="${diaInicial}" aria-label="Dia" hidden>
         <div class="hora">
           <select name="h" aria-label="Hora">${opcoesNumero(24, horaInicial)}</select>
           <span aria-hidden="true">:</span>
           <select name="m" aria-label="Minuto">${opcoesNumero(60, minutoInicial)}</select>
         </div>
       </div>
-      ${(tipo.campos || []).map((c) => campoHtml(c, evento?.dados)).join('')}
+      ${(tipo.campos || []).map((c) => campoHtml(c, dadosIniciais)).join('')}
       <div class="avisos" id="avisos" aria-live="polite"></div>
       <label class="confirmar" id="confirmar" hidden>
         <input type="checkbox" name="confirmo">
         <span>Li o aviso e quero registrar mesmo assim</span>
       </label>
-      <button class="botao botao--cheio botao--grande" type="submit" id="salvar">${evento ? 'Salvar alteração' : 'Registrar'}</button>
+      <button class="botao botao--cheio botao--grande" type="submit" id="salvar">${evento && !extra.titulo ? 'Salvar alteração' : 'Registrar'}</button>
       ${evento ? `
         <button type="button" class="botao botao--perigo" data-acao="apagar" data-id="${esc(evento.id)}">Apagar registro</button>
         <p class="folha-quem">${evento.quem ? `Registrado por ${esc(evento.quem)}` : ''}</p>` : ''}
@@ -783,13 +841,15 @@ function abrirFolha(tipoId, eventoId = null) {
 
   const form = folha.querySelector('form');
   const horario = () => {
-    const dia = form.elements.dia.value || hoje;
+    let dia = form.elements.dia.value || hoje;
+    if (dia === 'outro') dia = /^\d{4}-\d{2}-\d{2}$/.test(form.elements.dia_outro.value) ? form.elements.dia_outro.value : hoje;
     return deDataHoraSP(dia, `${form.elements.h.value}:${form.elements.m.value}`);
   };
 
   const atualizar = () => {
+    form.elements.dia_outro.hidden = form.elements.dia.value !== 'outro';
     const h = horario();
-    const dados = lerCampos(form, tipo);
+    const dados = lerCampos(form, tipo, h);
     const info = tipo.regras?.infoRegistro ? tipo.regras.infoRegistro(ctx, h, evento?.id || '') : '';
     form.querySelector('#folha-info').textContent = info || (evento ? quandoCurto(evento.t) : '');
     const avisos = [...(tipo.regras?.avisos ? tipo.regras.avisos(ctx, h, dados, evento?.id || '') : [])];
@@ -818,6 +878,10 @@ function abrirFolha(tipoId, eventoId = null) {
       [form.elements.h.value, form.elements.m.value] = fmtHora(Date.now()).split(':');
       form.querySelector(`input[name="dia"][value="${hoje}"]`).checked = true;
       atualizar();
+    } else if (b.dataset.acao === 'agora-campo') {
+      const nome = `c_${b.dataset.campo}`;
+      [form.elements[`${nome}_h`].value, form.elements[`${nome}_m`].value] = fmtHora(Date.now()).split(':');
+      atualizar();
     } else if (b.dataset.acao === 'fechar') {
       folha.close();
     } else if (b.dataset.acao === 'apagar') {
@@ -836,11 +900,11 @@ function abrirFolha(tipoId, eventoId = null) {
     e.preventDefault();
     if (form.querySelector('#salvar').disabled) return;
     const h = horario();
-    const dados = lerCampos(form, tipo);
+    const dados = lerCampos(form, tipo, h);
     if (evento) {
       store.editarEvento(evento.id, { horario: h, dados });
       folha.close();
-      toast('Alteração salva');
+      toast(extra.titulo ? 'Registrado' : 'Alteração salva');
       return;
     }
     store.adicionarEvento(tipo.id, h, dados);
@@ -872,7 +936,18 @@ app.addEventListener('click', async (e) => {
     render();
     window.scrollTo({ top: 0 });
   } else if (acao === 'registrar') {
-    abrirFolha(b.dataset.tipo);
+    const como = TIPOS[b.dataset.tipo]?.regras?.registrarComo?.(contexto());
+    if (como) abrirFolha(b.dataset.tipo, como.editarId, como);
+    else abrirFolha(b.dataset.tipo);
+  } else if (acao === 'dia-resumo') {
+    diaResumo = Number(b.dataset.dia) || 0;
+    render();
+  } else if (acao === 'ver-historico') {
+    filtroHistorico = b.dataset.tipo;
+    vista = 'historico';
+    render();
+    window.scrollTo({ top: 0 });
+    document.querySelector('.chip--ativo')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   } else if (acao === 'editar') {
     const ev = ctx.eventos.find((x) => x.id === b.dataset.id);
     if (ev) abrirFolha(ev.tipo, ev.id);

@@ -17,7 +17,7 @@ algo) dizem isso em "Você vai precisar".
 
 | Fase | Melhoria | Situação |
 |---|---|---|
-| 1 | Desfazer logo depois de registrar | 🧪 |
+| 1 | Desfazer logo depois de registrar | ✅ |
 | 2 | Remédio novo sem precisar de programação | ⬜ |
 | 3 | Abrir o app sem internet | ⬜ |
 | 4 | Alertas no celular pelo Google Agenda | ⬜ |

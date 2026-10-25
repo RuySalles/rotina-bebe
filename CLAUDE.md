@@ -6,6 +6,9 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 
 ## Mapa
 
+- `PLANO.md` → melhorias em fases, uma por vez. Só começar a próxima depois do ok do usuário na anterior;
+  ao publicar uma fase, marcar 🧪 na tabela; com o ok, marcar ✅.
+
 - `index.html`, `css/app.css`, `manifest.webmanifest`
 - `img/` → imagem de prévia do link (`compartilhar.png`, 1200x630) e ícones; as fontes HTML ficam em `img/fontes/`
   (gerar de novo com o Edge headless, instruções no topo de cada fonte).

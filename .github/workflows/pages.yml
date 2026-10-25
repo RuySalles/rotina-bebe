@@ -33,7 +33,8 @@ jobs:
       - name: Gerar config.js a partir do segredo
         env:
           WEBAPP_URL: ${{ secrets.ROTINA_WEBAPP_URL }}
-        run: node -e "require('fs').writeFileSync('config.js', 'export const CONFIG = { webAppUrl: ' + JSON.stringify(process.env.WEBAPP_URL || '') + ' };\n')"
+        run: |
+          node -e "require('fs').writeFileSync('config.js', 'export const CONFIG = { webAppUrl: ' + JSON.stringify(process.env.WEBAPP_URL || '') + ' };\n')"
 
       - name: Montar site
         run: |

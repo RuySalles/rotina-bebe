@@ -18,17 +18,18 @@ algo) dizem isso em "Você vai precisar".
 | Fase | Melhoria | Situação |
 |---|---|---|
 | 1 | Desfazer logo depois de registrar | ✅ |
-| 2 | Remédio novo sem precisar de programação | 🧪 |
-| 3 | Abrir o app sem internet | ⬜ |
-| 4 | Alertas no celular pelo Google Agenda | ⬜ |
-| 5 | Mamada completa (peito, lado, tempo) | ⬜ |
-| 6 | Esconder e reordenar botões | ⬜ |
-| 7 | Anotações livres | ⬜ |
-| 8 | Relatório para a consulta | ⬜ |
-| 9 | Consultas e retornos | ⬜ |
-| 10 | Peso e altura | ⬜ |
-| 11 | Aviso de vacina | ⬜ |
-| 12 | App leve depois de muitos meses | ⬜ |
+| 2 | Remédio novo sem precisar de programação | ✅ |
+| 3 | Histórico de ajustes (quem mudou o quê, com volta) | ⬜ |
+| 4 | Abrir o app sem internet | ⬜ |
+| 5 | Alertas no celular pelo Google Agenda | ⬜ |
+| 6 | Mamada completa (peito, lado, tempo) | ⬜ |
+| 7 | Esconder e reordenar botões | ⬜ |
+| 8 | Anotações livres | ⬜ |
+| 9 | Relatório para a consulta | ⬜ |
+| 10 | Consultas e retornos | ⬜ |
+| 11 | Peso e altura | ⬜ |
+| 12 | Aviso de vacina | ⬜ |
+| 13 | App leve depois de muitos meses | ⬜ |
 
 ---
 
@@ -86,7 +87,42 @@ Amoxicilina e Tylenol continuam exatamente como estão.
 
 ---
 
-## Fase 3 — Abrir o app sem internet
+## Fase 3 — Histórico de ajustes (quem mudou o quê, com volta)
+
+**Por quê:** hoje a planilha **sobrescreve** cada ajuste: o valor antigo se perde e não fica registrado quem mudou nem
+quando. Se alguém mexer sem querer (uma dose, o limite de febre, um remédio, um plano de horários), não dá para saber o
+que era antes.
+
+**O que muda:**
+- Toda mudança feita em Ajustes passa a deixar um registro: **quando, quem (o apelido do celular), o quê, o valor de
+  antes e o de depois**. Vale para: nome do bebê, limite de febre, Tylenol (remédio em uso, máximo, doses),
+  amoxicilina (dose, frasco), remédios cadastrados (adicionado, alterado, encerrado, reativado, excluído) e planos de
+  horário (salvo ou encerrado).
+- Em Ajustes, uma seção nova **Histórico de ajustes** mostra as mudanças mais recentes primeiro, por exemplo:
+  "25/10 21:10 · Mãe · Tylenol Bebê: dose em mL · 1,2 → 1,5".
+- Cada item tem **Voltar a este valor**, que desfaz aquela mudança (e a volta também fica registrada).
+- Os registros ficam na aba **eventos** (que só recebe linhas novas, nunca apaga), como um tipo interno que não aparece
+  na tela inicial, no Histórico de registros nem no Resumo.
+
+**Limites (de propósito):**
+- Só registra mudanças feitas **pelo app a partir desta fase**. O que foi mudado antes, ou direto na planilha, não
+  aparece.
+- O apelido de cada celular não entra (ele fica só naquele aparelho).
+
+**Você vai precisar:** nada (sem republicar o Web App, sem mexer na planilha).
+
+**Como testar:**
+- [ ] Mudar o limite de febre de 37,8 para 38: o Histórico de ajustes mostra "Limite de febre · 37,8 → 38" com seu
+      apelido e o horário.
+- [ ] Tocar em **Voltar a este valor**: o limite volta a 37,8 e aparece uma linha nova da volta.
+- [ ] No celular da sua esposa, mudar a dose do Tylenol: no seu celular, depois de sincronizar, aparece com o apelido
+      dela.
+- [ ] Encerrar e reativar um remédio, e salvar um plano de horários: cada um aparece com antes e depois.
+- [ ] Tela inicial, Histórico e Resumo continuam sem nenhum item de ajuste.
+
+---
+
+## Fase 4 — Abrir o app sem internet
 
 **Por quê:** os registros já ficam guardados quando a internet cai com o app aberto, mas **abrir** o app sem sinal
 pode não carregar a tela.
@@ -105,7 +141,7 @@ os registros quando a internet voltar. A atualização automática de versão co
 
 ---
 
-## Fase 4 — Alertas no celular pelo Google Agenda
+## Fase 5 — Alertas no celular pelo Google Agenda
 
 **Por quê:** por não ser de loja, o app não consegue tocar alarme sozinho de forma confiável (principalmente no iPhone).
 O Google Agenda consegue.
@@ -126,7 +162,7 @@ atualizados ou removidos. Vocês dois assinam essa agenda no celular.
 
 ---
 
-## Fase 5 — Mamada completa
+## Fase 6 — Mamada completa
 
 **O que muda:** o registro de Alimentação ganha **peito esquerdo / peito direito / mamadeira** (com quantidade) e
 tempo de mamada (início e fim, como o sono). O botão mostra **qual foi o último lado**. O Resumo mostra quantas
@@ -142,7 +178,7 @@ mamadas e o total de mamadeira no dia. Registros antigos continuam aparecendo no
 
 ---
 
-## Fase 6 — Esconder e reordenar botões
+## Fase 7 — Esconder e reordenar botões
 
 **O que muda:** em Ajustes, escolher quais botões aparecem na tela inicial e em que ordem. Um remédio com tratamento
 concluído (como a amoxicilina depois da 14ª dose) sai da tela inicial sozinho, mas continua no Histórico.
@@ -156,10 +192,10 @@ concluído (como a amoxicilina depois da 14ª dose) sai da tela inicial sozinho,
 
 ---
 
-## Fase 7 — Anotações livres
+## Fase 8 — Anotações livres
 
 **O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço"), com
-texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 8.
+texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 9.
 
 **Você vai precisar:** nada.
 
@@ -169,7 +205,7 @@ texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 8.
 
 ---
 
-## Fase 8 — Relatório para a consulta
+## Fase 9 — Relatório para a consulta
 
 **O que muda:** uma tela **Relatório** com um período à escolha (ex.: últimos 3 dias): gráfico da temperatura, doses
 de cada remédio com horários, sono por dia, fraldas, mamadas e anotações. Dá para mostrar no celular ou salvar em PDF
@@ -184,7 +220,7 @@ pelo compartilhar do celular.
 
 ---
 
-## Fase 9 — Consultas e retornos
+## Fase 10 — Consultas e retornos
 
 **O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
 aparecem em "Próximas 24 horas" quando estiverem perto, e no card PRÓXIMO no dia.
@@ -197,7 +233,7 @@ aparecem em "Próximas 24 horas" quando estiverem perto, e no card PRÓXIMO no d
 
 ---
 
-## Fase 10 — Peso e altura
+## Fase 11 — Peso e altura
 
 **O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico.
 Sem comparar com curvas de crescimento: isso fica com o pediatra.
@@ -210,7 +246,7 @@ Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
 ---
 
-## Fase 11 — Aviso de vacina
+## Fase 12 — Aviso de vacina
 
 **O que muda:** ao registrar uma vacina, dá para anotar a **data da próxima dose** (como está na caderneta). Perto da
 data, ela aparece na linha do tempo e no botão de Vacinas. O app não calcula o calendário sozinho, para não arriscar
@@ -224,7 +260,7 @@ orientação errada.
 
 ---
 
-## Fase 12 — App leve depois de muitos meses
+## Fase 13 — App leve depois de muitos meses
 
 **Por quê:** hoje o app carrega todos os registros a cada sincronização. Por enquanto não faz diferença; com muitos
 meses de uso, fica mais lento, principalmente com internet fraca.
@@ -245,10 +281,13 @@ O Histórico busca os antigos quando você rola até eles. A planilha continua c
 
 - Fase 1: guardar o id do último registro feito no aparelho e usar `store.apagarEvento(id)`; no despertar do sono,
   desfazer = `editarEvento` de volta para os dados anteriores.
-- Fase 2: um tipo genérico `remedio` em `js/tipos/` (dados com `remedio_id`, dose) e definições em `config`
-  (chave `remedios`, JSON). Planos por remédio na aba `planos` com `tipo` = `remedio:<id>`. Sem coluna nova.
-- Fase 3: service worker com cache por versão (`v/<sha>/`), alinhado ao `versao.json` e ao `scripts/montar-site.sh`.
-- Fase 4: muda o `Code.gs` (retrocompatível): `CalendarApp` ao salvar plano. Atualizar o `SETUP.md`.
-- Fase 5: campos novos em `dados` da alimentação; registros antigos sem eles continuam válidos (se o formato de um
+- Fase 2 (feita): `js/tipos/remedio.js`; definições em `config.remedios` (JSON), tipo `remedio_<id>`, plano na aba
+  `planos` com o mesmo tipo.
+- Fase 3: tipo interno `ajuste` em `js/tipos/` (sem botão, fora do Histórico e do Resumo); `dados` = { chave, rotulo,
+  antes, depois }. Gravado pelo `app.js` junto de cada `salvarConfig`/`salvarPlano`. Sem mudança no `store.js` nem no
+  `Code.gs`.
+- Fase 4: service worker com cache por versão (`v/<sha>/`), alinhado ao `versao.json` e ao `scripts/montar-site.sh`.
+- Fase 5: muda o `Code.gs` (retrocompatível): `CalendarApp` ao salvar plano. Atualizar o `SETUP.md`.
+- Fase 6: campos novos em `dados` da alimentação; registros antigos sem eles continuam válidos (se o formato de um
   campo existente mudar, subir `SCHEMA_VERSION` com `migrar`).
-- Fase 12: muda o `Code.gs` (parâmetro opcional de período; sem ele, devolve tudo como hoje). Atualizar o `SETUP.md`.
+- Fase 13: muda o `Code.gs` (parâmetro opcional de período; sem ele, devolve tudo como hoje). Atualizar o `SETUP.md`.

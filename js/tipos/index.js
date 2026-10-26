@@ -4,7 +4,7 @@
 //
 // Formato de um tipo:
 // {
-//   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto),
+//   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto), interno? (sem botão/histórico/resumo),
 //   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'hora', opcoes?, min?, max?, passo?, placeholder?, ajuda? }],
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
 //   resumo(dados, ctx, evento?) → { texto, destaque? },
@@ -32,6 +32,7 @@ import fralda from './fralda.js';
 import banho from './banho.js';
 import vacina from './vacina.js';
 
+import ajuste from './ajuste.js';
 import { lerRemedios, criarTipoRemedio } from './remedio.js';
 
 /** Tipos fixos (os que estão no código). */
@@ -42,6 +43,7 @@ export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
 /**
  * Tipos fixos + remédios cadastrados em Ajustes (config.remedios).
  * todos: inclui remédios encerrados (o histórico deles continua); visiveis: os que têm botão na tela inicial.
+ * mapa: todos + tipos internos (ex. "ajuste", que não aparecem em listas, histórico nem resumo).
  */
 export function montarTipos(config = {}) {
   const remedios = lerRemedios(config).map(criarTipoRemedio);
@@ -49,6 +51,6 @@ export function montarTipos(config = {}) {
   return {
     todos,
     visiveis: todos.filter((t) => !t.remedio || t.remedio.ativo),
-    mapa: Object.fromEntries(todos.map((t) => [t.id, t]))
+    mapa: Object.fromEntries([...todos, ajuste].map((t) => [t.id, t]))
   };
 }

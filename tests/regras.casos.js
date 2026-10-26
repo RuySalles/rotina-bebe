@@ -5,6 +5,7 @@ import {
 } from '../js/regras.js';
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
+import { descreverAjuste } from '../js/tipos/ajuste.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -498,6 +499,38 @@ export function casos({ grupo, teste }) {
     const ctx = montarComRemedios(cfg, [linha('remedio_vit', T('25', '08:00'))], t('25', '12:00'));
     igual(montarAgenda(ctx).filter((i) => i.tipo === 'remedio_vit'), []);
     igual(ctx.tipos.remedio_vit.resumoDia(ctx, '2026-10-25'), { valor: '1 dose', detalhe: '08:00' });
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Histórico de ajustes');
+  teste('Ajuste de config: rótulo e valores legíveis', () => {
+    igual(descreverAjuste({ chave: 'config:febre_limite_c', antes: '37.8', depois: '38' }), { rotulo: 'Limite de febre', antes: '37,8 °C', depois: '38,0 °C' });
+    igual(descreverAjuste({ chave: 'config:tylenol_dose_ml', antes: '1.2', depois: '1.25' }), { rotulo: 'Tylenol Bebê: dose', antes: '1,2 mL', depois: '1,25 mL' });
+    igual(descreverAjuste({ chave: 'config:tylenol_apresentacao', antes: '', depois: 'gotas' }), { rotulo: 'Tylenol: remédio em uso', antes: '(vazio)', depois: 'Paracetamol gotas' });
+    igual(descreverAjuste({ chave: 'config:amoxicilina_frasco_preparado', antes: '2026-10-20', depois: '2026-10-25' }).depois, '25/10/2026');
+  });
+  teste('Ajuste de remédio: adicionado, encerrado, reativado, excluído', () => {
+    const r = { id: 'vit', nome: 'Vitamina X', dose: '2 gotas', modo: 'intervalo', cadaH: 8, ativo: true };
+    const enc = { ...r, ativo: false };
+    igual(descreverAjuste({ chave: 'remedio:vit', antes: '', depois: JSON.stringify(r) }),
+      { rotulo: 'Remédio Vitamina X (adicionado)', acao: 'adicionado', antes: '(não existia)', depois: 'a cada 8h · 2 gotas' });
+    igual(descreverAjuste({ chave: 'remedio:vit', antes: JSON.stringify(r), depois: JSON.stringify(enc) }).acao, 'encerrado');
+    igual(descreverAjuste({ chave: 'remedio:vit', antes: JSON.stringify(enc), depois: JSON.stringify(r) }).acao, 'reativado');
+    igual(descreverAjuste({ chave: 'remedio:vit', antes: JSON.stringify(r), depois: '' }).depois, '(excluído)');
+    igual(descreverAjuste({ chave: 'remedio:vit', antes: JSON.stringify(r), depois: JSON.stringify({ ...r, cadaH: 12 }) }).depois, 'a cada 12h · 2 gotas');
+  });
+  teste('Ajuste de plano: quantidade e período, com o nome do remédio', () => {
+    const d = descreverAjuste({ chave: 'plano:amoxicilina', antes: '', depois: JSON.stringify([T('25', '09:00'), T('25', '21:00'), T('26', '09:00')]) }, { amoxicilina: 'Amoxicilina' });
+    igual(d, { rotulo: 'Plano de horários: Amoxicilina', antes: 'sem plano', depois: '3 horários, de 25/10 09:00 a 26/10 09:00' });
+  });
+  teste('Tipo "ajuste" lê da planilha, mas fica fora de botões, listas e agenda', () => {
+    const { todos, visiveis, mapa } = montarTipos({});
+    verdade(mapa.ajuste && mapa.ajuste.interno);
+    verdade(!todos.includes(mapa.ajuste) && !visiveis.includes(mapa.ajuste));
+    const linhas = [linha('ajuste', T('25', '10:00'), { chave: 'config:febre_limite_c', antes: '37.8', depois: '38' }), ...base()];
+    const ctx = criarContexto({ eventos: resolverEventos(linhas, mapa), planos: {}, config: {}, agora: t('25', '13:00'), tipos: mapa });
+    igual(ctx.doTipo('ajuste').length, 1);
+    igual(montarAgenda(ctx).filter((i) => i.tipo === 'ajuste'), []);
   });
 
   // ---------------------------------------------------------------------

@@ -19,7 +19,7 @@ algo) dizem isso em "Você vai precisar".
 |---|---|---|
 | 1 | Desfazer logo depois de registrar | ✅ |
 | 2 | Remédio novo sem precisar de programação | ✅ |
-| 3 | Histórico de ajustes (quem mudou o quê, com volta) | ⬜ |
+| 3 | Histórico de ajustes (quem mudou o quê, com volta) | 🧪 |
 | 4 | Abrir o app sem internet | ⬜ |
 | 5 | Alertas no celular pelo Google Agenda | ⬜ |
 | 6 | Mamada completa (peito, lado, tempo) | ⬜ |
@@ -100,7 +100,8 @@ que era antes.
   horário (salvo ou encerrado).
 - Em Ajustes, uma seção nova **Histórico de ajustes** mostra as mudanças mais recentes primeiro, por exemplo:
   "25/10 21:10 · Mãe · Tylenol Bebê: dose em mL · 1,2 → 1,5".
-- Cada item tem **Voltar a este valor**, que desfaz aquela mudança (e a volta também fica registrada).
+- Cada item tem **Voltar** (toque e depois **Confirmar**), que desfaz aquela mudança (e a volta também fica registrada).
+  Mostra as 10 mais recentes; **Ver mais** traz as anteriores.
 - Os registros ficam na aba **eventos** (que só recebe linhas novas, nunca apaga), como um tipo interno que não aparece
   na tela inicial, no Histórico de registros nem no Resumo.
 
@@ -114,7 +115,7 @@ que era antes.
 **Como testar:**
 - [ ] Mudar o limite de febre de 37,8 para 38: o Histórico de ajustes mostra "Limite de febre · 37,8 → 38" com seu
       apelido e o horário.
-- [ ] Tocar em **Voltar a este valor**: o limite volta a 37,8 e aparece uma linha nova da volta.
+- [ ] Tocar em **Voltar** e depois em **Confirmar**: o limite volta a 37,8 e aparece uma linha nova da volta.
 - [ ] No celular da sua esposa, mudar a dose do Tylenol: no seu celular, depois de sincronizar, aparece com o apelido
       dela.
 - [ ] Encerrar e reativar um remédio, e salvar um plano de horários: cada um aparece com antes e depois.

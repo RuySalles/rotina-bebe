@@ -3,6 +3,7 @@
 import * as store from './store.js';
 import { montarTipos } from './tipos/index.js';
 import { lerRemedios, corPara, MODOS } from './tipos/remedio.js';
+import { descreverAjuste } from './tipos/ajuste.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -20,6 +21,7 @@ let filtroHistorico = '';
 let diaResumo = 0; // 0 = hoje, -1 = ontem
 let urlDoConfig = '';
 let remedioEditando = ''; // id do remédio aberto no formulário de Ajustes ('' = novo)
+let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
 
 // Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
 let TIPOS = {};
@@ -538,7 +540,7 @@ function paineis() {
 
 function vistaHistorico() {
   const eventos = ctx.eventos
-    .filter((e) => TIPOS[e.tipo] && (!filtroHistorico || e.tipo === filtroHistorico))
+    .filter((e) => TIPOS[e.tipo] && !TIPOS[e.tipo].interno && (!filtroHistorico || e.tipo === filtroHistorico))
     .sort((a, b) => b.t - a.t);
   const comChip = TODOS_TIPOS.filter((t) => LISTA_TIPOS.includes(t) || ctx.doTipo(t.id).length);
   const chips = [['', 'Todos'], ...comChip.map((t) => [t.id, t.rotulo])]
@@ -669,6 +671,8 @@ function vistaAjustes() {
       ${planos}
     </section>
 
+    ${secaoHistoricoAjustes()}
+
     <section class="secao">
       <h2 class="secao-titulo">Este celular</h2>
       <form class="cartao form" data-form="apelido">
@@ -779,8 +783,99 @@ function secaoRemedios() {
     </section>`;
 }
 
-/** Grava a lista inteira de remédios (aba config, chave "remedios"). */
+// ---------------------------------------------------------------------------
+// Histórico de ajustes (tipo interno "ajuste" na aba eventos; ver js/tipos/ajuste.js)
+// ---------------------------------------------------------------------------
+
+/** Registra uma mudança de Ajustes com o antes e o depois (crus). Nada é gravado se não mudou. */
+function registrarAjuste(chave, antes, depois) {
+  if (String(antes ?? '') === String(depois ?? '')) return;
+  store.adicionarEvento('ajuste', Date.now(), { chave, antes: String(antes ?? ''), depois: String(depois ?? '') });
+}
+
+/** Horários (ms ou ISO) → JSON de ISO em ordem, ou '' sem plano. */
+const planoTexto = (horarios) => {
+  const lista = (horarios || []).map((t) => (typeof t === 'number' ? t : Date.parse(t))).filter(Number.isFinite).sort((a, b) => a - b);
+  return lista.length ? JSON.stringify(lista.map((t) => isoSP(t))) : '';
+};
+
+/** Salva um plano de horários e registra o antes e o depois. Devolve false se nada mudou. */
+function salvarPlanoComAjuste(tipo, horarios) {
+  const antes = planoTexto(ctx.plano(tipo)?.horarios);
+  const depois = planoTexto(horarios);
+  if (antes === depois) return false;
+  registrarAjuste(`plano:${tipo}`, antes, depois);
+  store.salvarPlano(tipo, horarios);
+  return true;
+}
+
+function secaoHistoricoAjustes() {
+  // ctx.eventos já vem em ordem (horário, criação; empates na ordem em que foram gravados): basta inverter.
+  const lista = ctx.eventos.filter((e) => e.tipo === 'ajuste').reverse();
+  const nomes = Object.fromEntries(TODOS_TIPOS.map((t) => [t.id, t.rotulo]));
+  const itens = lista.slice(0, limiteAjustes).map((e) => {
+    const d = descreverAjuste(e.dados, nomes);
+    return `
+      <li class="ajuste-item">
+        <p class="ajuste-quando">${esc(quandoCurto(e.t, ctx.agora))}${e.quem ? ` · ${esc(e.quem)}` : ''}</p>
+        <p class="ajuste-rotulo">${esc(d.rotulo)}</p>
+        <p class="ajuste-valores"><span class="ajuste-antes">${esc(d.antes)}</span> <span aria-label="mudou para">→</span> <span>${esc(d.depois)}</span></p>
+        <button class="botao botao--leve botao--pequeno" type="button" data-acao="voltar-ajuste" data-id="${esc(e.id)}" aria-label="Voltar ao valor anterior">Voltar</button>
+      </li>`;
+  }).join('');
+  return `
+    <section class="secao" id="historico-ajustes">
+      <h2 class="secao-titulo">Histórico de ajustes</h2>
+      ${lista.length ? `
+        <ul class="cartao lista ajustes-lista">${itens}</ul>
+        ${lista.length > limiteAjustes ? `<button class="botao botao--leve" type="button" data-acao="mais-ajustes">Ver mais (${lista.length - limiteAjustes})</button>` : ''}
+      ` : '<p class="ajuda">As mudanças feitas aqui em Ajustes aparecem nesta lista, com quem mudou, quando, o valor de antes e o de depois.</p>'}
+    </section>`;
+}
+
+/** Volta ao valor de antes de um ajuste. A volta também fica registrada. */
+function voltarAjuste(evento) {
+  const { chave = '', antes = '' } = evento.dados || {};
+  const [grupo, ...resto] = chave.split(':');
+  const alvo = resto.join(':');
+  if (grupo === 'config') {
+    const atual = String(estado.config[alvo] ?? '');
+    if (atual === antes) return toast('Já está com esse valor');
+    registrarAjuste(chave, atual, antes);
+    store.salvarConfig(alvo, antes);
+  } else if (grupo === 'remedio') {
+    const lista = lerRemedios(estado.config);
+    const i = lista.findIndex((x) => x.id === alvo);
+    let def = null;
+    try { def = antes ? JSON.parse(antes) : null; } catch { return toast('Não foi possível voltar este ajuste'); }
+    if (!def) {
+      if (i < 0) return toast('Já está assim');
+      if (ctx.doTipo(`remedio_${alvo}`).length) return toast('Esse remédio já tem doses. Em vez de excluir, use Encerrar.', 4000);
+      lista.splice(i, 1);
+    } else if (i >= 0) lista[i] = def;
+    else lista.push(def);
+    if (JSON.stringify(lerRemedios({ remedios: JSON.stringify(lista) })) === JSON.stringify(lerRemedios(estado.config))) {
+      return toast('Já está com esse valor');
+    }
+    salvarRemedios(lista);
+  } else if (grupo === 'plano') {
+    let horarios = [];
+    try { horarios = antes ? JSON.parse(antes) : []; } catch { return toast('Não foi possível voltar este ajuste'); }
+    if (!salvarPlanoComAjuste(alvo, horarios)) return toast('Já está com esse valor');
+  } else {
+    return toast('Não foi possível voltar este ajuste');
+  }
+  toast('Voltou ao valor anterior');
+  render();
+}
+
+/** Grava a lista inteira de remédios (aba config, chave "remedios") e registra o que mudou em cada um. */
 function salvarRemedios(lista) {
+  const antes = new Map(lerRemedios(estado.config).map((r) => [r.id, JSON.stringify(r)]));
+  const depois = new Map(lerRemedios({ remedios: JSON.stringify(lista) }).map((r) => [r.id, JSON.stringify(r)]));
+  for (const id of new Set([...antes.keys(), ...depois.keys()])) {
+    registrarAjuste(`remedio:${id}`, antes.get(id) || '', depois.get(id) || '');
+  }
   store.salvarConfig('remedios', JSON.stringify(lista));
 }
 
@@ -865,7 +960,12 @@ function salvarFormAjustes(form) {
     valores.febre_limite_c = valores.febre_limite_c ? String(numero(valores.febre_limite_c)) : '';
     let mudou = 0;
     for (const [chave, valor] of Object.entries(valores)) {
-      if (String(estado.config[chave] ?? '') !== valor) { store.salvarConfig(chave, valor); mudou++; }
+      const antes = String(estado.config[chave] ?? '');
+      if (antes !== valor) {
+        registrarAjuste(`config:${chave}`, antes, valor);
+        store.salvarConfig(chave, valor);
+        mudou++;
+      }
     }
     toast(mudou ? 'Ajustes salvos' : 'Nada mudou');
     render();
@@ -882,7 +982,7 @@ function salvarFormAjustes(form) {
     });
     if (invalidas.length) return toast(`Não entendi: “${invalidas[0]}”. Use 25/10/2026 08:00`, 4500);
     if (!horarios.length) return toast('Escreva pelo menos um horário');
-    store.salvarPlano(form.dataset.tipo, [...new Set(horarios)].sort((a, b) => a - b));
+    salvarPlanoComAjuste(form.dataset.tipo, [...new Set(horarios)].sort((a, b) => a - b));
     toast('Plano salvo');
     render();
   } else if (tipoForm === 'apelido') {
@@ -1201,6 +1301,19 @@ app.addEventListener('click', async (e) => {
     remedioEditando = '';
     toast(r.ativo ? `${r.nome} voltou para a tela inicial` : `${r.nome} encerrado. As doses continuam no Histórico.`, 3500);
     render();
+  } else if (acao === 'voltar-ajuste') {
+    const ev = ctx.eventos.find((x) => x.id === b.dataset.id && x.tipo === 'ajuste');
+    if (!ev) return;
+    if (b.dataset.armado !== '1') {
+      b.dataset.armado = '1';
+      b.textContent = 'Confirmar';
+      setTimeout(() => { if (b.isConnected) { b.dataset.armado = ''; b.textContent = 'Voltar'; } }, 4000);
+      return;
+    }
+    voltarAjuste(ev);
+  } else if (acao === 'mais-ajustes') {
+    limiteAjustes += 20;
+    render();
   } else if (acao === 'excluir-remedio') {
     // Só existe para remédio sem doses: nenhum registro da aba eventos fica sem dono.
     if (ctx.doTipo(`remedio_${b.dataset.id}`).length) return toast('Esse remédio já tem doses. Use Encerrar.');
@@ -1223,7 +1336,7 @@ app.addEventListener('click', async (e) => {
       b.textContent = 'Toque de novo para encerrar';
       return;
     }
-    store.salvarPlano(form.dataset.tipo, []);
+    salvarPlanoComAjuste(form.dataset.tipo, []);
     toast('Plano encerrado');
     render();
   }

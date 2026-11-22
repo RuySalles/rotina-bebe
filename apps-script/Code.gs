@@ -9,6 +9,13 @@
  * do cabeçalho, então colunas extras não quebram nada.
  */
 
+/**
+ * Versão deste código. SUBA O NÚMERO a cada mudança no Code.gs (e atualize VERSAO_BACKEND_ESPERADA no
+ * js/store.js). O app mostra em Ajustes qual versão está publicada, para conferir se a republicação pegou.
+ * Histórico: 4 = fase 4 (lote e leitura incremental). Antes disso não havia número.
+ */
+var VERSAO_BACKEND = 4;
+
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
   planos: ['id', 'tipo', 'horarios', 'ativo', 'criado_em'],
@@ -65,11 +72,11 @@ function doPost(e) {
           return { ok: false, erro: String(errItem.message || errItem) };
         }
       });
-      var resposta = { ok: true, resultados: resultados };
+      var resposta = { ok: true, resultados: resultados, versao_backend: VERSAO_BACKEND };
       if (corpo.desde !== undefined) resposta.leitura = leitura_(corpo.desde);
       return json_(resposta);
     }
-    return json_({ ok: true, resultado: gravar_(corpo.acao, payload) });
+    return json_({ ok: true, resultado: gravar_(corpo.acao, payload), versao_backend: VERSAO_BACKEND });
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   } finally {
@@ -103,7 +110,8 @@ function leitura_(desde) {
     eventos: parcial ? lerLinhas_('eventos', n + 1) : lerLinhas_('eventos'),
     planos: lerLinhas_('planos'),
     config: lerConfig_(),
-    linha_eventos: ultima
+    linha_eventos: ultima,
+    versao_backend: VERSAO_BACKEND
   };
   if (parcial) resposta.parcial = true;
   return resposta;

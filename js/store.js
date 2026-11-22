@@ -20,6 +20,11 @@ const INTERVALO_SYNC_MS = 30 * 1000;
 // De tempos em tempos baixa tudo de novo, para corrigir qualquer diferença (ex. mexeram direto na planilha).
 const COMPLETA_A_CADA_MS = 10 * 60 * 1000;
 const LOTE_MAX = 40;
+// Versão do apps-script/Code.gs que este app espera (VERSAO_BACKEND lá). Ajustes avisa se a publicada for mais velha.
+export const VERSAO_BACKEND_ESPERADA = 4;
+
+/** Versão do Code.gs pela resposta: o número, ou deduzida (fase 4 publicada antes de ter número; 0 = anterior). */
+const versaoDaResposta = (json) => (Number.isFinite(json.versao_backend) ? json.versao_backend : Number.isFinite(json.linha_eventos) ? 4 : 0);
 
 const lsLer = (k, padrao = null) => {
   try {
@@ -88,7 +93,7 @@ function linhasAtuais() {
 export function obterEstado() {
   return {
     ...linhasAtuais(),
-    sync: { ...sync, pendentes: fila.length }
+    sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null }
   };
 }
 
@@ -213,6 +218,7 @@ function aplicarLeitura(json) {
       planos: json.planos || [],
       config: json.config || {},
       linha_eventos: json.linha_eventos,
+      versao_backend: versaoDaResposta(json),
       ultima: agora
     };
   } else {
@@ -222,6 +228,7 @@ function aplicarLeitura(json) {
       config: json.config || {},
       // Web App antigo não manda linha_eventos: aí toda leitura continua completa, como antes.
       linha_eventos: Number.isFinite(json.linha_eventos) ? json.linha_eventos : null,
+      versao_backend: versaoDaResposta(json),
       completa: agora,
       ultima: agora
     };

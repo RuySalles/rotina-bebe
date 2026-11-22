@@ -44,8 +44,10 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 4. **A API do `store.js` é estável**: pode ganhar funções novas, mas as existentes não mudam de assinatura:
    `carregar()`, `adicionarEvento(tipo, horario, dados)`, `editarEvento(id, mudancas)`, `apagarEvento(id)`,
    `salvarPlano(tipo, horarios)`, `salvarConfig(chave, valor)`, `assinar(callback)`.
-5. **Mudanças no `Code.gs` precisam ser retrocompatíveis.** Se mudar, avise que é preciso republicar o Web App
-   (Implantar → Gerenciar implantações → editar → Nova versão) e atualize o `SETUP.md`.
+5. **Mudanças no `Code.gs` precisam ser retrocompatíveis.** Se mudar, suba `VERSAO_BACKEND` (no `Code.gs`) e
+   `VERSAO_BACKEND_ESPERADA` (no `store.js`) para o mesmo número, avise que é preciso republicar o Web App
+   (Implantar → Gerenciar implantações → editar → Nova versão) e atualize o `SETUP.md`. Ajustes mostra a versão
+   publicada ("Web App: versão N"), para o usuário conferir que a republicação pegou.
 6. **Se o formato de `dados` mudar, incremente `SCHEMA_VERSION`** (em `js/regras.js`) e mantenha a leitura das versões
    antigas (função `migrar(dados, versao)` do tipo + um teste em `tests/regras.casos.js`).
 7. **Nenhum nome real, dado de saúde, chave ou URL do Web App no repositório.**

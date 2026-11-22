@@ -105,6 +105,9 @@ Depois do primeiro acesso a chave fica guardada no celular e some da barra de en
 **Atualizei o Code.gs — e agora?**
 Cole o código novo no editor, salve e vá em **Implantar → Gerenciar implantações → lápis (editar) →
 Versão: Nova versão → Implantar**. A URL continua a mesma; não precisa mexer no segredo.
+Para conferir: no app, **Ajustes**, no fim da tela, aparece "Web App: versão N". Depois de republicar, toque em
+**Sincronizar agora**: o número deve ser o do `VERSAO_BACKEND` no topo do `Code.gs`. Se aparecer "republique",
+o celular ainda está falando com a versão antiga.
 
 **Histórico de mudanças no Code.gs** (todas compatíveis: app e Web App de versões diferentes continuam
 funcionando juntos; só ficam mais rápidos depois de republicar):

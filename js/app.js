@@ -325,6 +325,8 @@ function aoMudarEstado() {
     if (pilula) pilula.outerHTML = pilulaSync();
     const status = document.getElementById('status-sync');
     if (status) status.textContent = textoSyncDetalhado();
+    const versaoBackend = document.getElementById('versao-backend');
+    if (versaoBackend) versaoBackend.textContent = textoVersaoBackend();
     return;
   }
   render();
@@ -377,6 +379,16 @@ function textoSyncDetalhado() {
   if (s.pendentes) partes.push(`${s.pendentes} registro(s) esperando internet`);
   if (s.estado === 'erro' && s.mensagem) partes.push(s.mensagem);
   return partes.join(' · ') || 'Ainda não sincronizado';
+}
+
+/** Versão do Web App (Code.gs) publicada, para conferir se uma republicação pegou. */
+function textoVersaoBackend() {
+  const v = estado.sync.backend;
+  if (v === null || v === undefined) return 'Web App: versão ainda não conferida';
+  const nome = v > 0 ? `versão ${v}` : 'versão anterior à 4';
+  return v < store.VERSAO_BACKEND_ESPERADA
+    ? `Web App: ${nome} · republique para a versão ${store.VERSAO_BACKEND_ESPERADA} (veja o SETUP.md)`
+    : `Web App: ${nome}`;
 }
 
 function navegacao() {
@@ -709,6 +721,7 @@ function vistaAjustes() {
         <p class="ajuda" id="status-sync">${esc(textoSyncDetalhado())}</p>
         <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
         <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
+        <p class="ajuda versao" id="versao-backend">${esc(textoVersaoBackend())}</p>
       </div>
     </section>`;
 }

@@ -418,14 +418,16 @@ function vistaInicio() {
   const { principal } = escolherProximo(agenda);
   // Os próximos horários (no máximo 3) entram no próprio card, como "Depois".
   const depois = agenda.filter((i) => i !== principal).slice(0, 3);
+  // Celular: PRÓXIMO, botões, faixa (uma coluna). Tela larga: PRÓXIMO e faixa à esquerda, botões à direita.
   return `
-    ${cardProximo(principal, depois)}
-    <section class="secao">
-      <h2 class="secao-titulo">Registrar</h2>
-      <div class="grade">${LISTA_TIPOS.filter((t) => t.rotina).map(tile).join('')}</div>
-      ${faixaCompacta()}
-    </section>
-    ${paineis()}`;
+    <div class="inicio">
+      <div class="inicio-proximo">${cardProximo(principal, depois)}</div>
+      <section class="inicio-registrar" aria-label="Registrar">
+        <div class="grade">${LISTA_TIPOS.filter((t) => t.rotina).map(tile).join('')}</div>
+      </section>
+      <div class="inicio-faixa">${faixaCompacta()}</div>
+      <div class="inicio-paineis">${paineis()}</div>
+    </div>`;
 }
 
 /** Linhas "Depois" do card PRÓXIMO. */
@@ -456,7 +458,7 @@ function cardProximo(item, depois = []) {
   return `
     <section class="proximo ${item.alerta ? 'proximo--alerta' : ''}" ${estiloCor(tipo)}>
       <div class="proximo-topo">
-        <span class="proximo-rotulo">${item.alerta ? `${ICONES.alerta} Atrasado` : item.previsao ? 'Próximo · por volta de' : 'Próximo'}</span>
+        <span class="proximo-rotulo">${item.alerta ? `${ICONES.alerta} Atrasado` : item.previsao ? (item.t < ctx.agora ? 'Já passou do costume' : 'Próximo · por volta de') : 'Próximo'}</span>
         <span class="proximo-conta">${esc(contagem(item.t, ctx.agora))}</span>
       </div>
       <div class="proximo-corpo">
@@ -480,9 +482,9 @@ function tile(tipo) {
     <button class="tile ${classe}" data-acao="registrar" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
       <span class="tile-topo">
         <span class="icone">${tipo.icone}</span>
+        <span class="tile-rotulo">${esc(tipo.rotulo)}</span>
         <span class="tile-mais" aria-hidden="true">+</span>
       </span>
-      <span class="tile-rotulo">${esc(tipo.rotulo)}</span>
       <span class="tile-forte">${esc(forte)}</span>
       ${resto.map((l) => `<span class="tile-linha">${esc(l)}</span>`).join('')}
     </button>`;
@@ -615,7 +617,7 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}${blocos}`;
+  return `<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
 }
 
 /**
@@ -692,7 +694,7 @@ function vistaAjustes() {
   const ultimoAjuste = ajustes.at(-1);
   const emUso = remediosNaLista().emUso.length;
   return `
-    <div class="blocos">
+    <div class="blocos ajustes">
       ${bloco('bebe', cabecaBloco('Bebê', [nome || 'Sem nome', `febre a partir de ${limite} °C`].join(' · ')), formBebe())}
       ${bloco('remedios', cabecaBloco('Remédios', emUso === 1 ? '1 em uso' : `${emUso} em uso`), conteudoRemedios())}
       ${bloco('historico-ajustes', cabecaBloco('Histórico de ajustes', ultimoAjuste

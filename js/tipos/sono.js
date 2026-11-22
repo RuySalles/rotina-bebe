@@ -53,8 +53,8 @@ export function previsaoSono(ctx) {
   if (acordou === null || acordou > ctx.agora) return null;
   return preverSono(ritmoDoSono(ctx).atual, acordou);
 }
-// Previsão que já passou há mais que isso sai do card (ele pode ter dormido sem registrarem ainda).
-const PREVISAO_VALE_MIN = 60;
+// Previsão que já passou continua no card ("já passou do costume", sem vermelho) por até 6h.
+const PREVISAO_VALE_MIN = 6 * 60;
 
 const quando = (t, agora) => (chaveDia(t) === chaveDia(agora) ? fmtHora(t) : `${fmtData(t)} ${fmtHora(t)}`);
 
@@ -100,7 +100,7 @@ export default {
       if (!ultimo) return { linhas: ['Nenhum registro', 'Toque quando dormir'] };
       const acordou = fimDe(ultimo);
       const prev = previsaoSono(ctx);
-      const linhaPrev = prev ? `${prev.noite ? 'Dormir à noite' : 'Próximo sono'} ~${fmtHora(prev.t)}` : null;
+      const linhaPrev = prev ? `${prev.noite ? 'Dormir à noite' : 'Próximo sono'} ~${fmtHora(prev.t)}${prev.t < ctx.agora ? ' · já passou' : ''}` : null;
       return { linhas: [`Acordado há ${fmtDuracao((ctx.agora - acordou) / MIN)}`, ...(linhaPrev ? [linhaPrev] : []), `Hoje: ${fmtDuracao(hoje)} de sono`] };
     },
 

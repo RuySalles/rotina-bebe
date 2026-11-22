@@ -225,7 +225,7 @@ export default {
         linhas.push(temLeite(leite) ? `Leite ${fmtHora(leite.t)}${ml ? ` · ${ml} mL` : ''}` : `Última ${fmtHora(leite.t)}`);
       }
       if (tyl) linhas.push(`20–30 min após o Tylenol (${fmtHora(tyl.t + 20 * MIN)}–${fmtHora(tyl.t + 30 * MIN)})`);
-      else if (leite) { const pr = proximoLeite(ctx, leite); linhas.push(`Próximo leite ${pr.ritmo ? '~' : ''}${fmtHora(pr.t)}`); }
+      else if (leite) { const pr = proximoLeite(ctx, leite); linhas.push(`Próximo leite ${pr.ritmo ? '~' : ''}${fmtHora(pr.t)}${pr.ritmo && pr.t < ctx.agora ? ' · já passou' : ''}`); }
       // Comida recente num registro separado (se foi junto com o leite, a linha do leite já basta).
       if (comida && comida.id !== leite?.id && (!leite || comida.t > leite.t - 6 * 60 * MIN)) {
         linhas.push(`${itensDe(comida).includes('refeicao') ? 'Refeição' : 'Fruta'} ${fmtHora(comida.t)}`);
@@ -246,14 +246,14 @@ export default {
       if (!leite) return [];
       const pr = proximoLeite(ctx, leite);
       if (pr.ritmo) {
-        // Previsão pelo ritmo: nunca vira "Atrasado"; passou de 1h, sai do card (pode ter mamado sem registro).
-        if (ctx.agora > pr.t + 60 * MIN) return [];
+        // Previsão pelo ritmo: nunca vira "Atrasado"; depois da hora fica como "já passou do costume" (até 6h).
+        if (ctx.agora > pr.t + 6 * 60 * MIN) return [];
         return [{
           t: pr.t,
           titulo: 'Leite',
           detalhe: pr.refeicao
-            ? `depois da refeição das ${fmtHora(pr.refeicao.t)}, costuma vir nesse horário`
-            : `costuma ser a cada ~${fmtDuracao(pr.minutos)} nesse horário (último ${fmtHora(leite.t)})`,
+            ? `costuma vir assim depois da refeição (${fmtHora(pr.refeicao.t)})`
+            : `costuma ser a cada ~${fmtDuracao(pr.minutos)} nesse horário`,
           previsao: true
         }];
       }

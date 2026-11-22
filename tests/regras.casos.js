@@ -347,7 +347,7 @@ export function casos({ grupo, teste }) {
     igual(preverLeite(r, N(21, '07:00')), { t: N(21, '10:30'), minutos: 210, porRefeicao: false });
     igual(preverLeite(r, N(21, '10:30'), N(21, '12:30')), { t: N(21, '14:30'), minutos: 210, porRefeicao: true });
   });
-  teste('Sono no card: previsão sem "Atrasado", e sai 1h depois da hora prevista', () => {
+  teste('Sono no card: previsão sem "Atrasado"; passada a hora fica "já passou" e sai depois de 6h', () => {
     const linhas = sonosFicticios.filter((s) => s.t < N(21, '00:00')).map((s, i) =>
       linha('sono', isoSP(s.t), { fim: isoSP(s.fim) }, { id: `s${i}`, schema_version: '2' }));
     linhas.push(linha('sono', isoSP(N(21, '09:00')), { fim: isoSP(N(21, '10:30')) }, { id: 'hoje', schema_version: '2' }));
@@ -355,7 +355,10 @@ export function casos({ grupo, teste }) {
     const [item] = TIPOS.sono.regras.proximos(ctxEm(N(21, '11:00')));
     igual([item.t, item.previsao, !!item.alerta], [N(21, '12:30'), true, false]);
     verdade(TIPOS.sono.regras.status(ctxEm(N(21, '11:00'))).linhas.includes('Próximo sono ~12:30'));
-    igual(TIPOS.sono.regras.proximos(ctxEm(N(21, '13:40'))), []);
+    const passou = TIPOS.sono.regras.proximos(ctxEm(N(21, '13:40')));
+    igual([passou.length, !!passou[0].alerta], [1, false], 'passou da hora: continua, sem vermelho');
+    verdade(TIPOS.sono.regras.status(ctxEm(N(21, '13:40'))).linhas.includes('Próximo sono ~12:30 · já passou'));
+    igual(TIPOS.sono.regras.proximos(ctxEm(N(21, '19:00'))), [], 'depois de 6h sai');
   });
   teste('Mediana', () => {
     igual([mediana([3, 1, 2]), mediana([4, 1, 3, 2]), mediana([])], [2, 2.5, null]);

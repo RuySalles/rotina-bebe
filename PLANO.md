@@ -289,9 +289,18 @@ muda com a hora do dia.
   ficam a até meia hora). A do leite erra mais (~50 min), porque as mamadeiras variam mais; ela melhora a conta fixa
   das 3h, mas é só uma referência.
 
+- Ajustes depois dos primeiros prints (22/11): previsão que já passou da hora **continua no card** como "Já passou
+  do costume" (sem vermelho) por até 6h, em vez de sumir e deixar "Nada programado"; o botão mostra "· já passou".
+- Junto, a tela ficou **responsiva**: tudo em rem com a fonte base crescendo com a tela (16px no celular, ~18px em
+  Full HD, ~21px em ultrawide, ~26px em 4K); cartões mais compactos e espaçamento uniforme; tablet com a folha de
+  registro no meio da tela; desktop com barra lateral, Início em duas colunas com os botões grandes ocupando a altura
+  da tela, e Histórico/Ajustes em colunas (dias da esquerda para a direita).
+
 **Você vai precisar:** nada.
 
 **Como testar:**
+- [ ] Quando passar da hora prevista sem registro, o card mostra "Já passou do costume" (não "Nada programado").
+- [ ] Abrir o app no computador (e, se tiver, numa TV ou monitor grande): ocupa a tela toda, com letras proporcionais.
 - [ ] Depois de marcar o despertar de um cochilo de manhã, o botão de Sono mostra "Próximo sono ~…" num horário que faz
       sentido para vocês.
 - [ ] Depois de uma mamadeira, o botão de Alimentação mostra "Próximo leite ~…"; registrar uma fruta não muda esse

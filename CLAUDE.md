@@ -67,3 +67,5 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   e gotas 200 mg/mL): `tylenol_apresentacao` escolhe o em uso; nunca converter dose de um para o outro.
 - O rodapé "Ferramenta de organização. Não substitui orientação médica." aparece em todas as telas.
 - Tema claro/escuro automático via tokens CSS em `:root`. Cores de cada tipo vêm de `tipo.cor` (`--cor`).
+- Tamanhos no CSS sempre em `rem` (a fonte base em `html` cresce com a tela, do celular ao 4K); `px` só em bordas
+  finas e nos pontos de quebra (`@media`: 700px tablet, 1000px, 1100px desktop com barra lateral, 1800px, 2600px).

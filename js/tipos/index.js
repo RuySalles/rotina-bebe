@@ -5,7 +5,9 @@
 // Formato de um tipo:
 // {
 //   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto), interno? (sem botão/histórico/resumo),
-//   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'hora', opcoes?, min?, max?, passo?, placeholder?, ajuda? }],
+//   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'multiplas' | 'hora', opcoes?, min?, max?, passo?, casas?,
+//              placeholder?, ajuda?, mostrarSe?(dados) → bool, atalhos?(ctx, dados) → [{ valor, rotulo }] }],
+//     ('multiplas': opcoes = [{ valor, rotulo }], guarda uma lista; campo com mostrarSe falso não é gravado)
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
 //   resumo(dados, ctx, evento?) → { texto, destaque? },
 //   padroes?(ctx) → dados                 (valores já preenchidos num registro novo)

@@ -1,12 +1,131 @@
-import { proximaPorRecorrencia, fmtHora } from '../regras.js';
+import { proximaPorRecorrencia, fmtHora, numero } from '../regras.js';
+
+// O que foi, em dados.itens (pode ser mais de um no mesmo registro): leite (com dados.ml), fruta, refeição
+// (papinha, sopa…). dados.quantidade guarda o texto do que comeu; dados.observacao, uma observação.
+// Registros antigos (schema_version 1) só tinham o texto: migrar() deduz itens e ml dele, sem regravar nada.
+export const ITENS = [
+  { valor: 'leite', rotulo: 'Leite' },
+  { valor: 'fruta', rotulo: 'Fruta' },
+  { valor: 'refeicao', rotulo: 'Refeição' }
+];
+const ROTULO = Object.fromEntries(ITENS.map((i) => [i.valor, i.rotulo]));
 
 const RECORRENCIA_H = 3;
 const MIN = 60 * 1000;
+const DIA = 24 * 60 * MIN;
+const ML_PADRAO = [90, 120, 150, 180];
+
+const RE_LEITE = /leite|tet[eê]|mamadeira|f[oó]rmula/i;
+const RE_REFEICAO = /sopa|sopinha|\bsolo\b|cubo|cubinho|papinha|feij|arroz|batata|inhame|ab[oó]bora|cenoura|legume|frango|carne|ovo|macarr/i;
+const RE_FRUTA = /banana|ameixa|mam[aã]o|\bpera\b|ma[cç][aã]|fruta|laranja|abacate|manga|melancia|mel[aã]o|uva|morango|kiwi/i;
+
+/**
+ * Deduz itens e mL de um texto livre antigo ("180ml de leite", "Banana e 150ml", "80ml de sopa e 90ml de leite").
+ * Devolve { itens, ml, resto }: resto é o texto sem a parte do leite (vazio se só falava do leite).
+ */
+export function lerTextoAlimentacao(texto) {
+  const t = String(texto || '').trim();
+  if (!t) return { itens: [], ml: null, resto: '' };
+  const soNumero = t.match(/^(\d{2,3})\s*(ml)?\.?$/i);
+  if (soNumero) return { itens: ['leite'], ml: Number(soNumero[1]), resto: '' };
+  const itens = [];
+  let ml = null;
+  let resto = t;
+  // "150 ml de leite", "180ml tete", "leite 120ml"
+  const comLeite = t.match(/(\d{2,3})\s*ml\s*(?:de\s+)?(?:leite|tet[eê])/i) || t.match(/(?:leite|tet[eê])\s*(?:de\s+)?(\d{2,3})\s*ml/i);
+  if (comLeite) {
+    ml = Number(comLeite[1]);
+    resto = resto.replace(comLeite[0], ' ');
+  }
+  if (RE_LEITE.test(t)) {
+    itens.push('leite');
+    resto = resto.replace(/\b(?:de\s+)?(?:leite|tet[eê])\b/gi, ' ');
+  } else if (!RE_REFEICAO.test(t) && !RE_FRUTA.test(t)) {
+    // "e 150ml" sem dizer de quê: só conta como leite se não falar de comida.
+    const mlSolto = t.match(/(\d{2,3})\s*ml/i);
+    if (mlSolto) { itens.push('leite'); ml = Number(mlSolto[1]); resto = resto.replace(mlSolto[0], ' '); }
+  } else if (!RE_REFEICAO.test(t)) {
+    // "Banana e 150ml": fruta + leite (sopa com mL não é leite).
+    const mlSolto = t.match(/(\d{2,3})\s*ml/i);
+    if (mlSolto) { itens.push('leite'); ml = Number(mlSolto[1]); resto = resto.replace(mlSolto[0], ' '); }
+  }
+  if (RE_FRUTA.test(t)) itens.push('fruta');
+  if (RE_REFEICAO.test(t)) itens.push('refeicao');
+  resto = resto.replace(/\s+/g, ' ').replace(/^[\s,e·-]+|[\s,e·-]+$/gi, '').trim();
+  if (/^(e|de|com)$/i.test(resto)) resto = '';
+  return { itens: ITENS.map((i) => i.valor).filter((v) => itens.includes(v)), ml, resto };
+}
+
+/** Itens de um registro (novos têm dados.itens; os sem nada são "alimentação" genérica). */
+const itensDe = (e) => (Array.isArray(e.dados.itens) ? e.dados.itens : []);
+const temLeite = (e) => itensDe(e).includes('leite');
+const ehComida = (e) => itensDe(e).some((v) => v === 'fruta' || v === 'refeicao');
+const mlDe = (e) => (temLeite(e) ? numero(e.dados.ml) : null);
+
+/** Último registro com leite (ou, se nunca houve, a última alimentação, como antes). */
+function ultimoLeite(ctx) {
+  const lista = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora);
+  return lista.filter(temLeite).at(-1) || (lista.some((e) => itensDe(e).length) ? null : lista.at(-1)) || null;
+}
+
+// Depois de uma refeição (papinha, sopa) o leite costuma vir mais tarde: o próximo leite não fica antes disso.
+const APOS_REFEICAO_H = 1;
+
+/** Próximo leite: 3h após o último; se depois dele houve refeição, não antes de 1h após ela. */
+function proximoLeite(ctx, leite) {
+  const base = proximaPorRecorrencia(leite, RECORRENCIA_H);
+  const refeicao = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora && e.t > leite.t && itensDe(e).includes('refeicao')).at(-1);
+  return refeicao ? { t: Math.max(base, refeicao.t + APOS_REFEICAO_H * 60 * MIN), refeicao } : { t: base, refeicao: null };
+}
 
 /** Tylenol dado nos últimos 30 min, se houver. */
 function tylenolRecente(ctx) {
   const t = ctx.ultimo('tylenol', ctx.agora);
   return t && ctx.agora - t.t <= 30 * MIN ? t : null;
+}
+
+function textoRegistro(dados) {
+  const itens = Array.isArray(dados.itens) ? dados.itens : [];
+  const partes = [];
+  if (itens.includes('leite')) {
+    const ml = numero(dados.ml);
+    partes.push(ml ? `Leite ${ml} mL` : 'Leite');
+  }
+  const comida = itens.filter((v) => v !== 'leite');
+  if (dados.quantidade) partes.push(dados.quantidade);
+  else if (comida.length) partes.push(comida.map((v) => ROTULO[v]).join(' e '));
+  if (dados.observacao) partes.push(dados.observacao);
+  return partes.join(' · ');
+}
+
+/** Valores de mL mais usados nos últimos 14 dias (até 4, em ordem crescente). */
+function mlMaisUsados(ctx) {
+  const conta = new Map();
+  for (const e of ctx.doTipo('alimentacao')) {
+    if (ctx.agora - e.t > 14 * DIA) continue;
+    const ml = mlDe(e);
+    if (ml) conta.set(ml, (conta.get(ml) || 0) + 1);
+  }
+  const top = [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([ml]) => ml);
+  return (top.length ? top : ML_PADRAO).sort((a, b) => a - b);
+}
+
+/** Últimos textos de fruta/refeição (os itens marcados decidem quais), os mais recentes primeiro. */
+function textosRecentes(ctx, itens) {
+  const quer = (itens || []).filter((v) => v !== 'leite');
+  if (!quer.length) return [];
+  const vistos = new Set();
+  const lista = [];
+  for (const e of [...ctx.doTipo('alimentacao')].reverse()) {
+    const texto = String(e.dados.quantidade || '').trim();
+    if (!texto || !itensDe(e).some((v) => quer.includes(v))) continue;
+    const chave = texto.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    lista.push(texto);
+    if (lista.length >= 5) break;
+  }
+  return lista;
 }
 
 export default {
@@ -16,18 +135,59 @@ export default {
   cor: '#D08A4E',
   icone: '<svg viewBox="0 0 24 24"><path d="M9.5 2.5h5"/><path d="M10.5 2.5v2.8L8.3 8.4v10.3A2.8 2.8 0 0 0 11.1 21.5h1.8a2.8 2.8 0 0 0 2.8-2.8V8.4l-2.2-3.1V2.5"/><path d="M8.3 12.5h7.4"/></svg>',
   campos: [
-    { id: 'quantidade', rotulo: 'Quantidade', tipo: 'texto', placeholder: 'Opcional, ex. 120 ml' },
+    { id: 'itens', rotulo: 'O que foi', tipo: 'multiplas', opcoes: ITENS },
+    {
+      id: 'ml', rotulo: 'Leite (mL)', tipo: 'numero', casas: 0, min: 10, max: 400, placeholder: 'ex. 180',
+      mostrarSe: (dados) => (dados.itens || []).includes('leite'),
+      atalhos: (ctx) => mlMaisUsados(ctx).map((ml) => ({ valor: String(ml), rotulo: `${ml}` }))
+    },
+    {
+      id: 'quantidade', rotulo: 'O que comeu', tipo: 'texto', placeholder: 'Opcional, ex. 2 cubos de feijão',
+      mostrarSe: (dados) => (dados.itens || []).some((v) => v !== 'leite') || !!dados.quantidade,
+      atalhos: (ctx, dados) => textosRecentes(ctx, dados.itens).map((t) => ({ valor: t, rotulo: t }))
+    },
     { id: 'observacao', rotulo: 'Observação', tipo: 'texto', placeholder: 'Opcional' }
   ],
 
+  /** schema_version 1: só texto livre. Deduz itens e mL (só na leitura; a planilha continua igual). */
+  migrar(dados, versao) {
+    if (versao >= 2 || Array.isArray(dados.itens)) return dados;
+    // A observação ajuda a decidir (ex. quantidade "80ml" e observação "Sopinha" = refeição, não leite).
+    const r = lerTextoAlimentacao([dados.quantidade, dados.observacao].filter(Boolean).join(' '));
+    if (!r.itens.length) return dados;
+    dados.itens = r.itens;
+    if (r.ml) dados.ml = r.ml;
+    // Tira do texto só a parte que virou "Leite N mL" (o resto, como "Banana", continua).
+    if (r.itens.includes('leite')) {
+      const q = lerTextoAlimentacao(dados.quantidade);
+      if (q.itens.includes('leite')) dados.quantidade = q.resto;
+    }
+    return dados;
+  },
+
+  /** Leite vem com o último mL usado (os itens ficam para escolher com um toque). */
+  padroes(ctx) {
+    const ultimo = ctx.doTipo('alimentacao').filter((e) => mlDe(e)).at(-1);
+    return ultimo ? { ml: mlDe(ultimo) } : {};
+  },
+
   resumo(dados) {
-    return { texto: [dados.quantidade, dados.observacao].filter(Boolean).join(' · ') || 'Alimentou' };
+    return { texto: textoRegistro(dados) || 'Alimentou' };
   },
 
   resumoDia(ctx, dia) {
     const lista = ctx.doDia('alimentacao', dia);
     if (!lista.length) return null;
-    return { valor: lista.length === 1 ? '1 vez' : `${lista.length} vezes`, detalhe: `última ${fmtHora(lista.at(-1).t)}` };
+    const leites = lista.filter(temLeite);
+    const ml = leites.reduce((soma, e) => soma + (mlDe(e) || 0), 0);
+    const frutas = lista.filter((e) => itensDe(e).includes('fruta')).length;
+    const refeicoes = lista.filter((e) => itensDe(e).includes('refeicao')).length;
+    const outros = lista.filter((e) => !itensDe(e).length).length;
+    const plural = (n, um, varios) => (n ? `${n} ${n === 1 ? um : varios}` : '');
+    const detalhe = [plural(leites.length, 'mamadeira', 'mamadeiras'), plural(refeicoes, 'refeição', 'refeições'),
+      plural(frutas, 'fruta', 'frutas'), outros < lista.length ? plural(outros, 'outra', 'outras') : ''].filter(Boolean).join(' · ');
+    if (ml) return { valor: `${ml} mL de leite`, detalhe };
+    return { valor: lista.length === 1 ? '1 vez' : `${lista.length} vezes`, detalhe: detalhe || `última ${fmtHora(lista.at(-1).t)}` };
   },
 
   regras: {
@@ -36,10 +196,20 @@ export default {
 
     status(ctx) {
       const tyl = tylenolRecente(ctx);
-      const ultima = ctx.ultimo('alimentacao', ctx.agora);
-      const linhas = [ultima ? `Última ${fmtHora(ultima.t)}` : 'Nenhum registro'];
+      const leite = ultimoLeite(ctx);
+      const comida = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora && ehComida(e)).at(-1);
+      if (!leite && !comida) return { linhas: ['Nenhum registro'] };
+      const linhas = [];
+      if (leite) {
+        const ml = mlDe(leite);
+        linhas.push(temLeite(leite) ? `Leite ${fmtHora(leite.t)}${ml ? ` · ${ml} mL` : ''}` : `Última ${fmtHora(leite.t)}`);
+      }
       if (tyl) linhas.push(`20–30 min após o Tylenol (${fmtHora(tyl.t + 20 * MIN)}–${fmtHora(tyl.t + 30 * MIN)})`);
-      else if (ultima) linhas.push(`Próxima ${fmtHora(proximaPorRecorrencia(ultima, RECORRENCIA_H))}`);
+      else if (leite) linhas.push(`Próximo leite ${fmtHora(proximoLeite(ctx, leite).t)}`);
+      // Comida recente num registro separado (se foi junto com o leite, a linha do leite já basta).
+      if (comida && comida.id !== leite?.id && (!leite || comida.t > leite.t - 6 * 60 * MIN)) {
+        linhas.push(`${itensDe(comida).includes('refeicao') ? 'Refeição' : 'Fruta'} ${fmtHora(comida.t)}`);
+      }
       return { linhas };
     },
 
@@ -52,10 +222,25 @@ export default {
           detalhe: `20–30 min após o Tylenol (até ${fmtHora(tyl.t + 30 * MIN)})`
         }];
       }
-      const ultima = ctx.ultimo('alimentacao', ctx.agora);
-      if (!ultima) return [];
-      const t = proximaPorRecorrencia(ultima, RECORRENCIA_H);
-      return [{ t, titulo: 'Alimentação', detalhe: `3h após a última (${fmtHora(ultima.t)})`, alerta: ctx.agora - t > 30 * MIN }];
+      const leite = ultimoLeite(ctx);
+      if (!leite) return [];
+      const { t, refeicao } = proximoLeite(ctx, leite);
+      return [{
+        t,
+        titulo: temLeite(leite) ? 'Leite' : 'Alimentação',
+        detalhe: refeicao && t > proximaPorRecorrencia(leite, RECORRENCIA_H)
+          ? `1h após a refeição (${fmtHora(refeicao.t)})`
+          : `3h após ${temLeite(leite) ? 'o último leite' : 'a última'} (${fmtHora(leite.t)})`,
+        alerta: ctx.agora - t > 30 * MIN
+      }];
+    },
+
+    avisos(ctx, horario, dados) {
+      const itens = dados.itens || [];
+      if (itens.includes('leite') && dados.ml === null) {
+        return [{ texto: 'Faltou dizer quantos mL de leite (dá para registrar assim mesmo).' }];
+      }
+      return [];
     }
   }
 };

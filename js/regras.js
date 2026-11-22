@@ -2,7 +2,7 @@
 // Nada aqui toca em DOM, localStorage ou rede — por isso é testável (tests/regras.test.html).
 
 export const FUSO = 'America/Sao_Paulo';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const MIN = 60 * 1000;
 const HORA = 60 * MIN;

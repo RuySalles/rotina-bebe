@@ -6,6 +6,7 @@ import {
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
 import { descreverAjuste } from '../js/tipos/ajuste.js';
+import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -261,13 +262,56 @@ export function casos({ grupo, teste }) {
   });
 
   // ---------------------------------------------------------------------
+  grupo('Alimentação: leite, fruta e refeição');
+  const al = (h, dados, extra = {}) => linha('alimentacao', T('25', h), dados, { schema_version: '2', ...extra });
+  teste('Textos antigos viram itens e mL (só na leitura)', () => {
+    igual(lerTextoAlimentacao('180ml'), { itens: ['leite'], ml: 180, resto: '' });
+    igual(lerTextoAlimentacao('150 ml de leite'), { itens: ['leite'], ml: 150, resto: '' });
+    igual(lerTextoAlimentacao('Banana e 120ml'), { itens: ['leite', 'fruta'], ml: 120, resto: 'Banana' });
+    igual(lerTextoAlimentacao('80ml de sopa e 90ml de leite'), { itens: ['leite', 'refeicao'], ml: 90, resto: '80ml de sopa' });
+    igual(lerTextoAlimentacao('Sopa de legumes 100ml').itens, ['refeicao'], 'sopa com mL não é leite');
+    igual(lerTextoAlimentacao('Meia banana e ameixa').itens, ['fruta']);
+    igual(lerTextoAlimentacao('mamou bem').itens, []);
+  });
+  teste('Registro antigo com a refeição na observação não vira leite', () => {
+    const velho = linha('alimentacao', T('25', '13:00'), { quantidade: '80ml', observacao: 'Sopinha' });
+    const [e] = resolverEventos([velho], TIPOS);
+    igual([e.dados.itens, e.dados.ml, e.dados.quantidade], [['refeicao'], undefined, '80ml']);
+  });
+  teste('Resumo do registro e do dia: mL de leite, refeições e frutas', () => {
+    const linhas = [al('07:00', { itens: ['leite'], ml: 180 }), al('09:00', { itens: ['fruta', 'leite'], ml: 120, quantidade: 'Banana' }),
+      al('12:00', { itens: ['refeicao'], quantidade: '2 cubos de feijão' })];
+    const ctx = montar(linhas, t('25', '13:00'));
+    igual(TIPOS.alimentacao.resumo({ itens: ['leite', 'fruta'], ml: 120, quantidade: 'Banana' }).texto, 'Leite 120 mL · Banana');
+    igual(TIPOS.alimentacao.resumo({ itens: ['refeicao'] }).texto, 'Refeição');
+    igual(TIPOS.alimentacao.resumoDia(ctx, '2026-10-25'), { valor: '300 mL de leite', detalhe: '2 mamadeiras · 1 refeição · 1 fruta' });
+  });
+  teste('Próximo leite: 3h após o último leite; fruta não muda', () => {
+    const ctx = montar([al('09:00', { itens: ['leite'], ml: 180 }), al('10:30', { itens: ['fruta'], quantidade: 'Banana' })], t('25', '11:00'));
+    const p = alim.proximos(ctx)[0];
+    igual([p.titulo, p.t], ['Leite', t('25', '12:00')]);
+    igual(alim.status(ctx).linhas, ['Leite 09:00 · 180 mL', 'Próximo leite 12:00', 'Fruta 10:30']);
+  });
+  teste('Depois de uma refeição, o próximo leite fica para 1h depois dela (se isso for mais tarde)', () => {
+    const ctx = montar([al('09:00', { itens: ['leite'], ml: 180 }), al('11:40', { itens: ['refeicao'] })], t('25', '12:00'));
+    const p = alim.proximos(ctx)[0];
+    igual([p.t, p.detalhe], [t('25', '12:40'), '1h após a refeição (11:40)']);
+  });
+  teste('Leite marcado sem mL: só avisa, sem bloquear', () => {
+    const ctx = montar([], t('25', '12:00'));
+    const avisos = alim.avisos(ctx, t('25', '12:00'), { itens: ['leite'], ml: null });
+    verdade(avisos.length === 1 && !avisos[0].confirmar);
+  });
+
+  // ---------------------------------------------------------------------
   grupo('Edição e exclusão via substitui_id');
   teste('Edição substitui o original', () => {
     const a = linha('alimentacao', T('25', '09:00'), {}, { id: 'A' });
     const b = linha('alimentacao', T('25', '09:15'), { quantidade: '90 ml' }, { id: 'B', substitui_id: 'A', criado_em: T('25', '10:00') });
     const r = resolverEventos([a, b], TIPOS);
     igual(r.length, 1);
-    igual([r[0].id, r[0].horario, r[0].dados.quantidade], ['B', T('25', '09:15'), '90 ml']);
+    // (registro antigo: o texto "90 ml" é lido como leite de 90 mL)
+    igual([r[0].id, r[0].horario, r[0].dados.itens, r[0].dados.ml], ['B', T('25', '09:15'), ['leite'], 90]);
   });
   teste('Edição de uma edição (cadeia) mostra só a última', () => {
     const a = linha('febre', T('25', '09:00'), { temperatura: 38 }, { id: 'A' });
@@ -325,7 +369,7 @@ export function casos({ grupo, teste }) {
     igual(resolverEventos([velho], TIPOS)[0].dados, {});
   });
   teste('Versão atual não passa pela migração', () => {
-    const atual = linha('febre', T('25', '08:00'), { temperatura: 37.5, temp: 'x' }, { schema_version: '1' });
+    const atual = linha('febre', T('25', '08:00'), { temperatura: 37.5, temp: 'x' }, { schema_version: '2' });
     igual(resolverEventos([atual], TIPOS)[0].dados, { temperatura: 37.5, temp: 'x' });
   });
   teste('Tipo desconhecido (de versão futura) não quebra a leitura', () => {

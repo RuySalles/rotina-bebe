@@ -504,7 +504,17 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .form-topo { display: flex; align-items: center; gap: 10px; font-size: 17px; }
 
 .campo { display: flex; flex-direction: column; gap: 6px; }
-.campo > span { font-size: 14px; font-weight: 600; color: var(--texto-2); }
+.campo > span, .campo-rotulo { font-size: 14px; font-weight: 600; color: var(--texto-2); }
+.campo[hidden], .atalhos[hidden] { display: none; }
+/* Escolha múltipla (ex. Leite + Fruta): mesmos botões do seletor, mas vários podem ficar marcados. */
+.seg--multiplas { display: flex; width: 100%; }
+.seg--multiplas label { flex: 1; }
+.seg--multiplas span { text-align: center; }
+.seg.seg--multiplas input:checked + span { background: var(--cor); color: #fff; box-shadow: none; }
+/* Atalhos: valores prontos para tocar (ex. 120 · 180 mL, últimos textos). */
+.atalhos { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.atalhos::-webkit-scrollbar { display: none; }
+.atalhos .chip { flex: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .campo small, .ajuda { color: var(--texto-3); font-size: 13.5px; }
 
 input[type="text"], input:not([type]), input[type="time"], input[type="date"], textarea {

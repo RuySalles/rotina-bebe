@@ -1191,6 +1191,16 @@ function campoHtml(campo, dados) {
         ${campo.ajuda ? `<small>${esc(campo.ajuda)}</small>` : ''}
       </div>`;
   }
+  if (campo.tipo === 'multiplas') {
+    const marcados = Array.isArray(valor) ? valor : [];
+    return `
+      <div class="campo" data-campo="${esc(campo.id)}">
+        <span>${esc(campo.rotulo)}</span>
+        <div class="seg seg--multiplas">
+          ${campo.opcoes.map((o) => `<label><input type="checkbox" name="${nome}" value="${esc(o.valor)}" ${marcados.includes(o.valor) ? 'checked' : ''}><span>${esc(o.rotulo)}</span></label>`).join('')}
+        </div>
+      </div>`;
+  }
   if (campo.tipo === 'opcoes') {
     return `
       <div class="campo">
@@ -1200,12 +1210,14 @@ function campoHtml(campo, dados) {
         </div>
       </div>`;
   }
-  const v = campo.tipo === 'numero' ? (numero(valor) === null ? '' : fmtNumero(numero(valor), 1)) : valor ?? '';
+  const v = campo.tipo === 'numero' ? (numero(valor) === null ? '' : fmtNumero(numero(valor), campo.casas ?? 1)) : valor ?? '';
+  const modo = campo.tipo === 'numero' ? `inputmode="${campo.casas === 0 ? 'numeric' : 'decimal'}" class="input-numero"` : '';
   return `
-    <label class="campo">
-      <span>${esc(campo.rotulo)}</span>
-      <input name="${nome}" type="text" ${campo.tipo === 'numero' ? 'inputmode="decimal" class="input-numero"' : ''} autocomplete="off" value="${esc(v)}" placeholder="${esc(campo.placeholder || '')}">
-    </label>`;
+    <div class="campo" data-campo="${esc(campo.id)}">
+      <label class="campo-rotulo" for="${nome}">${esc(campo.rotulo)}</label>
+      ${campo.atalhos ? `<div class="atalhos" data-atalhos="${esc(campo.id)}"></div>` : ''}
+      <input id="${nome}" name="${nome}" type="text" ${modo} autocomplete="off" value="${esc(v)}" placeholder="${esc(campo.placeholder || '')}">
+    </div>`;
 }
 
 /** horario: o do registro; um campo 'hora' vira o primeiro HH:MM a partir dele. */
@@ -1218,12 +1230,40 @@ function lerCampos(form, tipo, horario) {
       dados[campo.id] = h && Number.isFinite(horario) ? isoSP(horaDepois(horario, `${h}:${m}`)) : '';
       continue;
     }
+    if (campo.tipo === 'multiplas') {
+      dados[campo.id] = [...form.querySelectorAll(`input[name="c_${campo.id}"]:checked`)].map((i) => i.value);
+      continue;
+    }
     const el = form.elements[`c_${campo.id}`];
     if (!el) continue;
     const bruto = el.value ?? '';
     dados[campo.id] = campo.tipo === 'numero' ? numero(bruto) : String(bruto).trim();
   }
+  // Campo escondido (mostrarSe) não vale: ex. mL de leite quando Leite não está marcado.
+  for (const campo of tipo.campos || []) {
+    if (campo.mostrarSe && !campo.mostrarSe(dados)) dados[campo.id] = campo.tipo === 'numero' ? null : '';
+  }
   return dados;
+}
+
+/**
+ * Campos que dependem de outros (mostrarSe) e atalhos (valores prontos para tocar), refeitos a cada mudança.
+ * Campo escondido continua com o valor, mas não é gravado (lerCampos zera abaixo).
+ */
+function mostrarCampos(form, tipo, dados) {
+  for (const campo of tipo.campos || []) {
+    const caixa = form.querySelector(`[data-campo="${campo.id}"]`);
+    if (!caixa) continue;
+    if (campo.mostrarSe) caixa.hidden = !campo.mostrarSe(dados);
+    const lugar = caixa.querySelector(`[data-atalhos="${campo.id}"]`);
+    if (lugar && campo.atalhos) {
+      const atual = String(form.elements[`c_${campo.id}`]?.value ?? '').trim();
+      const lista = campo.atalhos(ctx, dados) || [];
+      const html = lista.map((a) => `<button type="button" class="chip chip--pequeno ${atual === a.valor ? 'chip--ativo' : ''}" data-acao="atalho" data-campo="${esc(campo.id)}" data-valor="${esc(a.valor)}">${esc(a.rotulo)}</button>`).join('');
+      if (lugar.innerHTML !== html) lugar.innerHTML = html;
+      lugar.hidden = !lista.length;
+    }
+  }
 }
 
 /** extra: { dados, titulo } para abrir já preenchido (ex. marcar o despertar de um sono). */
@@ -1295,6 +1335,7 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
     form.elements.dia_outro.hidden = form.elements.dia.value !== 'outro';
     const h = horario();
     const dados = lerCampos(form, tipo, h);
+    mostrarCampos(form, tipo, dados);
     const info = tipo.regras?.infoRegistro ? tipo.regras.infoRegistro(ctx, h, evento?.id || '') : '';
     form.querySelector('#folha-info').textContent = info || (evento ? quandoCurto(evento.t) : '');
     const avisos = [...(tipo.regras?.avisos ? tipo.regras.avisos(ctx, h, dados, evento?.id || '') : [])];
@@ -1322,6 +1363,10 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
     if (b.dataset.acao === 'agora') {
       [form.elements.h.value, form.elements.m.value] = fmtHora(Date.now()).split(':');
       form.querySelector(`input[name="dia"][value="${hoje}"]`).checked = true;
+      atualizar();
+    } else if (b.dataset.acao === 'atalho') {
+      const input = form.elements[`c_${b.dataset.campo}`];
+      input.value = b.dataset.valor;
       atualizar();
     } else if (b.dataset.acao === 'agora-campo') {
       const nome = `c_${b.dataset.campo}`;

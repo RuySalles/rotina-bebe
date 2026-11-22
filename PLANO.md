@@ -23,7 +23,7 @@ algo) dizem isso em "Você vai precisar".
 | 4 | Sincronização mais rápida | ✅ |
 | 5 | Rotina em primeiro lugar na tela inicial | ✅ |
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
-| 7 | Alimentação: leite, sólido ou sopa | ⬜ |
+| 7 | Alimentação: leite, fruta ou refeição | 🧪 |
 | 8 | Previsões de sono e de leite | ⬜ |
 | 9 | Abrir o app sem internet | ⬜ |
 | 10 | Alertas no celular pelo Google Agenda | ⬜ |
@@ -233,26 +233,33 @@ de Tylenol e amoxicilina, o formulário de remédio sempre aberto e os horários
 
 ---
 
-## Fase 7 — Alimentação: leite, sólido ou sopa
+## Fase 7 — Alimentação: leite, fruta ou refeição
 
-**Por quê:** hoje a alimentação é só um texto livre, então o app não sabe se foi mamadeira ou uma fruta. Isso impede
-somar o leite do dia e faz a "próxima alimentação" contar a partir de qualquer coisa que ele comeu.
+**Por quê:** a alimentação era só um texto livre, então o app não sabia se foi mamadeira ou uma fruta. Não dava para
+somar o leite do dia, e a "próxima alimentação" contava a partir de qualquer coisa que ele comeu.
 
 **O que muda:**
-- Ao registrar: **Leite**, **Sólido** ou **Sopa**, com um toque.
-  - Leite: quantidade em mL (com os valores mais usados como atalho, ex. 150 / 180 / 210).
-  - Sólido e sopa: texto livre como hoje (ex. "2 cubos de feijão, 2 de arroz"), com os últimos usados como atalho.
-- O botão mostra o último leite e o último sólido separados.
-- O Resumo mostra quantas mamadeiras e o total de mL no dia, e quantas refeições de sólidos.
-- Registros antigos continuam aparecendo normalmente. Os que têm só "180ml" ou "150 ml de leite" passam a contar como
-  leite automaticamente; o resto fica como está.
+- Ao registrar, **O que foi:** Leite, Fruta, Refeição. Dá para marcar mais de um (ex. Leite + Fruta).
+  - **Leite:** mL com atalhos dos valores mais usados nos últimos 14 dias (já vem o último usado) e um campo para outro
+    valor.
+  - **Fruta / Refeição:** campo "O que comeu" com os últimos textos usados como atalho (ex. "Banana", "2 cubos de
+    feijão…").
+- O botão mostra o último leite (com mL), o próximo leite e a última fruta ou refeição.
+- O próximo leite é 3h depois do último leite (fruta não muda isso). Depois de uma refeição, ele não fica antes de 1h
+  depois dela (até a fase 8 aprender o ritmo de verdade).
+- O Histórico mostra "Leite 180 mL · Banana", e o total do dia vira "900 mL de leite" (mamadeiras, refeições e frutas
+  no detalhe).
+- **Registros antigos** são lidos pelo texto (ex. "180ml" e "150 ml de leite" viram leite; "Banana" vira fruta; "sopa",
+  "cubos", "feijão" viram refeição), só na hora de mostrar: a planilha continua igual. Num mês de dados reais, 97% dos
+  registros foram reconhecidos (os que sobraram estavam sem texto).
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Registrar Leite 180 mL: o Resumo soma os mL do dia.
-- [ ] Registrar um Sólido: o botão mostra o último sólido, e o horário do último leite não muda.
-- [ ] Alimentações antigas continuam no Histórico, e as de leite entram na soma de mL dos dias passados.
+- [ ] Registrar Leite: os mL já vêm com o último valor; tocar num atalho troca o valor.
+- [ ] Registrar Leite + Fruta no mesmo registro: o Histórico mostra "Leite N mL · Banana".
+- [ ] Registrar uma Fruta: o "Próximo leite" no botão não muda.
+- [ ] No Histórico, os dias antigos mostram o total em mL de leite e os registros antigos aparecem como "Leite 180 mL".
 - [ ] A regra de "20–30 min após o Tylenol" continua valendo.
 
 ---
@@ -425,9 +432,9 @@ orientação errada.
   (rotina em grade grande, remédios em faixa compacta).
 - Fase 6: só `app.js`/`app.css` (telas); tudo continua passando por `registrarAjuste`. Blocos de Ajustes são
   `<details>` com o estado aberto guardado em memória (o redesenho não fecha o que está aberto).
-- Fase 7: campos novos em `dados` da alimentação (`categoria`: leite | solido | sopa, `ml`); registros antigos sem
-  eles são lidos por inferência do texto (só leitura, nada é regravado). Se o formato de um campo existente mudar,
-  subir `SCHEMA_VERSION` com `migrar` e teste em `tests/regras.casos.js`.
+- Fase 7 (feita): `dados.itens` (leite | fruta | refeicao) e `dados.ml` na alimentação; `SCHEMA_VERSION` 2, com
+  `migrar` que deduz itens/mL do texto dos registros versão 1 (só leitura). Campos genéricos novos na folha:
+  `multiplas`, `casas`, `mostrarSe(dados)` e `atalhos(ctx, dados)`.
 - Fase 8: funções puras em `regras.js` (janela acordado por faixa do dia, intervalo entre leites; medianas dos últimos
   14 dias; ignorar janelas acima de um limite, que indicam registro faltando), com testes. Usadas nos `status`/
   `proximos` de `sono.js` e `alimentacao.js` como `informativo` (não viram alerta).

@@ -24,7 +24,7 @@ algo) dizem isso em "Você vai precisar".
 | 5 | Rotina em primeiro lugar na tela inicial | ✅ |
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
 | 7 | Alimentação: leite, fruta ou refeição | ✅ |
-| 8 | Previsões de sono e de leite | 🧪 |
+| 8 | Previsões de sono e de leite | ✅ |
 | 9 | Abrir o app sem internet | ⬜ |
 | 10 | Alertas no celular pelo Google Agenda | ⬜ |
 | 11 | Esconder e reordenar botões | ⬜ |

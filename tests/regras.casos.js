@@ -12,6 +12,7 @@ import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
 import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.js';
 import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 import { papel, porcentagens, montarPlacar } from '../js/familia.js';
+import { fmtPeso, fmtCm, textoDiferencas, serie } from '../js/tipos/medidas.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -849,6 +850,48 @@ export function casos({ grupo, teste }) {
       [[['Dia a dia', false, 4]], [['Dia a dia', true, 3]], [['Remédios', false, 1]]]);
     // Um bloco maior que a página não some.
     igual(paginar([{ titulo: 'X', blocos: [b(5000)] }], 1000).length, 1);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Medidas');
+  teste('Formato: peso em kg com até 3 casas, cm com até 1', () => {
+    igual([fmtPeso(7.35), fmtPeso(7.355), fmtPeso(7), fmtCm(68), fmtCm(68.5), fmtCm(43.04)],
+      ['7,35 kg', '7,355 kg', '7,00 kg', '68 cm', '68,5 cm', '43 cm']);
+  });
+  teste('Diferença desde a medida anterior que tem o mesmo valor; só peso não quebra', () => {
+    const linhasM = [
+      linha('medidas', T('10', '10:00'), { peso: 7.1, altura: 67 }),
+      linha('medidas', T('15', '10:00'), { peso: 7.2 }),                       // só o peso
+      linha('medidas', T('22', '10:00'), { peso: 7.35, altura: 68.5 })
+    ];
+    const ctxM = ctxRel(linhasM, t('25', '12:00'));
+    const [a, b, c] = ctxM.doTipo('medidas');
+    igual(textoDiferencas(ctxM, a), '');
+    igual(textoDiferencas(ctxM, b), '+100 g em 5 dias');
+    igual(textoDiferencas(ctxM, c), '+150 g em 7 dias · +1,5 cm em 12 dias');
+    igual(TIPOS.medidas.resumo(b.dados, ctxM, b).texto, '7,20 kg (+100 g em 5 dias)');
+    igual(serie(ctxM, 'altura').map((p) => p.v), [67, 68.5]);
+    igual(TIPOS.medidas.evolucao(ctxM).map((s) => [s.id, s.pontos.length]), [['peso', 3], ['altura', 2]]);
+  });
+  teste('Perda aparece com sinal de menos; sem nenhuma medida pede confirmação', () => {
+    const linhasM = [linha('medidas', T('20', '10:00'), { peso: 7.4 }), linha('medidas', T('21', '10:00'), { peso: 7.32 })];
+    const ctxM = ctxRel(linhasM, t('25', '12:00'));
+    igual(textoDiferencas(ctxM, ctxM.doTipo('medidas')[1]), '−80 g em 1 dia');
+    verdade(TIPOS.medidas.regras.avisos(ctxM, 0, { peso: null, altura: null, cabeca: null }).some((a) => a.confirmar), 'vazio');
+    verdade(TIPOS.medidas.regras.avisos(ctxM, 0, { peso: 7350 }).some((a) => /gramas/.test(a.texto)), 'gramas');
+    igual(TIPOS.medidas.regras.avisos(ctxM, 0, { peso: 7.35 }), []);
+  });
+  teste('Relatório: medidas do período e a última antes dele', () => {
+    const linhasM = [
+      linha('medidas', T('01', '10:00'), { peso: 6.8 }),
+      linha('medidas', T('10', '10:00'), { peso: 7.1, altura: 67 }),   // última antes do período
+      linha('medidas', T('24', '10:00'), { peso: 7.35 })
+    ];
+    const ordemM = [...ordemRel, TIPOS.medidas];
+    const rel = montarRelatorio(ctxRel(linhasM, t('25', '12:00')), ordemM, 3);
+    igual(rel.medidas.map((m) => [m.antes, m.valores.peso, m.diferenca]), [[true, 7.1, '+300 g em 9 dias'], [false, 7.35, '+250 g em 14 dias']]);
+    const so = montarRelatorio(ctxRel(linhasM.slice(0, 2), t('25', '12:00')), ordemM, 3);
+    igual(so.medidas.map((m) => m.antes), [true]);
   });
 
   // ---------------------------------------------------------------------

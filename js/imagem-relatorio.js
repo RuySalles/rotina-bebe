@@ -4,7 +4,7 @@
 // Usa os mesmos dados da tela (montarRelatorio); o gráfico é o mesmo SVG, convertido em imagem.
 
 import { chaveDia, fmtHora, fmtNumero } from './regras.js';
-import { diaCurto, graficoTemperatura, resumoTemperatura, dosesAntitermico, linhaPeriodo } from './relatorio.js';
+import { diaCurto, graficoTemperatura, resumoTemperatura, dosesAntitermico, linhaPeriodo, colunasMedidas, quandoMedida } from './relatorio.js';
 import { COR, FONTE, FONTE_TITULO, fonte, quebrar, retanguloArredondado, bolinha, linhaH, escrever, medir, paraBlob } from './desenho.js';
 
 const LARGURA_MIN = 1080, LARGURA_MAX = 1560, ALTURA_MAX = 1600;
@@ -200,6 +200,45 @@ async function secaoTemperatura(rel, opcoes, largInterna) {
   return { titulo: 'Temperatura', blocos };
 }
 
+// ---- Medidas ----
+
+function secaoMedidas(rel, largInterna) {
+  if (!rel.medidas.length) return null;
+  const c = medir();
+  const cols = colunasMedidas(rel);
+  const colDia = 190;
+  const colW = 145;
+  const xExtra = colDia + cols.length * colW;
+  const larguraExtra = largInterna - xExtra;
+  const cabecalho = {
+    h: 44,
+    desenhar(cx, x, y) {
+      escrever(cx, ['Dia'], x, y + 4, 25, COR.texto2, fonte(600, 20));
+      cols.forEach((m, i) => escrever(cx, [m.rotulo], x + colDia + i * colW, y + 4, 25, COR.texto2, fonte(600, 20)));
+    }
+  };
+  const linhas = rel.medidas.map((m) => {
+    c.font = fonte(400, 19);
+    const extra = [!m.antes && m.diferenca, m.obs].filter(Boolean).flatMap((t) => quebrar(c, t, larguraExtra, 3));
+    c.font = fonte(650, 22);
+    const quando = quebrar(c, quandoMedida(m), colDia - 12, 2);
+    const cor = m.antes ? COR.texto2 : COR.texto;
+    return {
+      h: Math.max(30 * quando.length, 24 * extra.length, 30) + 26,
+      desenhar(cx, x, y, w) {
+        linhaH(cx, x, y, w);
+        escrever(cx, quando, x, y + 14, 30, cor, fonte(650, 22));
+        cols.forEach((col, i) => {
+          const v = m.valores[col.id];
+          escrever(cx, [v === null ? '—' : col.fmt(v)], x + colDia + i * colW, y + 13, 30, v === null ? COR.texto3 : cor, fonte(650, 24));
+        });
+        if (extra.length) escrever(cx, extra, x + xExtra, y + 16, 24, COR.texto2, fonte(400, 19));
+      }
+    };
+  });
+  return { titulo: 'Medidas', cabecalho: [cabecalho], blocos: linhas };
+}
+
 // ---- Remédios e vacinas ----
 
 function secaoRemedios(rel, largInterna) {
@@ -269,7 +308,7 @@ export async function imagensRelatorio(rel, opcoes) {
   const hCab = MARGEM + 28 + 62 + periodo.length * 30 + 28;
   const hRod = 96;
 
-  const secoes = [secaoDias(rel, largInterna), await secaoTemperatura(rel, opcoes, largInterna), secaoRemedios(rel, largInterna)]
+  const secoes = [secaoDias(rel, largInterna), await secaoTemperatura(rel, opcoes, largInterna), secaoRemedios(rel, largInterna), secaoMedidas(rel, largInterna)]
     .filter(Boolean);
   if (!secoes.length) {
     secoes.push({ titulo: 'Nenhum registro neste período.', blocos: [{ h: 0, desenhar() {} }] });

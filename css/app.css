@@ -1159,6 +1159,18 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 }
 
 /* ---------------------------------------------------------------------------
+   Evolução (fase 14): gráficos no topo do Histórico filtrado (ex. Medidas)
+   --------------------------------------------------------------------------- */
+.evolucao { padding: 1rem; margin-bottom: var(--espaco); }
+.evolucao-titulo { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 650; }
+.evolucao-graficos { display: grid; gap: 1rem; }
+@media (min-width: 1000px) { .evolucao-graficos { grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); } }
+.grafico--evolucao { margin: 0; }
+.graf-titulo { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--texto-2); }
+.graf-rotulo--leve { font-size: 12px; font-weight: 600; }
+.rel-tabela td.rel-antes, .rel-tabela th.rel-antes { color: var(--texto-2); }
+
+/* ---------------------------------------------------------------------------
    Família participando (fase 13)
    --------------------------------------------------------------------------- */
 .placar-barra { display: flex; height: 1.5rem; border-radius: 0.75rem; overflow: hidden; background: var(--superficie-2); }

@@ -14,7 +14,8 @@
 //   resumoDia?(ctx, dia) → { valor, detalhe?, destaque? } | null   (cartão "Resumo" e cabeçalho do histórico filtrado)
 //   migrar?(dados, versao) → dados        (ler schema_version antigo)
 //   painel?(ctx) → { titulo, itens }      (bloco extra na tela principal)
-//   naInicio?(ctx) → bool                 (false = fora da tela inicial agora, ex. tratamento concluído; o Histórico continua)
+//   evolucao?(ctx) → [{ id, rotulo, fmt(v), pontos: [{ t, v }] }]   (gráficos no topo do Histórico filtrado pelo tipo)
+//   naInicio?(ctx) → bool                (false = fora da tela inicial agora, ex. tratamento concluído; o Histórico continua)
 //   rotina?: true                         (botão grande no topo da tela inicial; os outros vão para a faixa compacta)
 //   regras?: {
 //     prioridade, usaPlano?, intervaloMinimoH?, recorrenciaH?,
@@ -35,12 +36,13 @@ import sono from './sono.js';
 import fralda from './fralda.js';
 import banho from './banho.js';
 import vacina from './vacina.js';
+import medidas from './medidas.js';
 
 import ajuste from './ajuste.js';
 import { lerRemedios, criarTipoRemedio } from './remedio.js';
 
 /** Tipos fixos (os que estão no código). */
-export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina];
+export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina, medidas];
 
 export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
 
@@ -51,7 +53,7 @@ export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
  */
 export function montarTipos(config = {}) {
   const remedios = lerRemedios(config).map(criarTipoRemedio);
-  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina];
+  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina, medidas];
   return {
     todos,
     visiveis: todos.filter((t) => !t.remedio || t.remedio.ativo),

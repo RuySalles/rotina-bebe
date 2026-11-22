@@ -29,8 +29,8 @@ algo) dizem isso em "Você vai precisar".
 | 10 | Alertas no celular pelo Google Agenda | — | ✅ |
 | 11 | Esconder e reordenar botões | — | ✅ |
 | 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | ✅ |
-| 13 | Família participando (placar e ranking) | Alta | 🧪 |
-| 14 | Peso e altura | Alta | ⬜ |
+| 13 | Família participando (placar e ranking) | Alta | ✅ |
+| 14 | Peso e altura | Alta | 🧪 |
 | 15 | Aviso de vacina | Alta | ⬜ |
 | 16 | Consultas e retornos | Média | ⬜ |
 | 17 | Anotações livres | Baixa | ⬜ |
@@ -471,11 +471,22 @@ acesso). Atenção: o link dá acesso a tudo, inclusive aos remédios; envie só
 **O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico, e as medidas do período entram no Relatório.
 Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
+**Decidido no quiz (22/11):**
+- **Peso em kg** (ex. 7,35; aceita até 3 casas). Se vier em gramas por engano (ex. 7350), o app avisa antes de gravar.
+- **Gráficos no Histórico:** filtrando por Medidas, aparece "Evolução" no topo, com um gráfico para peso, altura e
+  cabeça. A tela inicial só tem a linha de Medidas na faixa de baixo (peso, altura e a diferença de peso).
+- **Diferença desde a medida anterior** com o mesmo valor preenchido (ex. "+250 g em 12 dias"), no Histórico, na
+  tela inicial e no Relatório.
+- **Relatório:** seção **Medidas** com as do período e, antes delas, a última anterior ao período, marcada "(antes do
+  período)". Sai também na imagem e no PDF. (Medidas não entram na tabela "Dia a dia", porque têm a seção própria.)
+
 **Você vai precisar:** nada.
 
 **Como testar:**
 - [ ] Registrar duas medidas em dias diferentes (pode usar "Outro dia"): o gráfico mostra as duas.
 - [ ] Registrar só o peso: altura fica em branco sem erro.
+- [ ] Histórico → filtro **Medidas**: aparecem os gráficos e, em cada registro, a diferença desde a anterior.
+- [ ] Relatório de 7 dias com uma medida no período: a seção Medidas mostra também a anterior.
 
 ---
 
@@ -555,6 +566,10 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 14 (feita): `js/tipos/medidas.js` (dados: peso em kg, altura e cabeca em cm, observacao; sem mudar
+  `SCHEMA_VERSION`, é tipo novo). `diferencas`/`textoDiferencas` comparam com a medida anterior que tem o mesmo
+  valor. O contrato de tipo ganhou `evolucao?(ctx)`: séries que o `app.js` desenha no topo do Histórico filtrado com
+  `graficoEvolucao` (`js/grafico.js`). `montarRelatorio` devolve `medidas` (período + a anterior, `antes: true`).
 - Fase 13 (feita): `js/familia.js`: `papel(apelido)`, `porcentagens` (somam 100) e
   `montarPlacar(ctx, tipos, nDias)` (puros, com testes); só tipos com `rotina: true` contam. O `resolverEventos`
   ganhou `autor` (o `quem` da versão mais antiga da cadeia), e o ponto é do autor. `htmlPlacar` (tela) e

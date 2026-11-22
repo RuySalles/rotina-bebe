@@ -10,6 +10,7 @@ import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO, PERIODOS 
 import { imagensRelatorio } from './imagem-relatorio.js';
 import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA } from './familia.js';
 import { imagemFamilia } from './imagem-familia.js';
+import { graficoEvolucao } from './grafico.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -557,14 +558,15 @@ function linhaFaixa(tipo) {
 }
 
 /**
- * Ordem dos tipos nas listas (faixa, filtros): rotina, tratamentos em andamento, febre, "só se precisar", vacinas.
+ * Ordem dos tipos nas listas (faixa, filtros): rotina, tratamentos em andamento, febre, "só se precisar", vacinas,
+ * medidas.
  * Encerrados (remédio encerrado ou tratamento concluído) por último.
  */
 function pesoTipo(t) {
   if (t.rotina) return 0;
   if (t.remedio ? !t.remedio.ativo : t.naInicio && !t.naInicio(ctx)) return 5;
   if (t.id === 'febre') return 2;
-  if (t.id === 'vacina') return 4;
+  if (t.id === 'vacina' || t.id === 'medidas') return 4;
   if (t.id === 'tylenol' || t.remedio?.modo === 'se_precisar') return 3;
   return 1;
 }
@@ -668,7 +670,21 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? cartaoEvolucao(filtrado) : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+}
+
+/** Gráficos de evolução do tipo filtrado (tipo.evolucao, ex. Medidas), antes da lista do Histórico. */
+function cartaoEvolucao(tipo) {
+  const series = tipo?.evolucao ? tipo.evolucao(ctx) : [];
+  if (!series.length) return '';
+  return `
+    <section class="cartao evolucao" ${estiloCor(tipo)}>
+      <h2 class="evolucao-titulo">Evolução</h2>
+      <div class="evolucao-graficos">
+        ${series.map((s) => graficoEvolucao(s.pontos, { rotulo: s.rotulo, fmt: s.fmt, cor: tipo.cor })).join('')}
+      </div>
+      ${series.some((s) => s.pontos.length === 1) ? '<p class="ajuda">Com duas medidas ou mais, aparece a linha da evolução.</p>' : ''}
+    </section>`;
 }
 
 const botaoRelatorio = () => `

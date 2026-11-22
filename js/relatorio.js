@@ -4,6 +4,7 @@
 // Usa o que cada tipo já sabe dizer (resumoDia e resumo), então um tipo novo entra sozinho na tabela dia a dia.
 
 import { chaveDia, somarDias, deDataHoraSP, fmtData, fmtHora, fmtNumero, numero } from './regras.js';
+import { MEDIDAS, valor as valorMedida, textoDiferencas } from './tipos/medidas.js';
 
 export const PERIODOS = [[1, 'Hoje'], [3, '3 dias'], [7, '7 dias'], [14, '14 dias']];
 export const PERIODO_PADRAO = 3;
@@ -13,7 +14,8 @@ const ehRemedio = (t) => !!t.remedio || ['amoxicilina', 'tylenol', 'vacina'].inc
 
 /**
  * tipos: na ordem em que devem aparecer (rotina, remédios, febre…). nDias: dias inteiros até hoje (hoje conta).
- * → { dias, inicio, fim, colunas: [{ tipo, celulas: [resumoDia|null por dia] }], temperaturas, limite, remedios }
+ * → { dias, inicio, fim, colunas: [{ tipo, celulas: [resumoDia|null por dia] }], temperaturas, limite, remedios, medidas }
+ * medidas: as do período e, antes delas, a última anterior ao período (antes: true), para comparar.
  */
 export function montarRelatorio(ctx, tipos, nDias) {
   const hoje = chaveDia(ctx.agora);
@@ -24,7 +26,7 @@ export function montarRelatorio(ctx, tipos, nDias) {
   const visiveis = tipos.filter((t) => !t.interno);
 
   const colunas = visiveis
-    .filter((t) => t.resumoDia)
+    .filter((t) => t.resumoDia && t.id !== 'medidas') // medidas têm seção própria (com a anterior ao período)
     .map((tipo) => ({ tipo, celulas: dias.map((d) => tipo.resumoDia(ctx, d) || null) }))
     .filter((c) => c.celulas.some(Boolean));
 
@@ -41,7 +43,22 @@ export function montarRelatorio(ctx, tipos, nDias) {
     }))
     .filter((r) => r.doses.length);
 
-  return { dias, inicio, fim, colunas, temperaturas, limite: ctx.numeroConfig('febre_limite_c') ?? LIMITE_FEBRE_PADRAO, remedios };
+  const medidas = [];
+  if (visiveis.some((t) => t.id === 'medidas')) {
+    const todas = ctx.doTipo('medidas').filter((e) => e.t <= fim);
+    const anterior = todas.filter((e) => e.t < inicio).at(-1);
+    for (const e of [...(anterior ? [anterior] : []), ...todas.filter(naJanela)]) {
+      medidas.push({
+        t: e.t,
+        antes: e === anterior,
+        valores: Object.fromEntries(MEDIDAS.map((m) => [m.id, valorMedida(e.dados, m.id)])),
+        diferenca: textoDiferencas(ctx, e),
+        obs: String(e.dados.observacao || '')
+      });
+    }
+  }
+
+  return { dias, inicio, fim, colunas, temperaturas, limite: ctx.numeroConfig('febre_limite_c') ?? LIMITE_FEBRE_PADRAO, remedios, medidas };
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +87,7 @@ export function htmlRelatorio(rel, opcoes) {
   const { nome, nDias, agora } = opcoes;
   const chips = PERIODOS.map(([n, rotulo]) =>
     `<button class="chip ${n === nDias ? 'chip--ativo' : ''}" data-acao="periodo-relatorio" data-dias="${n}" ${n === nDias ? 'aria-pressed="true"' : 'aria-pressed="false"'}>${esc(rotulo)}</button>`).join('');
-  const vazio = !rel.colunas.length && !rel.temperaturas.length && !rel.remedios.length;
+  const vazio = !rel.colunas.length && !rel.temperaturas.length && !rel.remedios.length && !rel.medidas.some((m) => !m.antes);
   return `
     <div class="relatorio">
       <div class="rel-barra nao-imprimir">
@@ -90,6 +107,7 @@ export function htmlRelatorio(rel, opcoes) {
       ${secaoDias(rel, agora)}
       ${secaoTemperatura(rel, opcoes)}
       ${secaoRemedios(rel, agora)}
+      ${secaoMedidas(rel)}
       <p class="ajuda rel-nota">Feito a partir dos registros do app. Horários em 24h (Brasília).</p>
     </div>`;
 }
@@ -248,5 +266,33 @@ function secaoRemedios(rel, agora) {
                 <dd>${lista.map((d) => `${esc(fmtHora(d.t))}${d.texto ? ` <span>(${esc(d.texto)})</span>` : ''}`).join(', ')}</dd></div>`).join('')}
           </dl>
         </div>`).join('')}
+    </section>`;
+}
+
+/** Colunas de medida com algum valor (peso, altura, cabeça). */
+export const colunasMedidas = (rel) => MEDIDAS.filter((m) => rel.medidas.some((x) => x.valores[m.id] !== null));
+/** "sex 20/11" ou "10/11 (antes do período)" */
+export const quandoMedida = (x) => (x.antes ? `${fmtData(x.t)} (antes do período)` : diaCurto(chaveDia(x.t)));
+
+function secaoMedidas(rel) {
+  if (!rel.medidas.length) return '';
+  const cols = colunasMedidas(rel);
+  const temDif = rel.medidas.some((x) => x.diferenca);
+  const temExtra = temDif || rel.medidas.some((x) => x.obs);
+  const linhas = rel.medidas.map((x) => `
+    <tr>
+      <th scope="row" class="${x.antes ? 'rel-antes' : ''}">${esc(quandoMedida(x))}</th>
+      ${cols.map((m) => `<td class="${x.antes ? 'rel-antes' : ''}">${x.valores[m.id] === null ? '—' : `<strong>${esc(m.fmt(x.valores[m.id]))}</strong>`}</td>`).join('')}
+      ${temExtra ? `<td>${!x.antes && x.diferenca ? `<small>${esc(x.diferenca)}</small>` : ''}${x.obs ? `<small>${esc(x.obs)}</small>` : ''}</td>` : ''}
+    </tr>`).join('');
+  return `
+    <section class="cartao rel-secao">
+      <h3 class="rel-secao-titulo">Medidas</h3>
+      <div class="rel-tabela-rolagem" tabindex="0" aria-label="Medidas (role para o lado)">
+        <table class="rel-tabela">
+          <thead><tr><th scope="col">Dia</th>${cols.map((m) => `<th scope="col">${esc(m.rotulo)}</th>`).join('')}${temExtra ? `<th scope="col">${temDif ? 'Mudança' : 'Observação'}</th>` : ''}</tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>
     </section>`;
 }

@@ -33,7 +33,7 @@ algo) dizem isso em "Você vai precisar".
 | 14 | Peso e altura | Alta | ✅ |
 | 15 | Aviso de vacina | Alta | ✅ |
 | 16 | Consultas e retornos | Média | ✅ |
-| 17 | Anotações livres | Baixa | 🧪 |
+| 17 | Anotações livres | Baixa | ✅ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos

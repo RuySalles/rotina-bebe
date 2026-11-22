@@ -34,8 +34,8 @@ algo) dizem isso em "Você vai precisar".
 | 15 | Aviso de vacina | Alta | ✅ |
 | 16 | Consultas e retornos | Média | ✅ |
 | 17 | Anotações livres | Baixa | ✅ |
-| 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | 🧪 |
-| 19 | Aba Resumo (Histórico só com a lista) | Alta | ⬜ |
+| 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | ✅ |
+| 19 | Aba Resumo (Histórico só com a lista) | Alta | 🧪 |
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ⬜ |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ⬜ |
 
@@ -655,11 +655,14 @@ foi registrado" precisa rolar, e quem quer ver "como está indo" não acha os gr
   Medidas, nessa ordem, cada um como um cartão que abre a tela dele.
 - **Histórico:** só os filtros e a lista, que passa a começar no topo.
 
+**Como ficou:** o cartão de Medidas se chama **Crescimento** (mostra o último peso e altura) e abre o Histórico
+filtrado por Medidas, que já tem os gráficos de evolução. Relatório e Família voltam para o Resumo ("‹ Resumo").
+
 **Você vai precisar:** nada.
 
 **Como testar:**
 - [ ] Histórico abre direto na lista de hoje.
-- [ ] Resumo → cada cartão abre a tela certa e o "‹ voltar" volta para o Resumo.
+- [ ] Resumo → cada cartão abre a tela certa e o "‹ Resumo" volta para o Resumo.
 
 ---
 
@@ -743,6 +746,8 @@ não quiser pode esconder (Ajustes → Tela inicial).
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 19 (feita): vista `resumo` no `app.js` (`vistaResumo`); a barra tem 4 abas; `relatorio` e `familia` contam como
+  aba Resumo. O Histórico perdeu os cartões (Relatório, Família, Ritmo).
 - Fase 18 (feita): `js/resumo.js` (puro, com testes): `resumoPeriodo(ctx, tipos, inicio, fim)` (médias só com dias
   inteiros, `cobertura`), `blocosResumo(r, anterior)` (as linhas do "Em resumo", as mesmas na tela e na imagem),
   `seriesRelatorio` (por dia até 14 dias, por semana depois) e `comparar`. `montarRelatorio` devolve também

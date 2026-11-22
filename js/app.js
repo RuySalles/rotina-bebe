@@ -39,6 +39,7 @@ let TODOS_TIPOS = []; // inclui remédios encerrados (histórico e resumo)
 const ICONES = {
   inicio: '<svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19z"/></svg>',
   historico: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  resumo: '<svg viewBox="0 0 24 24"><path d="M4.5 19.5h15"/><path d="M7 16v-4M12 16V7.5M17 16v-6.5"/></svg>',
   ajustes: '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
   lapis: '<svg viewBox="0 0 24 24"><path d="M15.5 5.5l3 3L8 19l-4 1 1-4z"/></svg>',
   fechar: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
@@ -361,7 +362,7 @@ function aoMudarEstado() {
 
 function render() {
   ctx = contexto();
-  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'relatorio' ? vistaRelatorio()
+  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'resumo' ? vistaResumo() : vista === 'relatorio' ? vistaRelatorio()
     : vista === 'familia' ? vistaFamilia()
     : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
   const html = `
@@ -432,12 +433,12 @@ function textoAgenda() {
 }
 
 function navegacao() {
-  const aba = vista === 'relatorio' || vista === 'familia' ? 'historico' : vista; // abrem de dentro do Histórico
+  const aba = vista === 'relatorio' || vista === 'familia' ? 'resumo' : vista; // abrem de dentro do Resumo
   const item = (id, rotulo) => `
     <button class="nav-item ${aba === id ? 'nav-item--ativo' : ''}" data-acao="vista" data-vista="${id}" ${aba === id ? 'aria-current="page"' : ''}>
       ${ICONES[id]}<span>${rotulo}</span>
     </button>`;
-  return `<nav class="nav">${item('inicio', 'Início')}${item('historico', 'Histórico')}${item('ajustes', 'Ajustes')}</nav>`;
+  return `<nav class="nav">${item('inicio', 'Início')}${item('historico', 'Histórico')}${item('resumo', 'Resumo')}${item('ajustes', 'Ajustes')}</nav>`;
 }
 
 function rodape() {
@@ -674,7 +675,32 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? cartaoMarcadas(filtrado) + cartaoEvolucao(filtrado) : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+  return `<div class="chips">${chips}</div>${filtroHistorico ? cartaoMarcadas(filtrado) + cartaoEvolucao(filtrado) : ''}<div class="dias">${blocos}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Resumo (fase 19): como está indo. Ritmo, Relatório para a consulta, Família e Medidas, cada um abre a sua tela.
+// ---------------------------------------------------------------------------
+
+function vistaResumo() {
+  const medidas = TIPOS.medidas;
+  const stMedidas = medidas?.regras?.status ? medidas.regras.status(ctx).linhas : [];
+  const temMedida = ctx.doTipo('medidas').length > 0;
+  return `
+    <div class="resumo-aba">
+      ${cartaoRitmo() || '<p class="ajuda">O "Ritmo dele" aparece depois de alguns dias de registros de sono e de leite.</p>'}
+      ${botaoRelatorio()}
+      ${botaoFamilia()}
+      ${medidas ? `
+        <button class="cartao rel-abrir" data-acao="ver-historico" data-tipo="medidas" ${estiloCor(medidas)}>
+          <span class="icone icone--pequeno">${medidas.icone}</span>
+          <span class="bloco-textos">
+            <span class="bloco-titulo">Crescimento</span>
+            <span class="bloco-detalhe">${esc(temMedida ? stMedidas.join(' · ') : 'Peso, altura e cabeça: registre em Medidas, na tela inicial')}</span>
+          </span>
+          <span class="bloco-seta" aria-hidden="true"></span>
+        </button>` : ''}
+    </div>`;
 }
 
 /** Registros marcados para a frente do tipo filtrado (agendavel, ex. consultas), antes da lista do Histórico. */
@@ -716,7 +742,7 @@ const botaoRelatorio = () => `
     <span class="icone icone--pequeno">${ICONES.relatorio}</span>
     <span class="bloco-textos">
       <span class="bloco-titulo">Relatório para a consulta</span>
-      <span class="bloco-detalhe">Temperatura, remédios, sono, fraldas e leite por dia · salvar em PDF</span>
+      <span class="bloco-detalhe">Resumo desde a última consulta, gráficos e dúvidas · PDF ou imagem</span>
     </span>
     <span class="bloco-seta" aria-hidden="true"></span>
   </button>`;

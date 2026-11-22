@@ -129,7 +129,7 @@ export function htmlRelatorio(rel, opcoes) {
   return `
     <div class="relatorio">
       <div class="rel-barra nao-imprimir">
-        <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="historico">‹ Histórico</button>
+        <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="resumo">‹ Resumo</button>
         <span class="rel-acoes">
           <button class="botao botao--cheio rel-imagem" data-acao="compartilhar-relatorio">Enviar imagem</button>
           <button class="botao botao--leve rel-pdf" data-acao="imprimir-relatorio">Salvar em PDF</button>

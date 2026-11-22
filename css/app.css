@@ -709,7 +709,7 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   width: 100%;
   max-width: 35rem;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding: 0.375rem 0.75rem calc(env(safe-area-inset-bottom) + 0.375rem);
   background: color-mix(in srgb, var(--superficie) 88%, transparent);
   backdrop-filter: saturate(1.4) blur(1rem);
@@ -1178,6 +1178,12 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .graf-titulo { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--texto-2); }
 .graf-rotulo--leve { font-size: 12px; font-weight: 600; }
 .rel-tabela td.rel-antes, .rel-tabela th.rel-antes { color: var(--texto-2); }
+/* Aba Resumo (fase 19): cartões que abrem cada tela */
+.resumo-aba { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco); padding-top: 0.5rem; }
+.resumo-aba > * { min-width: 0; }
+.resumo-aba .rel-abrir, .resumo-aba .ritmo { margin: 0; }
+@media (min-width: 1100px) { .resumo-aba { max-width: 48rem; } }
+
 /* Relatório para a pediatra (fase 18): resumo, gráficos e detalhes recolhidos */
 .rel-idade { margin: 0 0 0.125rem; font-weight: 600; color: var(--texto); }
 .rel-perguntas { border-left: 0.25rem solid var(--primaria); }

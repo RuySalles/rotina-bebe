@@ -144,7 +144,7 @@ export function htmlPlacar(p, { nome, nDias, periodos, periodo }) {
   return `
     <div class="relatorio placar">
       <div class="rel-barra">
-        <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="historico">‹ Histórico</button>
+        <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="resumo">‹ Resumo</button>
         <span class="rel-acoes">
           <button class="botao botao--cheio rel-imagem" data-acao="compartilhar-familia">Enviar para a família</button>
         </span>

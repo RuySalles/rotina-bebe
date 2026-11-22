@@ -12,10 +12,11 @@
 /**
  * Versão deste código. SUBA O NÚMERO a cada mudança no Code.gs (e atualize VERSAO_BACKEND_ESPERADA no
  * js/store.js). O app mostra em Ajustes qual versão está publicada, para conferir se a republicação pegou.
- * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda).
+ * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda);
+ * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda).
  * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 5;
+var VERSAO_BACKEND = 6;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -192,7 +193,7 @@ function rodarSeed() {
 }
 
 /**
- * Refaz os lembretes da agenda "Rotina do bebê" a partir dos planos ativos.
+ * Refaz os lembretes da agenda "Rotina do bebê" a partir dos planos ativos e das próximas doses de vacina.
  * Rode uma vez pelo editor depois de colar o código novo e ANTES de republicar: é assim que o Google pede a
  * autorização da Agenda (veja o SETUP.md). Pode rodar quantas vezes quiser: só cria o que falta e remove o que sobrou.
  */
@@ -220,6 +221,8 @@ var AGENDA_CONFIG = ['remedios', 'amoxicilina_dose_ml']; // mudam o título (ou 
 function anotarAgenda_(agenda, acao, payload, resultado) {
   if (acao === 'adicionar_plano' && resultado === 'adicionado' && payload.tipo) agenda.tipos[String(payload.tipo)] = true;
   if (acao === 'salvar_config' && AGENDA_CONFIG.indexOf(String(payload.chave)) !== -1) agenda.tudo = true;
+  // Vacina registrada, corrigida ou apagada: refaz os lembretes de próxima dose.
+  if (acao === 'adicionar_evento' && resultado === 'adicionado' && String(payload.tipo) === 'vacina') agenda.tipos.vacina = true;
 }
 
 function atualizarAgenda_(agenda) {
@@ -232,6 +235,7 @@ function atualizarAgenda_(agenda) {
     var agora = new Date();
     var existentes = eventosDoApp_(agendaG, agora);
     if (agenda.tudo) {
+      if (tipos.indexOf('vacina') === -1) tipos.push('vacina');
       // Também limpa tipos que têm lembrete e hoje não têm mais plano.
       existentes.forEach(function (ev) {
         var t = ev.getTag('rb_tipo');
@@ -240,7 +244,8 @@ function atualizarAgenda_(agenda) {
     }
     var config = lerConfig_();
     tipos.forEach(function (tipo) {
-      sincronizarTipo_(agendaG, tipo, planos[tipo] || [], existentes, config, agora);
+      if (tipo === 'vacina') sincronizarVacinas_(agendaG, existentes, agora);
+      else sincronizarTipo_(agendaG, tipo, planos[tipo] || [], existentes, config, agora);
     });
     gravarSituacaoAgenda_(props, agendaG);
   } catch (err) {
@@ -306,6 +311,99 @@ function tituloLembrete_(tipo, config) {
     return '';
   }
   return '💊 ' + nome + (dose ? ' · ' + dose : '');
+}
+
+// ---------------------------------------------------------------------------
+// Próxima dose de vacina (fase 15): lembrete de dia inteiro, com aviso na véspera às 9h.
+// Mesma regra do app (js/tipos/vacina.js → pendentes): a próxima dose anotada num registro está cumprida quando há
+// um registro de vacina com o mesmo nome (sem acento/maiúscula) feito depois dele. Só datas a partir de amanhã.
+// ---------------------------------------------------------------------------
+
+var VACINA_AVISO_MIN = 15 * 60; // eventos de dia inteiro começam à meia-noite: 15h antes = 9h da véspera
+
+function sincronizarVacinas_(agendaG, existentes, agora) {
+  var hoje = Utilities.formatDate(agora, 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var faltam = {};
+  vacinasPendentes_().forEach(function (p) { if (p.data > hoje) faltam[p.chave] = p; });
+  existentes.forEach(function (ev) {
+    if (ev.getTag('rb_tipo') !== 'vacina') return;
+    var p = faltam[ev.getTag('rb_horario')];
+    if (p && ev.getTitle() === p.titulo) delete faltam[p.chave]; // já está certo
+    else ev.deleteEvent();
+  });
+  Object.keys(faltam).forEach(function (chave) {
+    var p = faltam[chave];
+    // Meio-dia de São Paulo: cai no mesmo dia em qualquer fuso do script.
+    var dia = new Date(Date.parse(p.data + 'T12:00:00-03:00'));
+    var ev = agendaG.createAllDayEvent(p.titulo, dia, {
+      description: 'Próxima dose anotada da caderneta. Registre a vacina no app quando tomar.\n' +
+        'Lembrete criado pelo app Rotina do bebê: some sozinho quando a vacina é registrada.'
+    });
+    ev.setTag('rb_tipo', 'vacina');
+    ev.setTag('rb_horario', chave);
+    ev.removeAllReminders();
+    ev.addPopupReminder(VACINA_AVISO_MIN);
+  });
+}
+
+function normalizarVacina_(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** [{ chave, data, titulo }] das próximas doses anotadas e ainda não tomadas (qualquer data). */
+function vacinasPendentes_() {
+  var vacinas = vacinasAtuais_();
+  var seguinte = { '1ª': '2ª dose', '2ª': '3ª dose', '3ª': 'reforço' };
+  return vacinas
+    .filter(function (e) { return /^\d{4}-\d{2}-\d{2}$/.test(String(e.dados.proxima || '')); })
+    .filter(function (e) {
+      var nome = normalizarVacina_(e.dados.vacina);
+      return !vacinas.some(function (v) { return v.t > e.t && normalizarVacina_(v.dados.vacina) === nome; });
+    })
+    .map(function (e) {
+      var nome = String(e.dados.vacina || '').trim() || 'Vacina';
+      var dose = seguinte[e.dados.dose] || '';
+      return {
+        chave: e.dados.proxima + '|' + normalizarVacina_(nome),
+        data: e.dados.proxima,
+        titulo: '💉 ' + nome + (dose ? ' · ' + dose : '')
+      };
+    });
+}
+
+/**
+ * Registros de vacina valendo hoje: aplica edições e exclusões como o resolverEventos do app (vale a versão mais
+ * funda de cada cadeia de substitui_id; empate: a criada por último; se ela estiver apagada, some).
+ */
+function vacinasAtuais_() {
+  var linhas = lerLinhas_('eventos').filter(function (l) { return l.tipo === 'vacina' && l.id; });
+  var porId = {};
+  linhas.forEach(function (l) { porId[l.id] = l; });
+  var grupos = {};
+  linhas.forEach(function (l) {
+    var atual = l, prof = 0, raiz = l.id, visto = {};
+    while (atual.substitui_id && !visto[atual.id]) {
+      visto[atual.id] = true;
+      prof++;
+      var anterior = porId[atual.substitui_id];
+      if (!anterior) { raiz = atual.substitui_id; break; }
+      atual = anterior;
+      raiz = atual.id;
+    }
+    var cand = { linha: l, prof: prof, criado: Date.parse(l.criado_em) || 0 };
+    var v = grupos[raiz];
+    if (!v || cand.prof > v.prof || (cand.prof === v.prof && (cand.criado > v.criado || (cand.criado === v.criado && l.id > v.linha.id)))) {
+      grupos[raiz] = cand;
+    }
+  });
+  return Object.keys(grupos).map(function (k) { return grupos[k].linha; })
+    .filter(function (l) { return String(l.apagado).trim().toLowerCase() !== 'true'; })
+    .map(function (l) {
+      var dados = {};
+      try { dados = JSON.parse(l.dados || '{}') || {}; } catch (ignorado) {}
+      return { t: Date.parse(l.horario), dados: dados };
+    })
+    .filter(function (e) { return isFinite(e.t); });
 }
 
 /** Planos ativos: { tipo: [ms...] }. Mesma regra do app (resolverPlanos): vale a linha mais recente de cada tipo. */

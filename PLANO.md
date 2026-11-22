@@ -30,8 +30,8 @@ algo) dizem isso em "Você vai precisar".
 | 11 | Esconder e reordenar botões | — | ✅ |
 | 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | ✅ |
 | 13 | Família participando (placar e ranking) | Alta | ✅ |
-| 14 | Peso e altura | Alta | 🧪 |
-| 15 | Aviso de vacina | Alta | ⬜ |
+| 14 | Peso e altura | Alta | ✅ |
+| 15 | Aviso de vacina | Alta | 🧪 |
 | 16 | Consultas e retornos | Média | ⬜ |
 | 17 | Anotações livres | Baixa | ⬜ |
 
@@ -496,10 +496,27 @@ Sem comparar com curvas de crescimento: isso fica com o pediatra.
 data, ela aparece no botão de Vacinas e no card PRÓXIMO. O app não calcula o calendário sozinho, para não arriscar
 orientação errada.
 
-**Você vai precisar:** nada.
+**Decidido no quiz (22/11):**
+- **15 dias antes**, o botão de Vacinas mostra a próxima dose (ex. "Pentavalente · 3ª dose em 5 dias").
+- **No dia**, ela entra em destaque no topo das linhas de baixo do card PRÓXIMO ("Hoje · Vacina hoje · …"); o card
+  continua mostrando a rotina.
+- **Atrasada:** se a data passar sem registrar, o botão fica em destaque ("atrasada · desde 28/11") por até 60 dias.
+- **Some sozinha** quando a vacina com o mesmo nome é registrada (sem diferença de acento ou maiúscula). Ao tocar em
+  Vacinas com uma próxima dose perto, o nome e a dose seguinte já vêm preenchidos, para os nomes baterem.
+- **Também no Google Agenda:** lembrete de dia inteiro na agenda "Rotina do bebê" ("💉 Pentavalente · 3ª dose"), com
+  aviso na véspera às 9h. Corrigiu ou apagou a data, ou registrou a vacina: o lembrete muda ou some.
+
+**Você vai precisar** (passo a passo no `SETUP.md`, "Histórico de mudanças no Code.gs", fase 15):
+- no computador, colar o `Code.gs` novo, rodar **sincronizarAgenda** uma vez e republicar o Web App
+  (Implantar → Gerenciar implantações → lápis → Nova versão). Não pede autorização nova.
+- no celular da sua esposa, ligar o aviso dos eventos de dia inteiro da agenda "Rotina do bebê" (o do seu já vem
+  ligado em cada lembrete).
 
 **Como testar:**
+- [ ] Em Ajustes → Este celular, depois de "Sincronizar agora": "Web App: versão 6".
 - [ ] Registrar uma vacina com próxima dose daqui a 2 dias: aparece no botão e, no dia, no card PRÓXIMO.
+- [ ] O lembrete de dia inteiro aparece no Google Agenda, na data anotada.
+- [ ] Registrar a vacina seguinte (o nome já vem preenchido): o aviso some do botão e o lembrete some da agenda.
 - [ ] Vacinas antigas continuam iguais.
 
 ---
@@ -566,6 +583,12 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 15 (feita): campo novo `proxima` (AAAA-MM-DD) na vacina, com o tipo de campo genérico `data` no `app.js`
+  (sem mudar `SCHEMA_VERSION`: campo opcional novo, as antigas continuam iguais). `pendentes`/`avisosVacina` em
+  `js/tipos/vacina.js`; itens de `proximos` ganharam `destaque` e `diaInteiro`. Code.gs versão 6:
+  `sincronizarVacinas_`/`vacinasPendentes_`/`vacinasAtuais_` (mesma regra do app, com a resolução de
+  `substitui_id` copiada do `resolverEventos`), disparado por `adicionar_evento` de vacina e pelo
+  `sincronizarAgenda`. Eventos com a tag `rb_tipo` = `vacina` e `rb_horario` = `data|nome`.
 - Fase 14 (feita): `js/tipos/medidas.js` (dados: peso em kg, altura e cabeca em cm, observacao; sem mudar
   `SCHEMA_VERSION`, é tipo novo). `diferencas`/`textoDiferencas` comparam com a medida anterior que tem o mesmo
   valor. O contrato de tipo ganhou `evolucao?(ctx)`: séries que o `app.js` desenha no topo do Histórico filtrado com

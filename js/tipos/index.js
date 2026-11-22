@@ -5,10 +5,11 @@
 // Formato de um tipo:
 // {
 //   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto), interno? (sem botão/histórico/resumo),
-//   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'multiplas' | 'hora', opcoes?, min?, max?, passo?, casas?,
+//   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'multiplas' | 'hora' | 'data', opcoes?, min?, max?, passo?, casas?,
 //              placeholder?, ajuda?, mostrarSe?(dados) → bool, atalhos?(ctx, dados) → [{ valor, rotulo }] }],
 //     ('multiplas': opcoes = [{ valor, rotulo }], guarda uma lista; campo com mostrarSe falso não é gravado)
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
+//     ('data' guarda um dia do calendário, AAAA-MM-DD; vazio = ''. Ex.: próxima dose da vacina)
 //   resumo(dados, ctx, evento?) → { texto, destaque? },
 //   padroes?(ctx) → dados                 (valores já preenchidos num registro novo)
 //   resumoDia?(ctx, dia) → { valor, detalhe?, destaque? } | null   (cartão "Resumo" e cabeçalho do histórico filtrado)
@@ -20,7 +21,8 @@
 //   regras?: {
 //     prioridade, usaPlano?, intervaloMinimoH?, recorrenciaH?,
 //     status(ctx) → { linhas, alerta?, aviso?, ok?, ativo? },   (ativo: algo em andamento, ex. dormindo)
-//     proximos(ctx) → [{ t, titulo, detalhe, alerta?, informativo? }],
+//     proximos(ctx) → [{ t, titulo, detalhe, alerta?, informativo?, destaque?, diaInteiro? }],
+//       (destaque: primeira linha do "Depois", em destaque; diaInteiro: mostra "Hoje" em vez da hora)
 //     registrarComo?(ctx) → { editarId, dados?, titulo? } | null   (o botão abre um registro existente)
 //     infoRegistro?(ctx, horario, editandoId) → texto,
 //     avisos?(ctx, horario, dados, editandoId) → [{ texto, confirmar? }],

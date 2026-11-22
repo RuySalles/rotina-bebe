@@ -117,6 +117,10 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
 - *Fase 10 (versão 5, lembretes no Google Agenda):* ao salvar ou encerrar um plano de horários, o script refaz os
   lembretes na agenda "Rotina do bebê". **Esta versão precisa de uma autorização nova** — siga
   [Lembretes no Google Agenda](#lembretes-no-google-agenda) abaixo, na ordem (autorizar antes de republicar).
+- *Fase 15 (versão 6, próxima dose de vacina):* ao registrar, corrigir ou apagar uma vacina, o script refaz os
+  lembretes de próxima dose (evento de dia inteiro, com aviso na véspera às 9h). Não precisa de autorização nova:
+  cole o `Code.gs`, rode **sincronizarAgenda** uma vez (para criar os lembretes das vacinas que já têm data) e
+  republique. Enquanto não republicar, o app funciona igual, só sem esses lembretes na agenda.
 
 ## Lembretes no Google Agenda
 
@@ -124,6 +128,10 @@ Cada horário futuro de um plano de horários fixos (amoxicilina ou um remédio 
 evento de 10 minutos na agenda **Rotina do bebê**, com aviso na hora, por exemplo "💊 Vitamina · 2 gotas". Se o plano
 mudar, os lembretes mudam; se o plano ou o remédio for encerrado (ou excluído), os lembretes futuros somem. Os que já
 passaram ficam na agenda.
+
+Desde a versão 6, a **data da próxima dose** anotada numa vacina também vira um lembrete de **dia inteiro** nessa
+agenda, por exemplo "💉 Pentavalente · 3ª dose", com aviso **na véspera às 9h**. Quando a vacina com o mesmo nome é
+registrada no app, o lembrete some. Mudou ou apagou a data: o lembrete muda ou some.
 
 **1. Autorizar e publicar (uma vez, no computador)** — nesta ordem:
 1. Cole o `Code.gs` novo no editor e salve.
@@ -133,7 +141,7 @@ passaram ficam na agenda.
    > Se republicar antes deste passo, o Web App fica sem a permissão e o app mostra "Não foi possível sincronizar"
    > até você rodar o **sincronizarAgenda** e autorizar. Nenhum registro se perde (ficam na fila do celular).
 3. Republique: **Implantar → Gerenciar implantações → lápis → Versão: Nova versão → Implantar**.
-4. No app, **Ajustes → Este celular → Sincronizar agora**: deve aparecer "Web App: versão 5" e, embaixo,
+4. No app, **Ajustes → Este celular → Sincronizar agora**: deve aparecer "Web App: versão 6" e, embaixo,
    "Google Agenda: N lembretes · próximo …".
 
 **2. No seu celular** (a agenda é da sua conta): abra o app Google Agenda → menu ☰ → confira que **Rotina do bebê**
@@ -146,6 +154,8 @@ está marcada. O aviso de cada lembrete já vem ligado (na hora).
 3. Ela aceita pelo e-mail (ou a agenda aparece sozinha no Google Agenda dela).
 4. **Importante:** o aviso dos lembretes é de cada pessoa. No celular dela: Google Agenda → ☰ → ⚙ Configurações →
    **Rotina do bebê** → **Notificações padrão** → **Adicionar notificação** → **0 minutos antes** (ou "No horário").
+   Os lembretes de vacina são de dia inteiro e usam outra opção: logo abaixo, em **Notificações padrão para eventos
+   de dia inteiro**, adicione **1 dia antes às 9:00**.
    No iPhone sem o app Google Agenda, assine pelo app Agenda: Ajustes do iPhone → Agenda → Contas → conta Google →
    marque **Agendas**; os avisos seguem os "Alertas padrão" do iPhone (Ajustes → Agenda → Alertas Padrão).
 

@@ -422,11 +422,12 @@ function textoVersaoBackend() {
 /** Lembretes dos planos no Google Agenda (fase 10): quantos há e o próximo, ou o problema. */
 function textoAgenda() {
   const a = estado.sync.agenda;
-  if (!a) return (estado.sync.backend ?? 0) >= 5 ? 'Google Agenda: ainda sem lembretes (salve um plano de horários)' : '';
+  if (!a) return (estado.sync.backend ?? 0) >= 5 ? 'Google Agenda: ainda sem lembretes (salve um plano de horários ou anote a próxima dose de uma vacina)' : '';
   if (a.ok === false) return 'Google Agenda: não foi possível atualizar os lembretes (veja o SETUP.md)';
   if (!a.lembretes) return 'Google Agenda: nenhum lembrete pela frente';
   const t = Date.parse(a.proximo);
-  const prox = Number.isFinite(t) ? ` · próximo ${quandoCurto(t)}` : '';
+  // Lembrete de vacina é de dia inteiro (começa à meia-noite): mostra só o dia.
+  const prox = Number.isFinite(t) ? ` · próximo ${fmtHora(t) === '00:00' ? fmtData(t) : quandoCurto(t)}` : '';
   return `Google Agenda: ${a.lembretes} ${a.lembretes === 1 ? 'lembrete' : 'lembretes'}${prox}`;
 }
 
@@ -455,8 +456,9 @@ const estiloCor = (tipo) => `style="--cor:${esc(tipo.cor)}"`;
 function vistaInicio() {
   const agenda = montarAgenda(ctx, 24);
   const { principal } = escolherProximo(agenda);
-  // Os próximos horários (no máximo 3) entram no próprio card, como "Depois".
-  const depois = agenda.filter((i) => i !== principal).slice(0, 3);
+  // Os próximos horários (no máximo 3) entram no próprio card, como "Depois". Destaques (ex. vacina hoje) primeiro.
+  const resto = agenda.filter((i) => i !== principal);
+  const depois = [...resto.filter((i) => i.destaque), ...resto.filter((i) => !i.destaque)].slice(0, 3);
   // Celular: PRÓXIMO, botões, faixa (uma coluna). Tela larga: PRÓXIMO e faixa à esquerda, botões à direita.
   return `
     <div class="inicio">
@@ -475,8 +477,8 @@ function listaDepois(itens) {
   return `
     <ul class="proximo-depois">
       ${itens.map((i) => `
-        <li class="${i.informativo ? 'proximo-depois--info' : ''}" ${estiloCor(TIPOS[i.tipo])}>
-          <time>${i.previsao ? '~' : ''}${esc(quandoCurto(i.t, ctx.agora))}</time>
+        <li class="${i.destaque ? 'proximo-depois--destaque' : i.informativo ? 'proximo-depois--info' : ''}" ${estiloCor(TIPOS[i.tipo])}>
+          <time>${i.diaInteiro ? 'Hoje' : `${i.previsao ? '~' : ''}${esc(quandoCurto(i.t, ctx.agora))}`}</time>
           <span class="proximo-depois-ponto"></span>
           <span>${esc(i.titulo)}</span>
         </li>`).join('')}
@@ -1504,6 +1506,19 @@ function campoHtml(campo, dados) {
         </div>
       </div>`;
   }
+  if (campo.tipo === 'data') {
+    // Dia do calendário (AAAA-MM-DD), ex. próxima dose da vacina. Vazio = sem data.
+    const dia = /^\d{4}-\d{2}-\d{2}$/.test(String(valor || '')) ? valor : '';
+    return `
+      <div class="campo" data-campo="${esc(campo.id)}">
+        <label class="campo-rotulo" for="${nome}">${esc(campo.rotulo)}</label>
+        <div class="campo-data">
+          <input id="${nome}" name="${nome}" type="date" value="${esc(dia)}">
+          <button type="button" class="botao botao--leve botao--pequeno" data-acao="limpar-campo" data-campo="${esc(campo.id)}">Sem data</button>
+        </div>
+        ${campo.ajuda ? `<small>${esc(campo.ajuda)}</small>` : ''}
+      </div>`;
+  }
   if (campo.tipo === 'opcoes') {
     return `
       <div class="campo">
@@ -1670,6 +1685,9 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
     } else if (b.dataset.acao === 'atalho') {
       const input = form.elements[`c_${b.dataset.campo}`];
       input.value = b.dataset.valor;
+      atualizar();
+    } else if (b.dataset.acao === 'limpar-campo') {
+      form.elements[`c_${b.dataset.campo}`].value = '';
       atualizar();
     } else if (b.dataset.acao === 'agora-campo') {
       const nome = `c_${b.dataset.campo}`;

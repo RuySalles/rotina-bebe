@@ -13,6 +13,7 @@ import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.j
 import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 import { papel, porcentagens, montarPlacar } from '../js/familia.js';
 import { fmtPeso, fmtCm, textoDiferencas, serie } from '../js/tipos/medidas.js';
+import { pendentes, avisosVacina, nomePendente } from '../js/tipos/vacina.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -892,6 +893,46 @@ export function casos({ grupo, teste }) {
     igual(rel.medidas.map((m) => [m.antes, m.valores.peso, m.diferenca]), [[true, 7.1, '+300 g em 9 dias'], [false, 7.35, '+250 g em 14 dias']]);
     const so = montarRelatorio(ctxRel(linhasM.slice(0, 2), t('25', '12:00')), ordemM, 3);
     igual(so.medidas.map((m) => m.antes), [true]);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Próxima dose da vacina');
+  const vac = (dia, dados) => linha('vacina', T(dia, '10:00'), dados);
+  teste('Pendente até registrar a mesma vacina depois (sem acento nem maiúscula)', () => {
+    const linhasV = [
+      vac('01', { vacina: 'Pentavalente', dose: '2ª', proxima: '2026-10-30' }),
+      vac('02', { vacina: 'Rotavírus', dose: '1ª', proxima: '2026-12-01' }),
+      vac('20', { vacina: 'rotavirus ', dose: '2ª' })                         // cumpre a do Rotavírus
+    ];
+    const ctxV = ctxRel(linhasV, t('25', '12:00'));
+    const ps = pendentes(ctxV);
+    igual(ps.map((p) => [p.vacina, p.dose, p.dias]), [['Pentavalente', '3ª', 5]]);
+    igual(nomePendente(ps[0]), 'Pentavalente · 3ª dose');
+    igual(TIPOS.vacina.padroes(ctxV), { vacina: 'Pentavalente', dose: '3ª' });
+    igual(TIPOS.vacina.regras.status(ctxV).linhas, ['Pentavalente · 3ª dose em 5 dias', '30/10']);
+    verdade(TIPOS.vacina.regras.status(ctxV).aviso, 'aviso no botão');
+  });
+  teste('Janela: aparece 15 dias antes e até 60 dias de atraso', () => {
+    const ctxA = (proxima) => ctxRel([vac('01', { vacina: 'VIP', dose: '1ª', proxima })], t('25', '12:00'));
+    igual(avisosVacina(ctxA('2026-11-09')).length, 1);   // 15 dias
+    igual(avisosVacina(ctxA('2026-11-10')).length, 0);   // 16 dias
+    const atrasada = ctxA('2026-10-20');
+    igual(TIPOS.vacina.regras.status(atrasada).linhas, ['VIP · 2ª dose atrasada', 'desde 20/10']);
+    verdade(TIPOS.vacina.regras.status(atrasada).alerta, 'atrasada em destaque');
+    igual(avisosVacina(ctxRel([vac('01', { vacina: 'VIP', proxima: '2026-08-20' })], t('25', '12:00'))).length, 0); // 66 dias
+  });
+  teste('No dia: linha em destaque no PRÓXIMO, sem tomar o lugar da rotina', () => {
+    const ctxV = ctxRel([vac('01', { vacina: 'VIP', dose: '2ª', proxima: '2026-10-25' })], t('25', '12:00'));
+    const itens = TIPOS.vacina.regras.proximos(ctxV);
+    igual(itens.map((i) => [i.titulo, i.informativo, i.destaque, i.diaInteiro]), [['Vacina hoje · VIP · 3ª dose', true, true, true]]);
+    igual(escolherProximo(itens.map((i) => ({ ...i, tipo: 'vacina' }))).principal, null);
+    igual(TIPOS.vacina.resumo({ vacina: 'VIP', dose: '2ª', proxima: '2026-12-05' }).texto, 'VIP · 2ª dose · próxima em 05/12');
+  });
+  teste('Vacinas antigas (sem próxima dose) continuam iguais', () => {
+    const ctxV = ctxRel([vac('10', { vacina: 'BCG', dose: 'Única' })], t('25', '12:00'));
+    igual(pendentes(ctxV), []);
+    igual(TIPOS.vacina.regras.status(ctxV).linhas, ['BCG · dose única', 'Última em 10/10 · 1 registrada']);
+    igual(TIPOS.vacina.regras.avisos(ctxV, t('25', '10:00'), { proxima: '2026-10-20' }).length, 1); // antes do dia
   });
 
   // ---------------------------------------------------------------------

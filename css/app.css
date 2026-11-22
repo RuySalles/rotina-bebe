@@ -218,6 +218,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .proximo-depois time { min-width: 3.2em; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--texto); }
 .proximo-depois-ponto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--cor); }
 .proximo-depois--info { opacity: 0.75; }
+/* Destaque (ex. vacina hoje): fundo na cor do tipo, texto forte. */
+.proximo-depois--destaque { margin: 0 -0.5rem; padding: 0.375rem 0.5rem; border-radius: var(--raio-p);
+  background: color-mix(in srgb, var(--cor) 14%, transparent); color: var(--texto) !important; font-weight: 600; }
 .proximo--vazio { --cor: var(--ok); }
 .proximo--vazio .proximo-titulo { margin-top: 0.625rem; }
 
@@ -563,6 +566,9 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .hora .botao { flex: none; min-height: 3.625rem; }
 .dia-outro { margin-top: 0.25rem; color: var(--texto); font: inherit; font-size: 1.0625rem; }
 .dia-outro[hidden] { display: none; }
+.campo-data { display: flex; gap: 0.5rem; align-items: stretch; }
+.campo-data input { flex: 1; min-width: 0; }
+.campo-data .botao { flex: none; }
 
 .seg { display: inline-flex; flex-wrap: wrap; padding: 0.25rem; border-radius: 1rem; background: var(--superficie-2); gap: 2px; }
 .seg label { position: relative; }

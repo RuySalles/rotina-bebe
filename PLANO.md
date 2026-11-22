@@ -26,7 +26,7 @@ algo) dizem isso em "Você vai precisar".
 | 7 | Alimentação: leite, fruta ou refeição | ✅ |
 | 8 | Previsões de sono e de leite | ✅ |
 | 9 | Abrir o app sem internet | ✅ |
-| 10 | Alertas no celular pelo Google Agenda | 🧪 |
+| 10 | Alertas no celular pelo Google Agenda | ✅ |
 | 11 | Esconder e reordenar botões | ⬜ |
 | 12 | Anotações livres | ⬜ |
 | 13 | Relatório para a consulta | ⬜ |

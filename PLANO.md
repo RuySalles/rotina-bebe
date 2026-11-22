@@ -28,11 +28,12 @@ algo) dizem isso em "Você vai precisar".
 | 9 | Abrir o app sem internet | — | ✅ |
 | 10 | Alertas no celular pelo Google Agenda | — | ✅ |
 | 11 | Esconder e reordenar botões | — | ✅ |
-| 12 | Relatório para a consulta | — | 🧪 |
-| 13 | Peso e altura | Alta | ⬜ |
-| 14 | Aviso de vacina | Alta | ⬜ |
-| 15 | Consultas e retornos | Média | ⬜ |
-| 16 | Anotações livres | Baixa | ⬜ |
+| 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | 🔄 |
+| 13 | Família participando (placar e ranking) | Alta | ⬜ |
+| 14 | Peso e altura | Alta | ⬜ |
+| 15 | Aviso de vacina | Alta | ⬜ |
+| 16 | Consultas e retornos | Média | ⬜ |
+| 17 | Anotações livres | Baixa | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -43,6 +44,8 @@ comer?". Por isso entraram as fases 4 a 8. A antiga "App leve depois de muitos m
 **Replanejamento de 22/11 (depois da fase 12):** cada fase pendente ganhou uma prioridade (alta, média, baixa) e a
 fila segue essa ordem: primeiro Peso e altura e Aviso de vacina (alta), depois Consultas (média) e por último Anotações
 livres (baixa). Antes disso, "Anotações livres" já tinha ido para o fim. Nenhuma fase ganhou itens novos nesta revisão.
+Em seguida, a fase 12 ganhou "Compartilhar como imagem" e entrou a fase 13 nova, **Família participando** (prioridade
+alta): placar de Pai, Mãe e família e ranking só da família, com uma imagem para o grupo sem dados de saúde.
 
 ---
 
@@ -402,11 +405,17 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
 - **Salvar em PDF:** abre a impressão do celular, onde dá para escolher "Salvar como PDF". O PDF sai sempre claro e
   sem os botões, com o nome do bebê e o período. Os dias aparecem como "sex 20/11" (sem "hoje/ontem"), porque o PDF
   pode ser lido em outro dia.
-- As anotações livres entram aqui quando a fase 16 for feita.
+- As anotações livres entram aqui quando a fase 17 for feita.
+
+**Ajuste pedido em 22/11 (em andamento):** **Compartilhar como imagem.** Um botão ao lado de "Salvar em PDF" gera
+uma imagem do relatório (do período escolhido) e abre o compartilhar do celular, para mandar direto no WhatsApp. Sem
+servidor e sem mexer na planilha. É a imagem para o médico ou para quem cuida junto; a imagem para o grupo da família
+é outra, sem dados de saúde (fase 13).
 
 **Você vai precisar:** nada.
 
 **Como testar:**
+- [ ] **Compartilhar como imagem** → WhatsApp: a imagem chega legível, com o nome, o período e as seções.
 - [ ] Histórico → **Relatório para a consulta** → 3 dias: conferir os totais de um dia com o Histórico.
 - [ ] Trocar para 7 e 14 dias: a tabela cresce e o gráfico começa no dia da primeira medição de temperatura.
 - [ ] **Salvar em PDF** no celular, escolher "Salvar como PDF" e abrir o arquivo. (No iPhone, se o app instalado não
@@ -415,7 +424,38 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
 
 ---
 
-## Fase 13 — Peso e altura · prioridade alta
+## Fase 13 — Família participando (placar e ranking) · prioridade alta
+
+**Por quê:** compartilhar só os números da rotina não diz muito para a família. Mostrar quem ajudou gera
+engajamento: avós, tios e quem mais cuida passam a registrar também, e o relatório ganha sentido para o grupo.
+
+**O que muda:**
+- **Quem é quem, pelo apelido:** "Pai" e "Mãe" são os pais; qualquer outro apelido (ex. "Vó Ana", "Tia Bia") é da
+  família. Para alguém da família participar, ele abre o link de acesso e escolhe o próprio apelido. Não há nada novo
+  para configurar.
+- **Pontos só da rotina:** cada registro de alimentação, sono, fralda e banho vale ponto. Remédio, febre e vacina
+  **não** contam (para nunca incentivar uma dose a mais nem registro repetido).
+- **Placar do período** (mesmos períodos do Relatório): quanto da rotina foi registrado pela Mãe, pelo Pai e pela
+  família (em %). O **ranking** é só da família, sem Pai e Mãe.
+- **Imagem para o grupo da família:** o placar, o ranking e números leves (mamadeiras, fraldas, sonos), **sem
+  temperatura nem remédios**, pronta para mandar no WhatsApp pelo compartilhar do celular.
+- Vale também para os registros antigos: a coluna "quem" já existe em todos.
+
+**A decidir no começo da fase (quiz):** onde fica o placar (no Relatório ou numa tela própria), se registros
+corrigidos ou desfeitos tiram o ponto (proposta: sim, conta só o que está valendo), e os detalhes do visual da imagem.
+
+**Você vai precisar:** mandar o link de acesso para quem da família for participar (Ajustes → Compartilhar link de
+acesso). Atenção: o link dá acesso a tudo, inclusive aos remédios; envie só para quem cuida do bebê.
+
+**Como testar:**
+- [ ] No período de 7 dias, as porcentagens de Mãe, Pai e família somam 100% e batem com o Histórico.
+- [ ] Um parente com apelido próprio registra uma fralda: aparece no ranking da família; Pai e Mãe nunca aparecem lá.
+- [ ] Registrar um remédio não muda nenhum ponto.
+- [ ] A imagem para o grupo não mostra temperatura nem remédios.
+
+---
+
+## Fase 14 — Peso e altura · prioridade alta
 
 **O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico, e as medidas do período entram no Relatório.
 Sem comparar com curvas de crescimento: isso fica com o pediatra.
@@ -428,7 +468,7 @@ Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
 ---
 
-## Fase 14 — Aviso de vacina · prioridade alta
+## Fase 15 — Aviso de vacina · prioridade alta
 
 **O que muda:** ao registrar uma vacina, dá para anotar a **data da próxima dose** (como está na caderneta). Perto da
 data, ela aparece no botão de Vacinas e no card PRÓXIMO. O app não calcula o calendário sozinho, para não arriscar
@@ -442,7 +482,7 @@ orientação errada.
 
 ---
 
-## Fase 15 — Consultas e retornos · prioridade média
+## Fase 16 — Consultas e retornos · prioridade média
 
 **O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
 aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card PRÓXIMO no dia.
@@ -455,7 +495,7 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 
 ---
 
-## Fase 16 — Anotações livres · prioridade baixa
+## Fase 17 — Anotações livres · prioridade baixa
 
 **O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço",
 "primeira vez que comeu pera"), com texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 12.

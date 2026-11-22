@@ -34,6 +34,10 @@ algo) dizem isso em "Você vai precisar".
 | 15 | Aviso de vacina | Alta | ✅ |
 | 16 | Consultas e retornos | Média | ✅ |
 | 17 | Anotações livres | Baixa | ✅ |
+| 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | 🔄 |
+| 19 | Aba Resumo (Histórico só com a lista) | Alta | ⬜ |
+| 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ⬜ |
+| 21 | Gamificação: conquistas, meta da semana e marcos | Média | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -46,6 +50,24 @@ fila segue essa ordem: primeiro Peso e altura e Aviso de vacina (alta), depois C
 livres (baixa). Antes disso, "Anotações livres" já tinha ido para o fim. Nenhuma fase ganhou itens novos nesta revisão.
 Em seguida, a fase 12 ganhou "Compartilhar como imagem" e entrou a fase 13 nova, **Família participando** (prioridade
 alta): placar de Pai, Mãe e família e ranking só da família, com uma imagem para o grupo sem dados de saúde.
+
+**Revisão de 22/11, tela por tela (depois da fase 17):** com 2 meses de dados de teste (1.097 registros, 4 pessoas
+registrando), cada tela foi olhada no celular e na tela grande, perguntando "a informação mais importante está em
+primeiro lugar?". O que apareceu:
+- **Relatório:** abre com a tabela dia a dia (cerca de 1.000 px no celular) antes de qualquer resumo, e vai só até
+  14 dias. Para a consulta, o que interessa é o resumo do período, comparado com o anterior, no formato em que a
+  pediatra pergunta (crescimento, alimentação, sono, fraldas, intercorrências, vacinas, marcos, dúvidas). Falta a
+  idade do bebê (não há data de nascimento) e um período "desde a última consulta". → **fase 18**.
+- **Histórico:** antes da lista aparecem o Relatório, a Família e o Ritmo; a lista começa no meio da tela. Relatório,
+  Família, Ritmo e os gráficos de Medidas são "resumos", não histórico. → **fase 19** (aba Resumo).
+- **Tela inicial:** com o bebê dormindo, o card PRÓXIMO fala do leite e o "Dormindo há 35 min" fica num botão menor;
+  Febre (medida há 7 dias) e Tylenol ("liberado agora") ficam sempre no alto da faixa, mesmo sem uso; a vacina com
+  dose em 5 dias fica no meio; vários textos da faixa são cortados ("Def…"); o botão de Alimentação repete o "próximo
+  leite" do card. → **fase 20**.
+- **Ajustes, formulários, Família:** estão enxutos. Ajustes ganha só a data de nascimento (fase 18).
+- **Gamificação:** o placar da fase 13 é um começo; as ideias da fase 21 premiam quem cuida e registros completos
+  (o que também deixa o relatório melhor), nunca remédio ou febre.
+- **Ordem combinada:** 18, 19, 20, 21 (primeiro o relatório, que é o pedido principal).
 
 ---
 
@@ -566,6 +588,107 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - [ ] Registrar uma anotação de ontem às 22h: aparece no lugar certo do Histórico.
 - [ ] O filtro "Anotações" mostra só as anotações.
 - [ ] Uma anotação de Sintoma e uma de Marco no período: as duas no Relatório; só o marco na imagem da família.
+
+---
+
+## Fase 18 — Relatório para a pediatra: resumo primeiro, 30 e 60 dias · prioridade alta
+
+**Por quê:** na consulta, a pediatra quer em 1 minuto "o que aconteceu desde a última vez", e não a tabela de cada
+dia. O relatório de hoje é bom para conferir, mas ruim para apresentar.
+
+**O que muda (proposta):**
+- **Períodos:** "Desde a última consulta" (padrão, usando a última consulta registrada), 7, 30 e 60 dias.
+- **Topo, "Em resumo"**, como se a gente falasse na consulta, com a comparação com o período anterior (↑ ↓):
+  - **Identificação:** nome, **idade** (ex. "5 meses e 12 dias"; precisa da data de nascimento em Ajustes → Bebê).
+  - **Crescimento:** peso, altura e cabeça atuais e quanto mudou desde a medida anterior (ex. "+700 g em 27 dias,
+    ~26 g por dia"). Sem curvas de crescimento.
+  - **Alimentação:** leite por dia (média e faixa), mamadeiras por dia, refeições e frutas por dia, e o que começou no
+    período (ex. "refeição desde 23/10").
+  - **Sono:** total por dia, noite (hora de dormir e de acordar, quantas vezes acordou de madrugada) e cochilos.
+  - **Fraldas:** trocas por dia, cocôs por dia e o **maior intervalo sem cocô** (sinal de intestino preso).
+  - **Intercorrências:** episódios de febre (datas, máxima, quanto durou), remédios usados (quantas doses de cada) e
+    sintomas anotados.
+  - **Vacinas:** as do período e a próxima dose anotada. **Marcos** do período.
+  - **Dúvidas para a consulta:** um tipo novo de anotação, **Pergunta**, que vai para o topo do relatório.
+- **Gráficos por semana** (para 30 e 60 dias): leite por dia, sono por dia, fraldas e cocôs, peso. Uma linha por
+  gráfico, pequenos e lado a lado.
+- **Detalhes no fim, recolhidos:** a tabela de hoje (dia a dia até 14 dias; semana a semana em 30 e 60 dias), as
+  medições de temperatura e as doses.
+- A imagem para o WhatsApp e o PDF começam pelo resumo (a primeira imagem é o resumo inteiro).
+
+**A decidir no começo da fase (quiz):** quais linhas do resumo entram, a forma da comparação com o período anterior,
+e se os detalhes vão para o PDF ou só para a tela.
+
+**Você vai precisar:** preencher a data de nascimento em Ajustes → Bebê.
+
+**Como testar:**
+- [ ] Relatório → "Desde a última consulta": o período começa no dia da última consulta registrada.
+- [ ] O resumo cabe numa tela do celular e bate com o Histórico (conferir leite e fraldas de 2 dias).
+- [ ] 60 dias: os gráficos são por semana e a tabela de detalhes fica recolhida.
+- [ ] Uma anotação do tipo Pergunta aparece no topo do relatório.
+
+---
+
+## Fase 19 — Aba Resumo (Histórico só com a lista) · prioridade alta
+
+**Por quê:** hoje o Histórico abre com três cartões (Relatório, Família, Ritmo) antes da lista; quem quer ver "o que
+foi registrado" precisa rolar, e quem quer ver "como está indo" não acha os gráficos de Medidas sem filtrar.
+
+**O que muda (proposta):**
+- Barra de baixo com **4 abas: Início · Histórico · Resumo · Ajustes**.
+- **Resumo:** Ritmo dele (o cartão de hoje), Relatório para a consulta, Família participando e a evolução das
+  Medidas, nessa ordem, cada um como um cartão que abre a tela dele.
+- **Histórico:** só os filtros e a lista, que passa a começar no topo.
+
+**Você vai precisar:** nada.
+
+**Como testar:**
+- [ ] Histórico abre direto na lista de hoje.
+- [ ] Resumo → cada cartão abre a tela certa e o "‹ voltar" volta para o Resumo.
+
+---
+
+## Fase 20 — Tela inicial: o que importa agora em primeiro lugar · prioridade média
+
+**O que muda (proposta):**
+- **Estado atual no card PRÓXIMO:** com o bebê dormindo, o card mostra "Dormindo há 35 min" com o botão **Acordou**
+  (a previsão do leite vai para as linhas de baixo).
+- **Faixa ordenada por urgência:** o que tem aviso (vacina perto, consulta hoje, remédio na hora, febre recente) sobe
+  para o topo; Febre e Tylenol sem uso nos últimos 3 dias ficam juntos numa linha compacta ("Febre e remédio só se
+  precisar"), que abre os dois.
+- **Textos que cabem:** a faixa mostra uma informação por linha, sem cortar no meio; o botão de Alimentação deixa de
+  repetir o "próximo leite" (já está no card) e mostra o total do dia (ex. "830 mL hoje").
+- **Card PRÓXIMO mais curto:** "costuma ser a cada ~3h 40min nesse horário" vira "a cada ~3h40".
+
+**Você vai precisar:** nada.
+
+**Como testar:**
+- [ ] Com um sono em andamento, o card mostra "Dormindo" e o botão Acordou marca o despertar.
+- [ ] Com uma vacina em 5 dias e sem febre na semana, Vacinas fica no topo da faixa e Febre/Tylenol numa linha só.
+
+---
+
+## Fase 21 — Gamificação: conquistas, meta da semana e marcos · prioridade média
+
+**Por quê:** o placar da fase 13 mostra quem ajudou; dá para ir além sem nunca premiar remédio, febre ou registro
+repetido, e de um jeito que também melhora os dados do relatório.
+
+**Ideias (decidido em 22/11: as quatro entram):**
+- **Conquistas de quem cuida** (medalhas no placar e na imagem do grupo): "Plantão da madrugada" (registro entre 0h e
+  5h), "Mestre das fraldas" (50 trocas), "Primeiro banho dado", "Semana inteira" (registrou em 7 dias seguidos),
+  "Estreia" (primeiro registro de um parente). Só rotina conta, como no placar.
+- **Meta da semana da família:** uma barra "dias com a rotina completa" (ex. 5+ mamadas, sono da noite com hora de
+  acordar e fraldas registradas). Ao completar 7/7: "Semana completa!". Premia registro completo, que é o que deixa
+  previsões e relatório melhores.
+- **Aniversários e marcos do bebê:** "Hoje faz 6 meses!" no topo da tela inicial (precisa da data de nascimento) e
+  uma **linha do tempo dos marcos** (primeira papinha, rolou sozinho…) que vira imagem para o grupo.
+- **Retrospectiva do mês:** no dia 1, uma imagem para a família com os destaques do mês (noite mais longa, recorde de
+  leite, marcos, quem mais ajudou).
+
+**Regras que não mudam:** remédio, febre e vacina nunca dão ponto nem medalha; nada de notificação cobrando; quem
+não quiser pode esconder (Ajustes → Tela inicial).
+
+**Você vai precisar:** nada (a data de nascimento vem da fase 18).
 
 ---
 

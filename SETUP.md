@@ -106,6 +106,12 @@ Depois do primeiro acesso a chave fica guardada no celular e some da barra de en
 Cole o código novo no editor, salve e vá em **Implantar → Gerenciar implantações → lápis (editar) →
 Versão: Nova versão → Implantar**. A URL continua a mesma; não precisa mexer no segredo.
 
+**Histórico de mudanças no Code.gs** (todas compatíveis: app e Web App de versões diferentes continuam
+funcionando juntos; só ficam mais rápidos depois de republicar):
+- *Fase 4 (sincronização mais rápida):* o app envia vários registros num pedido só (ação `lote`) e baixa só os
+  eventos novos (parâmetro `desde`). Enquanto o Web App não for republicado, o app percebe e volta ao jeito antigo
+  (um registro por pedido e a planilha inteira a cada sincronização).
+
 **Atualizações do app:** chegam sozinhas. Ao abrir o app ou voltar para ele, o celular confere se há versão
 nova e recarrega (se alguém estiver digitando, aparece "Nova versão disponível · Atualizar" no topo).
 A versão instalada aparece no fim da tela **Ajustes**.
@@ -114,6 +120,8 @@ A versão instalada aparece no fim da tela **Ajustes**.
 (ou rode `node tests/rodar.mjs` na pasta do projeto).
 
 **Ver os dados:** estão todos na planilha. A aba **eventos** só recebe linhas novas — editar ou apagar
-no app cria uma linha nova que aponta para a antiga (`substitui_id`). Não edite essa aba à mão.
+no app cria uma linha nova que aponta para a antiga (`substitui_id`). Não edite essa aba à mão
+(o app baixa só as linhas novas do fim da aba; se alguma linha for apagada ou inserida no meio, ele percebe
+na carga completa, que acontece ao abrir o app e a cada 10 minutos).
 
 **Sem internet?** O app guarda os registros no celular ("Pendente (N)") e envia sozinho quando a conexão volta.

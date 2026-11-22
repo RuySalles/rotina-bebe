@@ -96,6 +96,9 @@ toastEl.addEventListener('click', (e) => {
 });
 
 const DESFAZER_MS = 8000;
+// Antes de abrir o Sono (que depende do outro celular), sincroniza se a última vez foi há mais que isso.
+const CONFERIR_ANTES_MS = 15 * 1000;
+const ESPERA_CONFERIR_MS = 4000;
 
 /** Aviso com "Desfazer" por alguns segundos. desfazer() grava uma linha nova (a aba eventos só recebe linhas). */
 function oferecerDesfazer(texto, desfazer, duracao = DESFAZER_MS) {
@@ -1251,7 +1254,15 @@ app.addEventListener('click', async (e) => {
     render();
     window.scrollTo({ top: 0 });
   } else if (acao === 'registrar') {
-    const como = TIPOS[b.dataset.tipo]?.regras?.registrarComo?.(contexto());
+    const tipoId = b.dataset.tipo;
+    // Tipos em que o botão depende do outro celular (ex. sono já iniciado lá): confere antes de abrir,
+    // por no máximo alguns segundos (sem internet, abre com o que tem).
+    if (TIPOS[tipoId]?.regras?.registrarComo && estado.sync.estado !== 'sem_config' && navigator.onLine !== false &&
+        Date.now() - (estado.sync.ultima || 0) > CONFERIR_ANTES_MS) {
+      await Promise.race([store.sincronizar(), new Promise((r) => setTimeout(r, ESPERA_CONFERIR_MS))]);
+      if (folha.open) return; // tocaram em outra coisa enquanto conferia
+    }
+    const como = TIPOS[tipoId]?.regras?.registrarComo?.(contexto());
     if (como) abrirFolha(b.dataset.tipo, como.editarId, como);
     else abrirFolha(b.dataset.tipo);
   } else if (acao === 'dia-resumo') {

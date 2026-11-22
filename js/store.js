@@ -17,6 +17,9 @@ const LS = {
   fila: 'rb_fila'
 };
 const INTERVALO_SYNC_MS = 30 * 1000;
+// De tempos em tempos baixa tudo de novo, para corrigir qualquer diferença (ex. mexeram direto na planilha).
+const COMPLETA_A_CADA_MS = 10 * 60 * 1000;
+const LOTE_MAX = 40;
 
 const lsLer = (k, padrao = null) => {
   try {
@@ -39,6 +42,9 @@ let servidor = lsJson(LS.cache, { eventos: [], planos: [], config: {} });
 let fila = lsJson(LS.fila, []);
 let sync = { estado: 'inicial', ultima: servidor.ultima || null, mensagem: '' };
 let emAndamento = null;
+let outraRodada = false;     // algo entrou na fila durante a sincronização
+let pedirCompleta = false;   // pediram carga completa durante a sincronização
+let servidorAntigo = false;  // Web App ainda não republicado na fase 4 (sem "lote")
 const assinantes = new Set();
 
 // ---------------------------------------------------------------------------
@@ -120,52 +126,145 @@ async function pedir(opcoes) {
   return json;
 }
 
-async function enviarFila() {
+// Erros de um item que nunca vão passar (o item é descartado para não travar a fila).
+// Qualquer outro erro (ex. a planilha demorou) mantém o item na fila para tentar de novo.
+const ERROS_DO_ITEM = ['id_obrigatorio', 'acao_desconhecida', 'chave_config_obrigatoria'];
+
+const postar = (corpo) => pedir({
+  url: urlBackend,
+  method: 'POST',
+  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+  body: JSON.stringify({ k: lerChave(), ...corpo })
+});
+
+function tirarDaFila(n) {
+  fila.splice(0, n);
+  lsGravar(LS.fila, JSON.stringify(fila));
+  avisar();
+}
+
+/** Web App de antes da fase 4 (sem "lote"): envia um item por pedido, como antes. */
+async function enviarUmPorUm() {
   while (fila.length) {
     const item = fila[0];
     try {
-      await pedir({
-        url: urlBackend,
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ k: lerChave(), acao: item.acao, payload: item.payload })
-      });
+      await postar({ acao: item.acao, payload: item.payload });
     } catch (e) {
       // Erro de validação de um item (não da chave): descarta para não travar a fila.
       if (e.doServidor && !e.definitivo) console.warn('Registro recusado pelo servidor:', e.message, item);
       else throw e;
     }
-    fila.shift();
-    lsGravar(LS.fila, JSON.stringify(fila));
-    avisar();
+    tirarDaFila(1);
   }
 }
 
-async function baixar() {
-  const sep = urlBackend.includes('?') ? '&' : '?';
-  const json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}`, method: 'GET' });
-  servidor = {
-    eventos: json.eventos || [],
-    planos: json.planos || [],
-    config: json.config || {},
-    ultima: Date.now()
-  };
-  lsGravar(LS.cache, JSON.stringify(servidor));
+/**
+ * Envia a fila em lotes. O último lote já pede a leitura junto (um pedido só).
+ * Devolve true se a resposta trouxe a leitura (aí não precisa baixar de novo).
+ */
+async function enviarLotes(completo) {
+  let leu = false;
+  while (fila.length) {
+    const itens = fila.slice(0, LOTE_MAX);
+    const corpo = { acao: 'lote', payload: { itens } };
+    if (fila.length <= LOTE_MAX) corpo.desde = podeIncremental(completo) ? servidor.linha_eventos : '';
+    let json;
+    try {
+      json = await postar(corpo);
+    } catch (e) {
+      if (e.doServidor && e.message === 'acao_desconhecida') { servidorAntigo = true; return false; }
+      throw e;
+    }
+    const resultados = Array.isArray(json.resultados) ? json.resultados : [];
+    // Para no primeiro item que falhou por um motivo passageiro: ele e os seguintes ficam na fila
+    // (reenviar é seguro: o servidor ignora ids repetidos).
+    let enviados = itens.length;
+    for (let i = 0; i < itens.length; i++) {
+      const r = resultados[i];
+      if (r?.ok) continue;
+      if (r && ERROS_DO_ITEM.includes(r.erro)) { console.warn('Registro recusado pelo servidor:', r.erro, itens[i]); continue; }
+      enviados = i;
+      break;
+    }
+    tirarDaFila(enviados);
+    if (enviados < itens.length) throw new Error('item_nao_gravado');
+    if (json.leitura) leu = aplicarLeitura(json.leitura);
+  }
+  return leu;
 }
 
-/** Envia a fila e baixa tudo de novo. Chamadas simultâneas compartilham a mesma promessa. */
-export function sincronizar() {
-  if (emAndamento) return emAndamento;
+/** Dá para pedir só o que mudou? (senão, carga completa: de tempos em tempos ou se algo não bater) */
+function podeIncremental(completo) {
+  return !completo && Number.isFinite(servidor.linha_eventos) && servidor.linha_eventos >= 1 &&
+    Date.now() - (servidor.completa || 0) < COMPLETA_A_CADA_MS;
+}
+
+/** Junta a resposta do servidor ao que está guardado. Devolve false se precisar de carga completa. */
+function aplicarLeitura(json) {
+  const agora = Date.now();
+  if (json.parcial) {
+    // A aba encolheu (mexeram direto na planilha): não dá para confiar no incremental.
+    if (!(json.linha_eventos >= servidor.linha_eventos)) return false;
+    const ids = new Set(servidor.eventos.map((e) => e.id));
+    const novos = (json.eventos || []).filter((e) => e.id && !ids.has(e.id));
+    servidor = {
+      ...servidor,
+      eventos: novos.length ? [...servidor.eventos, ...novos] : servidor.eventos,
+      planos: json.planos || [],
+      config: json.config || {},
+      linha_eventos: json.linha_eventos,
+      ultima: agora
+    };
+  } else {
+    servidor = {
+      eventos: json.eventos || [],
+      planos: json.planos || [],
+      config: json.config || {},
+      // Web App antigo não manda linha_eventos: aí toda leitura continua completa, como antes.
+      linha_eventos: Number.isFinite(json.linha_eventos) ? json.linha_eventos : null,
+      completa: agora,
+      ultima: agora
+    };
+  }
+  lsGravar(LS.cache, JSON.stringify(servidor));
+  return true;
+}
+
+async function baixar(completo) {
+  const sep = urlBackend.includes('?') ? '&' : '?';
+  const inc = podeIncremental(completo);
+  const desde = inc ? `&desde=${servidor.linha_eventos}` : '';
+  const json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${desde}`, method: 'GET' });
+  if (!aplicarLeitura(json) && inc) await baixar(true);
+}
+
+/**
+ * Envia a fila e atualiza os dados (só o que mudou ou, de tempos em tempos, tudo).
+ * opcoes.completo: força baixar tudo. Chamadas simultâneas compartilham a mesma promessa;
+ * um registro feito durante a sincronização dispara outra logo em seguida.
+ */
+export function sincronizar(opcoes = {}) {
+  if (emAndamento) {
+    if (opcoes.completo) pedirCompleta = true;
+    return emAndamento;
+  }
+  const completo = !!opcoes.completo || pedirCompleta;
+  pedirCompleta = false;
+  outraRodada = false;
   emAndamento = (async () => {
     if (!urlBackend || !lerChave()) {
       definirSync('sem_config');
       return obterEstado();
     }
     definirSync('sincronizando');
+    let deuCerto = false;
     try {
-      await enviarFila();
-      await baixar();
+      let leu = false;
+      if (!servidorAntigo) leu = await enviarLotes(completo);
+      if (servidorAntigo) await enviarUmPorUm();
+      if (!leu) await baixar(completo);
       sync.ultima = servidor.ultima;
+      deuCerto = true;
       definirSync(fila.length ? 'pendente' : 'ok');
     } catch (e) {
       const mensagem = e.message === 'chave_invalida' ? 'Link inválido' : navigator.onLine === false ? 'Sem internet' : 'Não foi possível sincronizar';
@@ -173,6 +272,7 @@ export function sincronizar() {
     } finally {
       emAndamento = null;
     }
+    if (deuCerto && (outraRodada || pedirCompleta) && (fila.length || pedirCompleta)) return sincronizar();
     return obterEstado();
   })();
   return emAndamento;
@@ -192,6 +292,7 @@ function enfileirar(acao, payload) {
   fila.push({ acao, payload });
   lsGravar(LS.fila, JSON.stringify(fila));
   avisar();
+  if (emAndamento) outraRodada = true;
   sincronizar();
 }
 
@@ -233,7 +334,7 @@ function novaLinha({ tipo, horario, dados, apagado = false, substitui_id = '' })
 export async function carregar() {
   configurarBackend();
   avisar();
-  return sincronizar();
+  return sincronizar({ completo: true });
 }
 
 /** horario: ISO com fuso, Date ou milissegundos. Devolve o id do registro. */

@@ -534,6 +534,32 @@ export function casos({ grupo, teste }) {
   });
 
   // ---------------------------------------------------------------------
+  grupo('Sono marcado nos dois celulares');
+  const ctxSono = (linhas, agora) =>
+    criarContexto({ eventos: resolverEventos(linhas, TIPOS), planos: {}, config: {}, agora, tipos: TIPOS });
+  const regrasSono = TIPOS.sono.regras;
+  teste('Sono iniciado há pouco (no outro celular): pede confirmação para iniciar outro', () => {
+    const ctx = ctxSono([linha('sono', T('25', '14:02'), { fim: '' })], t('25', '14:10'));
+    const avisos = regrasSono.avisos(ctx, t('25', '14:08'), { fim: '' }, '');
+    verdade(avisos.some((a) => a.confirmar && a.texto.includes('14:02') && a.texto.includes('por Teste')), JSON.stringify(avisos));
+  });
+  teste('Sono aberto há muitas horas: só avisa, sem pedir confirmação', () => {
+    const ctx = ctxSono([linha('sono', T('25', '08:00'), { fim: '' })], t('25', '14:10'));
+    const avisos = regrasSono.avisos(ctx, t('25', '14:08'), { fim: '' }, '');
+    verdade(avisos.length === 1 && !avisos[0].confirmar, JSON.stringify(avisos));
+  });
+  teste('Horário dentro de um sono já registrado: pede confirmação', () => {
+    const ctx = ctxSono([linha('sono', T('25', '13:00'), { fim: T('25', '14:30') })], t('25', '15:00'));
+    verdade(regrasSono.avisos(ctx, t('25', '13:40'), { fim: '' }, '').some((a) => a.confirmar && a.texto.includes('13:00 às 14:30')));
+    igual(regrasSono.avisos(ctx, t('25', '14:40'), { fim: '' }, ''), []);
+  });
+  teste('Editando o próprio sono: sem esses avisos', () => {
+    const l = linha('sono', T('25', '14:02'), { fim: '' });
+    const ctx = ctxSono([l], t('25', '14:10'));
+    igual(regrasSono.avisos(ctx, t('25', '14:02'), { fim: '' }, l.id), []);
+  });
+
+  // ---------------------------------------------------------------------
   grupo('Planos');
   teste('Plano novo desativa o anterior do mesmo tipo', () => {
     const p1 = planoLinha([T('25', '08:00')], { criado_em: T('24', '10:00') });

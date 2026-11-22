@@ -20,7 +20,7 @@ algo) dizem isso em "Você vai precisar".
 | 1 | Desfazer logo depois de registrar | ✅ |
 | 2 | Remédio novo sem precisar de programação | ✅ |
 | 3 | Histórico de ajustes (quem mudou o quê, com volta) | 🧪 |
-| 4 | Sincronização mais rápida | ⬜ |
+| 4 | Sincronização mais rápida | 🧪 |
 | 5 | Rotina em primeiro lugar na tela inicial | ⬜ |
 | 6 | Ajustes reorganizado (remédios agrupados) | ⬜ |
 | 7 | Alimentação: leite, sólido ou sopa | ⬜ |
@@ -140,11 +140,15 @@ acontece de o sono ser iniciado duas vezes, ou de alguém esperar para fechar o 
 
 **O que muda:**
 - O que estiver na fila vai **de uma vez só**, num único envio.
-- O app baixa **só o que mudou** desde a última vez, não a planilha toda. De tempos em tempos (e ao tocar no
-  indicador de sincronia), confere tudo de novo, para nunca ficar com algo faltando.
-- Ao abrir ou voltar para o app, ele sincroniza na hora e mostra "Atualizado há X min" enquanto isso.
-- Ao iniciar um sono, se o outro celular tiver iniciado um há poucos minutos, o app avisa ("Já tem um sono iniciado
-  às 14:02 por Pai") em vez de criar outro.
+- O app baixa **só o que mudou** desde a última vez, não a planilha toda. Ao abrir o app e a cada 10 minutos,
+  confere tudo de novo, para nunca ficar com algo faltando.
+- Um registro feito enquanto o app sincroniza sobe logo em seguida (antes podia esperar até 30 segundos).
+- Ao tocar em **Sono**, se a última sincronização foi há mais de 15 segundos, o app confere o outro celular antes de
+  abrir (no máximo 4 segundos; sem internet, abre na hora). Assim, se o sono já foi iniciado lá, abre direto
+  "Registrar despertar".
+- Se mesmo assim o outro celular iniciar um sono enquanto a tela está aberta, ao salvar aparece "Já tem um sono
+  iniciado às 14:02 por Pai" e é preciso confirmar. O mesmo vale para um horário que cai dentro de um sono já
+  registrado.
 
 **Você vai precisar:** republicar o Web App (Implantar → Gerenciar implantações → editar → Nova versão). A mudança é
 compatível: a versão atual do app continua funcionando com o Web App novo, e vice-versa.
@@ -152,7 +156,9 @@ compatível: a versão atual do app continua funcionando com o Web App novo, e v
 **Como testar:**
 - [ ] Registrar uma fralda num celular: no outro, aparece em até 30 segundos (ou na hora, ao voltar para o app).
 - [ ] Em modo avião, registrar 3 coisas; desligar o modo avião: as 3 sobem juntas e viram "Sincronizado".
-- [ ] Iniciar um sono num celular e, logo depois, tentar iniciar no outro: aparece o aviso de sono já iniciado.
+- [ ] Iniciar um sono num celular e, uns 20 segundos depois, tocar em Sono no outro: abre "Registrar despertar"
+      (e não um sono novo).
+- [ ] Antes de republicar o Web App o app continua funcionando normalmente (só sem a parte mais rápida).
 - [ ] O Histórico, o Resumo de ontem e o Histórico de ajustes continuam completos.
 
 ---

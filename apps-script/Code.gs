@@ -25,21 +25,28 @@ var CONFIG_PADRAO = {
 // Web App
 // ---------------------------------------------------------------------------
 
+/**
+ * Leitura. Sem parâmetros extras devolve tudo (como sempre).
+ * Com "desde" (número da última linha de eventos que o celular já tem), devolve só os eventos
+ * das linhas seguintes, com parcial: true. Planos e config vêm sempre completos (são pequenos).
+ * "linha_eventos" diz até que linha a aba eventos vai, para o próximo pedido.
+ */
 function doGet(e) {
   try {
-    validarChave_(e && e.parameter && e.parameter.k);
-    garantirAbas_();
-    return json_({
-      ok: true,
-      eventos: lerLinhas_('eventos'),
-      planos: lerLinhas_('planos'),
-      config: lerConfig_()
-    });
+    var p = (e && e.parameter) || {};
+    validarChave_(p.k);
+    return json_(leitura_(p.desde));
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   }
 }
 
+/**
+ * Gravação. Ações: adicionar_evento, adicionar_plano, salvar_config (uma por pedido, como sempre)
+ * e lote: payload.itens = [{ acao, payload }, ...], gravados em ordem; cada item tem seu resultado,
+ * e um item recusado não impede os outros. Com "desde" no corpo, a resposta já traz a leitura
+ * (como o doGet), para o celular não precisar de um segundo pedido.
+ */
 function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
@@ -49,26 +56,57 @@ function doPost(e) {
     lock.waitLock(20000);
     garantirAbas_();
     var payload = corpo.payload || {};
-    var resultado;
-    switch (corpo.acao) {
-      case 'adicionar_evento':
-        resultado = adicionarSemRepetir_('eventos', payload);
-        break;
-      case 'adicionar_plano':
-        resultado = adicionarSemRepetir_('planos', payload);
-        break;
-      case 'salvar_config':
-        resultado = salvarConfig_(payload.chave, payload.valor);
-        break;
-      default:
-        throw new Error('acao_desconhecida');
+    if (corpo.acao === 'lote') {
+      var idsVistos = {};
+      var resultados = (payload.itens || []).map(function (item) {
+        try {
+          return { ok: true, resultado: gravar_(item && item.acao, (item && item.payload) || {}, idsVistos) };
+        } catch (errItem) {
+          return { ok: false, erro: String(errItem.message || errItem) };
+        }
+      });
+      var resposta = { ok: true, resultados: resultados };
+      if (corpo.desde !== undefined) resposta.leitura = leitura_(corpo.desde);
+      return json_(resposta);
     }
-    return json_({ ok: true, resultado: resultado });
+    return json_({ ok: true, resultado: gravar_(corpo.acao, payload) });
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   } finally {
     try { lock.releaseLock(); } catch (ignorado) {}
   }
+}
+
+function gravar_(acao, payload, idsVistos) {
+  switch (acao) {
+    case 'adicionar_evento':
+      return adicionarSemRepetir_('eventos', payload, idsVistos);
+    case 'adicionar_plano':
+      return adicionarSemRepetir_('planos', payload, idsVistos);
+    case 'salvar_config':
+      return salvarConfig_(payload.chave, payload.valor);
+    default:
+      throw new Error('acao_desconhecida');
+  }
+}
+
+/** desde: '' ou ausente = tudo; um número = só os eventos depois dessa linha da planilha. */
+function leitura_(desde) {
+  var ss = planilha_();
+  var n = parseInt(desde, 10);
+  var parcial = String(desde === undefined || desde === null ? '' : desde) !== '' && isFinite(n) && n >= 1 &&
+    !!ss.getSheetByName('eventos') && !!ss.getSheetByName('planos') && !!ss.getSheetByName('config');
+  if (!parcial) garantirAbas_();
+  var ultima = ss.getSheetByName('eventos').getLastRow();
+  var resposta = {
+    ok: true,
+    eventos: parcial ? lerLinhas_('eventos', n + 1) : lerLinhas_('eventos'),
+    planos: lerLinhas_('planos'),
+    config: lerConfig_(),
+    linha_eventos: ultima
+  };
+  if (parcial) resposta.parcial = true;
+  return resposta;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,12 +218,14 @@ function cabecalho_(aba) {
   return aba.getRange(1, 1, 1, ultima).getDisplayValues()[0].map(function (c) { return String(c).trim(); });
 }
 
-function lerLinhas_(nome) {
+/** Linhas da aba como objetos (pelo cabeçalho). aPartirDe: primeira linha da planilha a ler (padrão 2). */
+function lerLinhas_(nome, aPartirDe) {
   var aba = planilha_().getSheetByName(nome);
   var ultimaLinha = aba.getLastRow();
-  if (ultimaLinha < 2) return [];
+  var inicio = Math.max(2, aPartirDe || 2);
+  if (ultimaLinha < inicio) return [];
   var cab = cabecalho_(aba);
-  var valores = aba.getRange(2, 1, ultimaLinha - 1, cab.length).getDisplayValues();
+  var valores = aba.getRange(inicio, 1, ultimaLinha - inicio + 1, cab.length).getDisplayValues();
   return valores
     .filter(function (linha) { return linha.join('') !== ''; })
     .map(function (linha) {
@@ -195,19 +235,25 @@ function lerLinhas_(nome) {
     });
 }
 
-/** Acrescenta uma linha, ignorando se o id já existe (reenvio da fila offline). */
-function adicionarSemRepetir_(nome, payload) {
+/**
+ * Acrescenta uma linha, ignorando se o id já existe (reenvio da fila offline).
+ * idsVistos (opcional, usado no lote): guarda os ids de cada aba já lidos neste pedido, para não reler a coluna.
+ */
+function adicionarSemRepetir_(nome, payload, idsVistos) {
   if (!payload || !payload.id) throw new Error('id_obrigatorio');
   var aba = planilha_().getSheetByName(nome);
   var cab = cabecalho_(aba);
   var colId = cab.indexOf('id') + 1;
   var ultimaLinha = aba.getLastRow();
-  if (ultimaLinha >= 2) {
-    var ids = aba.getRange(2, colId, ultimaLinha - 1, 1).getDisplayValues();
-    for (var i = 0; i < ids.length; i++) {
-      if (ids[i][0] === String(payload.id)) return 'ja_existia';
+  var ids = idsVistos && idsVistos[nome];
+  if (!ids) {
+    ids = {};
+    if (ultimaLinha >= 2) {
+      aba.getRange(2, colId, ultimaLinha - 1, 1).getDisplayValues().forEach(function (l) { ids[l[0]] = true; });
     }
+    if (idsVistos) idsVistos[nome] = ids;
   }
+  if (ids[String(payload.id)]) return 'ja_existia';
   var linha = cab.map(function (c) {
     var v = payload[c];
     if (v === undefined || v === null) return '';
@@ -215,6 +261,7 @@ function adicionarSemRepetir_(nome, payload) {
     return String(v);
   });
   aba.getRange(ultimaLinha + 1, 1, 1, cab.length).setNumberFormat('@').setValues([linha]);
+  ids[String(payload.id)] = true;
   return 'adicionado';
 }
 

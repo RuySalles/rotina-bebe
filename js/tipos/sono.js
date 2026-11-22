@@ -5,6 +5,8 @@ const HORA = 60 * MIN;
 // Sono "em andamento" esquecido aberto não conta além disso no total do dia.
 const MAX_ABERTO_H = 16;
 const LONGO_H = 14;
+// Sono aberto há menos que isso, ao registrar outro: quase certo que é o mesmo (marcado no outro celular).
+const RECENTE_H = 3;
 
 const fimDe = (e) => {
   const f = ms(e.dados.fim);
@@ -90,7 +92,24 @@ export default {
       }
       if (!editandoId) {
         const aberto = emAndamento(ctx);
-        if (aberto) avisos.push({ texto: `O sono das ${fmtHora(aberto.t)} ainda está sem horário de acordar. Ele vai ficar assim no histórico.` });
+        const por = (e) => (e.quem ? ` por ${e.quem}` : '');
+        if (aberto && ctx.agora - aberto.t < RECENTE_H * HORA) {
+          // Provavelmente o outro celular marcou enquanto esta tela estava aberta.
+          avisos.push({
+            texto: `Já tem um sono iniciado às ${fmtHora(aberto.t)}${por(aberto)}. Para marcar o despertar, cancele e toque em Sono de novo.`,
+            confirmar: true
+          });
+        } else if (aberto) {
+          avisos.push({ texto: `O sono das ${fmtHora(aberto.t)} ainda está sem horário de acordar. Ele vai ficar assim no histórico.` });
+        }
+        // Um sono já registrado (e terminado) que cobre o horário escolhido.
+        const cobre = ctx.doTipo('sono').find((e) => e.id !== aberto?.id && fimDe(e) !== null && e.t <= horario && horario < fimDe(e));
+        if (cobre) {
+          avisos.push({
+            texto: `Já tem um sono das ${fmtHora(cobre.t)} às ${fmtHora(fimDe(cobre))}${por(cobre)} nesse horário.`,
+            confirmar: true
+          });
+        }
       }
       return avisos;
     }

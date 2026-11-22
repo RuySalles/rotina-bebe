@@ -31,7 +31,11 @@ function jsonOu(texto, padrao) {
 /** Resumo de uma definição de remédio, para comparar antes e depois. */
 function textoRemedio(r) {
   if (!r) return '';
-  const partes = [r.modo === 'intervalo' && r.cadaH ? `a cada ${fmtNumero(numero(r.cadaH), 1).replace(',0', '')}h` : (MODOS[r.modo] || '').toLowerCase()];
+  const partes = [
+    r.modo === 'intervalo' && r.cadaH ? `a cada ${fmtNumero(numero(r.cadaH), 1).replace(',0', '')}h`
+      : r.modo === 'diario' ? `1 vez por dia, até ${r.horaRef || '10:00'}`
+        : (MODOS[r.modo] || '').toLowerCase()
+  ];
   if (r.dose) partes.push(r.dose);
   if (r.minimoH) partes.push(`mín. ${fmtNumero(numero(r.minimoH), 1).replace(',0', '')}h entre doses`);
   if (r.maxDia) partes.push(`máx. ${r.maxDia} em 24h`);

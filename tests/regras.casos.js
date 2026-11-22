@@ -500,6 +500,61 @@ export function casos({ grupo, teste }) {
     igual(montarAgenda(ctx).filter((i) => i.tipo === 'remedio_vit'), []);
     igual(ctx.tipos.remedio_vit.resumoDia(ctx, '2026-10-25'), { valor: '1 dose', detalhe: '08:00' });
   });
+  const DIA = { id: 'adz', nome: 'Vitamina W', dose: '2 gotas', modo: 'diario', horaRef: '10:00', ativo: true };
+  teste('"1 vez por dia": antes da hora mostra "ainda não" sem entrar no card PRÓXIMO', () => {
+    const ctx = montarComRemedios(remedios([DIA]), [linha('remedio_adz', T('24', '08:30'))], t('25', '09:00'));
+    const r = ctx.tipos.remedio_adz.regras;
+    igual([r.status(ctx).linhas, !!r.status(ctx).aviso], [['Hoje: ainda não', 'Até 10:00'], false]);
+    igual(r.proximos(ctx), []);
+  });
+  teste('"1 vez por dia": passou da hora sem dose, entra no card PRÓXIMO (sem "Atrasado")', () => {
+    const ctx = montarComRemedios(remedios([DIA]), [], t('25', '10:20'));
+    const r = ctx.tipos.remedio_adz.regras;
+    igual([r.status(ctx).linhas, r.status(ctx).aviso], [['Hoje: ainda não', 'Costuma ser até 10:00'], true]);
+    const { principal } = escolherProximo(montarAgenda(ctx));
+    igual([principal.tipo, principal.t, !!principal.alerta], ['remedio_adz', t('25', '10:00'), false]);
+  });
+  teste('"1 vez por dia": dada hoje → ok, fora da agenda, e aviso se registrar de novo no mesmo dia', () => {
+    const l = linha('remedio_adz', T('25', '08:19'));
+    const ctx = montarComRemedios(remedios([DIA]), [l], t('25', '15:00'));
+    const r = ctx.tipos.remedio_adz.regras;
+    igual([r.status(ctx).linhas, r.status(ctx).ok], [['Hoje: dada às 08:19'], true]);
+    igual(r.proximos(ctx), []);
+    verdade(r.avisos(ctx, t('25', '15:00'), {}, '').some((a) => a.confirmar && a.texto.includes('08:19')));
+    igual(r.avisos(ctx, t('25', '08:25'), {}, l.id), [], 'editando a própria dose');
+    igual(r.avisos(ctx, t('26', '08:00'), {}, ''), [], 'outro dia');
+  });
+  teste('"1 vez por dia": hora de referência inválida vira 10:00', () => {
+    igual(lerRemedios(remedios([{ ...DIA, horaRef: '25:99' }]))[0].horaRef, '10:00');
+    igual(lerRemedios(remedios([{ ...DIA, horaRef: '09:30' }]))[0].horaRef, '09:30');
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Tela inicial: rotina em primeiro lugar');
+  teste('Só alimentação, sono, fralda e banho são botões grandes', () => {
+    const { visiveis } = montarTipos(remedios([VIT]));
+    igual(visiveis.filter((tp) => tp.rotina).map((tp) => tp.id), ['alimentacao', 'sono', 'fralda', 'banho']);
+  });
+  teste('Amoxicilina sai da tela inicial 12h depois da última dose do plano (e sem plano)', () => {
+    const plano = planoLinha(PLANO_AMOX);
+    const durante = criarContexto({ eventos: [], planos: resolverPlanos([plano]), config: {}, agora: t('30', '12:00'), tipos: TIPOS });
+    verdade(TIPOS.amoxicilina.naInicio(durante), 'durante o tratamento');
+    const logoDepois = criarContexto({ eventos: [], planos: resolverPlanos([plano]), config: {}, agora: t('31', '20:00'), tipos: TIPOS });
+    verdade(TIPOS.amoxicilina.naInicio(logoDepois), 'ainda mostra "Tratamento concluído" por algumas horas');
+    const depois = criarContexto({ eventos: [], planos: resolverPlanos([plano]), config: {}, agora: Date.parse('2026-11-02T08:00:00-03:00'), tipos: TIPOS });
+    verdade(!TIPOS.amoxicilina.naInicio(depois), 'acabou há mais de 12h');
+    const semPlano = criarContexto({ eventos: [], planos: {}, config: {}, agora: t('30', '12:00'), tipos: TIPOS });
+    verdade(!TIPOS.amoxicilina.naInicio(semPlano), 'sem plano');
+  });
+  teste('Remédio de horários fixos sai depois do plano; sem plano continua (para lembrar de preencher)', () => {
+    const cfg = remedios([ANT]);
+    const plano = planoLinha([T('25', '08:00'), T('25', '20:00')], { tipo: 'remedio_ant' });
+    igual(montarComRemedios(cfg, [], t('27', '12:00'), [plano]).tipos.remedio_ant.naInicio(montarComRemedios(cfg, [], t('27', '12:00'), [plano])), false);
+    const c2 = montarComRemedios(cfg, [], t('25', '12:00'), [plano]);
+    igual(c2.tipos.remedio_ant.naInicio(c2), true);
+    const c3 = montarComRemedios(cfg, [], t('27', '12:00'));
+    igual(c3.tipos.remedio_ant.naInicio(c3), true);
+  });
 
   // ---------------------------------------------------------------------
   grupo('Histórico de ajustes');

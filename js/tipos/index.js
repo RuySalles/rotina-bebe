@@ -12,6 +12,8 @@
 //   resumoDia?(ctx, dia) → { valor, detalhe?, destaque? } | null   (cartão "Resumo" e cabeçalho do histórico filtrado)
 //   migrar?(dados, versao) → dados        (ler schema_version antigo)
 //   painel?(ctx) → { titulo, itens }      (bloco extra na tela principal)
+//   naInicio?(ctx) → bool                 (false = fora da tela inicial agora, ex. tratamento concluído; o Histórico continua)
+//   rotina?: true                         (botão grande no topo da tela inicial; os outros vão para a faixa compacta)
 //   regras?: {
 //     prioridade, usaPlano?, intervaloMinimoH?, recorrenciaH?,
 //     status(ctx) → { linhas, alerta?, aviso?, ok?, ativo? },   (ativo: algo em andamento, ex. dormindo)

@@ -11,6 +11,7 @@ function diasEntre(t, agora) {
 
 export default {
   id: 'banho',
+  rotina: true,
   rotulo: 'Banho',
   cor: '#3E93B8',
   icone: '<svg viewBox="0 0 24 24"><path d="M3.5 12h17v1.5a6 6 0 0 1-6 6h-5a6 6 0 0 1-6-6z"/><path d="M6 12V6.5A2.5 2.5 0 0 1 10.6 5"/><path d="M8 19.5 7 21M16 19.5l1 1.5"/></svg>',

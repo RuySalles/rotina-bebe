@@ -36,6 +36,7 @@ const quando = (t, agora) => (chaveDia(t) === chaveDia(agora) ? fmtHora(t) : `${
 
 export default {
   id: 'sono',
+  rotina: true,
   rotulo: 'Sono',
   cor: '#5B6FB5',
   icone: '<svg viewBox="0 0 24 24"><path d="M18.5 14.5A7.5 7.5 0 0 1 9.5 5.5a7.5 7.5 0 1 0 9 9z"/><path d="M14 4h4l-4 4h4"/></svg>',

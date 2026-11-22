@@ -267,6 +267,39 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .tile--ativo { border-color: color-mix(in srgb, var(--cor) 45%, transparent); background: color-mix(in srgb, var(--cor) 8%, var(--superficie)); }
 .tile--ativo .tile-forte { color: var(--cor); }
 
+/* Faixa compacta: remédios, febre e vacinas, uma linha cada, abaixo da rotina. */
+.faixa { margin-top: 12px; }
+.faixa-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 14px;
+  text-align: left;
+}
+.faixa-item:active { background: var(--superficie-2); }
+.faixa-textos { display: flex; flex-direction: column; min-width: 0; }
+.faixa-rotulo { font-size: 15px; font-weight: 600; }
+.faixa-status { font-size: 13px; color: var(--texto-2); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faixa-forte { color: var(--texto); font-weight: 500; }
+.faixa-mais {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cor);
+  color: var(--cor);
+  font-size: 17px;
+  line-height: 1;
+}
+.faixa-item--alerta .faixa-status, .faixa-item--alerta .faixa-forte { color: var(--alerta); }
+.faixa-item--aviso .faixa-status { color: var(--aviso); }
+.faixa-item--ok .faixa-forte { color: var(--ok); }
+.faixa-item--ativo .faixa-forte { color: var(--cor); }
+
 /* --- Resumo do dia -------------------------------------------------------- */
 
 .secao-acoes { display: flex; gap: 6px; margin-left: auto; text-transform: none; letter-spacing: 0; }
@@ -778,7 +811,21 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 /* Cadastro de remédios: campos que só valem para um jeito de dar. */
 .form:has(input[name="modo"][value="intervalo"]:not(:checked)) .so-intervalo,
 .form:has(input[name="modo"][value="fixo"]:not(:checked)) .so-fixo,
-.form:has(input[name="modo"][value="se_precisar"]:not(:checked)) .so-se_precisar { display: none; }
+.form:has(input[name="modo"][value="se_precisar"]:not(:checked)) .so-se_precisar,
+.form:has(input[name="modo"][value="diario"]:not(:checked)) .so-diario { display: none; }
+.campo select {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border-radius: var(--raio-p);
+  border: 1px solid var(--linha);
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.campo select:focus { border-color: var(--cor); outline: none; }
 .registro--remedio { grid-template-columns: auto 1fr 18px; }
 
 /* Histórico de ajustes */
@@ -791,6 +838,6 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .ajuste-antes { text-decoration: line-through; text-decoration-color: var(--texto-3); }
 .ajuste-item .botao { grid-column: 2; grid-row: 1 / span 3; min-height: 40px; padding: 0 12px; font-size: 14px; }
 
-.seg--largo { display: flex; flex-wrap: nowrap; }
-.seg--largo label { flex: 1; }
+.seg--largo { display: flex; flex-wrap: wrap; }
+.seg--largo label { flex: 1 1 45%; }
 .seg--largo span { padding: 0 8px; text-align: center; }

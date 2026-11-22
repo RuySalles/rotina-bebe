@@ -2,7 +2,7 @@
 
 import * as store from './store.js';
 import { montarTipos } from './tipos/index.js';
-import { lerRemedios, corPara, MODOS } from './tipos/remedio.js';
+import { lerRemedios, corPara, MODOS, HORA_REF_PADRAO, horaValida } from './tipos/remedio.js';
 import { descreverAjuste } from './tipos/ajuste.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
@@ -419,7 +419,8 @@ function vistaInicio() {
     ${cardProximo(principal, depois)}
     <section class="secao">
       <h2 class="secao-titulo">Registrar</h2>
-      <div class="grade">${LISTA_TIPOS.map(tile).join('')}</div>
+      <div class="grade">${LISTA_TIPOS.filter((t) => t.rotina).map(tile).join('')}</div>
+      ${faixaCompacta()}
     </section>
     ${resumoDoDia()}
     <section class="secao">
@@ -474,13 +475,46 @@ function tile(tipo) {
     </button>`;
 }
 
+/**
+ * Remédios, febre e vacinas: uma linha cada, abaixo da rotina. Ordem: tratamentos em andamento, febre,
+ * "só se precisar", vacinas. Tratamento concluído (naInicio = false) sai daqui e continua no Histórico.
+ */
+function faixaCompacta() {
+  const peso = (t) => (t.id === 'febre' ? 1 : t.id === 'vacina' ? 3 : t.id === 'tylenol' || t.remedio?.modo === 'se_precisar' ? 2 : 0);
+  const tipos = LISTA_TIPOS
+    .filter((t) => !t.rotina && (!t.naInicio || t.naInicio(ctx)))
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => peso(a.t) - peso(b.t) || a.i - b.i)
+    .map(({ t }) => t);
+  if (!tipos.length) return '';
+  return `<ul class="cartao lista faixa" aria-label="Remédios e saúde">${tipos.map(linhaFaixa).join('')}</ul>`;
+}
+
+function linhaFaixa(tipo) {
+  const st = tipo.regras?.status ? tipo.regras.status(ctx) : { linhas: [] };
+  const [forte = '', segunda = ''] = st.linhas || [];
+  const classe = st.alerta ? 'faixa-item--alerta' : st.aviso ? 'faixa-item--aviso' : st.ativo ? 'faixa-item--ativo' : st.ok ? 'faixa-item--ok' : '';
+  return `
+    <li>
+      <button class="faixa-item ${classe}" data-acao="registrar" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
+        <span class="icone icone--pequeno">${tipo.icone}</span>
+        <span class="faixa-textos">
+          <span class="faixa-rotulo">${esc(tipo.rotulo)}</span>
+          <span class="faixa-status"><span class="faixa-forte">${esc(forte)}</span>${segunda ? ` · ${esc(segunda)}` : ''}</span>
+        </span>
+        <span class="faixa-mais" aria-hidden="true">+</span>
+      </button>
+    </li>`;
+}
+
 /** Totais do dia por tipo (cada tipo diz o seu em resumoDia). */
 function resumoDoDia() {
   const hoje = chaveDia(ctx.agora);
   const dia = somarDias(hoje, diaResumo);
   const itens = TODOS_TIPOS
     .map((tipo) => ({ tipo, r: tipo.resumoDia ? tipo.resumoDia(ctx, dia) : null }))
-    .filter((i) => i.r);
+    .filter((i) => i.r)
+    .sort((a, b) => Number(!!b.tipo.rotina) - Number(!!a.tipo.rotina)); // rotina primeiro (ordem estável no resto)
   const botao = (n, rotulo) =>
     `<button class="chip chip--pequeno ${diaResumo === n ? 'chip--ativo' : ''}" data-acao="dia-resumo" data-dia="${n}">${rotulo}</button>`;
   return `
@@ -726,6 +760,14 @@ function vistaAjustes() {
     </section>`;
 }
 
+/** Horários de meia em meia hora (05:00 a 23:00), sempre em 24h; inclui o atual se for "quebrado". */
+function opcoesHoraRef(atual) {
+  const lista = [];
+  for (let m = 5 * 60; m <= 23 * 60; m += 30) lista.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+  if (!lista.includes(atual)) lista.push(atual), lista.sort();
+  return lista.map((h) => `<option value="${h}" ${h === atual ? 'selected' : ''}>${h}</option>`).join('');
+}
+
 /** Cadastro de remédios (config.remedios): lista + formulário de novo/edição. */
 function secaoRemedios() {
   const lista = lerRemedios(estado.config);
@@ -733,7 +775,7 @@ function secaoRemedios() {
   const modo = r?.modo || 'intervalo';
   const num = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
   const descricao = (x) => [
-    x.modo === 'intervalo' && x.cadaH ? `A cada ${num(x.cadaH)}h` : MODOS[x.modo],
+    x.modo === 'intervalo' && x.cadaH ? `A cada ${num(x.cadaH)}h` : x.modo === 'diario' ? `1 vez por dia (até ${x.horaRef})` : MODOS[x.modo],
     x.dose
   ].filter(Boolean).join(' · ');
   const itens = lista.map((x) => `
@@ -769,7 +811,12 @@ function secaoRemedios() {
           </div>
           <small class="so-fixo">Horários fixos: depois de salvar, preencha os horários em Planos de horário (como a amoxicilina).</small>
           <small class="so-se_precisar">Só se precisar: nunca aparece como próximo; o app só mostra quando está liberado.</small>
+          <small class="so-diario">1 vez por dia: mostra se já foi dada hoje. Passando da hora abaixo sem registro, aparece como próximo.</small>
         </div>
+        <label class="campo so-diario">
+          <span>Avisar se não for dada até</span>
+          <select name="horaRef">${opcoesHoraRef(r?.horaRef || HORA_REF_PADRAO)}</select>
+        </label>
         <label class="campo so-intervalo">
           <span>A cada quantas horas</span>
           <input name="cadaH" inputmode="decimal" value="${esc(num(r?.cadaH))}" placeholder="Ex.: 8">
@@ -914,6 +961,7 @@ function salvarFormRemedio(form) {
     dose: form.dose.value.trim().slice(0, 40),
     modo,
     cadaH: modo === 'intervalo' ? cadaH : null,
+    horaRef: modo === 'diario' ? (horaValida(form.horaRef.value) ? form.horaRef.value : HORA_REF_PADRAO) : null,
     minimoH,
     maxDia,
     lembrete: form.lembrete.value.trim().slice(0, 200)

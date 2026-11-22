@@ -297,6 +297,15 @@ export function statusPlano(horarios, eventos, agora, toleranciaMin = 30) {
   };
 }
 
+/**
+ * Tratamento de plano fixo que já acabou há um tempo: todas as doses passaram (registradas ou não)
+ * e a última foi há mais de "horas". Aí o remédio sai da tela inicial (continua no Histórico).
+ */
+export function tratamentoAcabou(horarios, status, agora, horas = 12) {
+  if (!status || !status.concluido || !horarios?.length) return false;
+  return agora > Math.max(...horarios) + horas * HORA;
+}
+
 /** Horário mais próximo de t dentro de ±minutos (ou null). */
 export function maisProximo(t, tempos, minutos) {
   let melhor = null;

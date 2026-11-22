@@ -12,6 +12,7 @@ const quando = (t, agora) => {
 
 export default {
   id: 'fralda',
+  rotina: true,
   rotulo: 'Fralda',
   cor: '#B08A2E',
   icone: '<svg viewBox="0 0 24 24"><path d="M3.5 7h17v3.5a8.5 8.5 0 0 1-17 0z"/><path d="M7.5 7v2.2M16.5 7v2.2"/><path d="M9 15.5c1.8 1.3 4.2 1.3 6 0"/></svg>',

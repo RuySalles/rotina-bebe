@@ -21,7 +21,7 @@ algo) dizem isso em "Você vai precisar".
 | 2 | Remédio novo sem precisar de programação | ✅ |
 | 3 | Histórico de ajustes (quem mudou o quê, com volta) | ✅ |
 | 4 | Sincronização mais rápida | ✅ |
-| 5 | Rotina em primeiro lugar na tela inicial | ⬜ |
+| 5 | Rotina em primeiro lugar na tela inicial | 🧪 |
 | 6 | Ajustes reorganizado (remédios agrupados) | ⬜ |
 | 7 | Alimentação: leite, sólido ou sopa | ⬜ |
 | 8 | Previsões de sono e de leite | ⬜ |
@@ -171,22 +171,28 @@ todo dia não se encaixa em nenhum dos jeitos de dar de hoje (fica mostrando "Se
 despercebida quando esquecem.
 
 **O que muda:**
-- Os botões da rotina (Alimentação, Sono, Fralda, Banho) vêm primeiro e maiores.
-- Os remédios ficam numa faixa compacta logo abaixo, com o estado em uma linha ("Dada às 08:19", "Liberado",
-  "Próxima 21:00").
-- Remédio com tratamento concluído (como a amoxicilina depois da última dose do plano) sai da tela inicial sozinho e
-  continua no Histórico.
-- Jeito de dar novo: **1 vez por dia**, com um horário de referência opcional (ex. "de manhã"). Mostra "Hoje: dada
-  ✓" ou "Hoje: ainda não", e só entra no card PRÓXIMO se passar do horário de referência sem registro.
-- Febre, Vacina e os remédios "só se precisar" continuam a um toque, sem destaque.
+- Os botões da rotina (Alimentação, Sono, Fralda, Banho) vêm primeiro e grandes. O Resumo do dia também começa por
+  eles.
+- Remédios, Febre e Vacinas ficam numa faixa compacta logo abaixo, uma linha cada, com o estado ("Hoje: dada às
+  08:19", "Liberado agora", "Próxima 21:00"). Ordem: tratamentos em andamento, Febre, "só se precisar" (como o
+  Tylenol), Vacinas. Tocar na linha registra, como os botões.
+- Remédio de horários fixos com o tratamento concluído (como a amoxicilina) mostra "Tratamento concluído" por 12 horas
+  depois da última dose do plano e então sai da tela inicial. Continua no Histórico e no filtro. A amoxicilina sem
+  plano também não aparece; salvar um plano novo para ela traz o botão de volta.
+- Jeito de dar novo: **1 vez por dia**, com "Avisar se não for dada até" (padrão 10:00, de meia em meia hora). Mostra
+  "Hoje: ainda não" ou "Hoje: dada às HH:MM". Passando da hora sem registro, a linha fica em destaque e o remédio entra
+  no card PRÓXIMO (sem "Atrasado"). Registrar de novo no mesmo dia pede confirmação.
 
-**Você vai precisar:** mudar a vitamina em Ajustes para **1 vez por dia** (eu explico onde, é um toque).
+**Você vai precisar:** em **Ajustes → Remédios**, tocar na vitamina, escolher **1 vez por dia** em "Como dar",
+conferir a hora em "Avisar se não for dada até" e tocar em **Salvar alterações**.
 
 **Como testar:**
-- [ ] A tela inicial abre com Alimentação, Sono, Fralda e Banho em cima.
+- [ ] A tela inicial abre com Alimentação, Sono, Fralda e Banho em cima; logo abaixo, a faixa com a vitamina, Febre,
+      Tylenol e Vacinas.
 - [ ] A amoxicilina (já concluída) não aparece mais na tela inicial; no Histórico, o filtro dela mostra as doses.
-- [ ] Com a vitamina em "1 vez por dia": antes de registrar mostra "Hoje: ainda não"; depois, "Dada às HH:MM".
-- [ ] O Tylenol continua acessível e nunca aparece no card PRÓXIMO.
+- [ ] Com a vitamina em "1 vez por dia": antes de registrar mostra "Hoje: ainda não"; depois, "Hoje: dada às HH:MM".
+- [ ] Num dia em que ninguém deu a vitamina até a hora escolhida, ela aparece no card PRÓXIMO.
+- [ ] O Tylenol continua a um toque e nunca aparece no card PRÓXIMO.
 
 ---
 

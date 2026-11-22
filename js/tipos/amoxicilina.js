@@ -1,4 +1,4 @@
-import { statusPlano, casarPlano, fmtHora, fmtData, fmtDuracao, chaveDia, somarDias, fmtMl } from '../regras.js';
+import { statusPlano, casarPlano, fmtHora, fmtData, fmtDuracao, chaveDia, somarDias, fmtMl, tratamentoAcabou } from '../regras.js';
 
 const TOLERANCIA_MIN = 30;
 // Pela bula: nunca duas doses com intervalo de 1 hora ou menos.
@@ -60,6 +60,12 @@ export default {
     const previstas = (ctx.plano('amoxicilina')?.horarios || []).filter((t) => chaveDia(t) === dia).length;
     if (!n && !previstas) return null;
     return { valor: n === 1 ? '1 dose' : `${n} doses`, detalhe: previstas ? `de ${previstas} no plano` : '' };
+  },
+
+  /** Só na tela inicial durante o tratamento (sem plano, ou acabado há mais de 12h, sai; o Histórico continua). */
+  naInicio(ctx) {
+    const s = situacao(ctx);
+    return !!s && !tratamentoAcabou(ctx.plano('amoxicilina').horarios, s, ctx.agora);
   },
 
   regras: {

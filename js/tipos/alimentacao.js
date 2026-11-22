@@ -11,6 +11,7 @@ function tylenolRecente(ctx) {
 
 export default {
   id: 'alimentacao',
+  rotina: true,
   rotulo: 'Alimentação',
   cor: '#D08A4E',
   icone: '<svg viewBox="0 0 24 24"><path d="M9.5 2.5h5"/><path d="M10.5 2.5v2.8L8.3 8.4v10.3A2.8 2.8 0 0 0 11.1 21.5h1.8a2.8 2.8 0 0 0 2.8-2.8V8.4l-2.2-3.1V2.5"/><path d="M8.3 12.5h7.4"/></svg>',

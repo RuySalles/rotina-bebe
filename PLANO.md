@@ -31,8 +31,8 @@ algo) dizem isso em "Você vai precisar".
 | 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | ✅ |
 | 13 | Família participando (placar e ranking) | Alta | ✅ |
 | 14 | Peso e altura | Alta | ✅ |
-| 15 | Aviso de vacina | Alta | 🧪 |
-| 16 | Consultas e retornos | Média | ⬜ |
+| 15 | Aviso de vacina | Alta | ✅ |
+| 16 | Consultas e retornos | Média | 🧪 |
 | 17 | Anotações livres | Baixa | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
@@ -526,11 +526,25 @@ orientação errada.
 **O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
 aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card PRÓXIMO no dia.
 
-**Você vai precisar:** nada.
+**Decidido no quiz (22/11):**
+- Botão **Consultas** na faixa de baixo (depois de Vacinas). Toque → **Marcar consulta**: Hoje, Amanhã ou Outro dia
+  (qualquer data à frente), hora, motivo, local e **Anotações** (texto livre).
+- **7 dias antes**, a consulta entra nas linhas de baixo do card PRÓXIMO; **no dia**, em destaque. O card continua
+  com a rotina.
+- **Google Agenda:** evento de 1 hora na hora da consulta ("🩺 Retorno com o pediatra · Clínica"), com aviso na
+  véspera e 2 horas antes no seu celular. Mudou ou apagou: o lembrete muda ou some.
+- **Depois da consulta:** por 3 dias, o botão diz "Anote o que o médico disse" e, ao tocar, abre essa consulta para
+  anotar. Salvar sem anotar também vale: o app para de pedir.
+- As marcadas ficam no Histórico → filtro Consultas, no cartão **Marcadas**; depois da hora, vão para a lista.
+
+**Você vai precisar** (passo a passo no `SETUP.md`, "Histórico de mudanças no Code.gs", fase 16): colar o
+`Code.gs` novo, rodar **sincronizarAgenda** uma vez e republicar o Web App. Não pede autorização nova.
 
 **Como testar:**
-- [ ] Cadastrar uma consulta para amanhã: aparece em "Depois" no card PRÓXIMO.
-- [ ] Depois da data, ela vai para o Histórico.
+- [ ] Em Ajustes → Este celular, depois de "Sincronizar agora": "Web App: versão 7".
+- [ ] Marcar uma consulta para amanhã: aparece em "Depois" no card PRÓXIMO e no Google Agenda.
+- [ ] Mudar a hora da consulta: o lembrete muda na agenda.
+- [ ] Depois da hora, ela vai para o Histórico e o botão pede a anotação; anotar faz o pedido sumir.
 
 ---
 
@@ -583,6 +597,11 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 16 (feita): `js/tipos/consulta.js`. O contrato de tipo ganhou `agendavel` (formulário com Amanhã e datas
+  futuras, sem o aviso de horário no futuro; no Histórico só depois da hora, antes disso no cartão "Marcadas"),
+  `tituloNovo`, o campo `textolongo` e, em `proximos`, `alemDe24h` (o `montarAgenda` aceita além das 24h).
+  Code.gs versão 7: `sincronizarConsultas_` com `eventosAtuais_(tipo)` (a resolução de `substitui_id`, agora
+  para qualquer tipo); tag `rb_horario` = `ms|título`.
 - Fase 15 (feita): campo novo `proxima` (AAAA-MM-DD) na vacina, com o tipo de campo genérico `data` no `app.js`
   (sem mudar `SCHEMA_VERSION`: campo opcional novo, as antigas continuam iguais). `pendentes`/`avisosVacina` em
   `js/tipos/vacina.js`; itens de `proximos` ganharam `destaque` e `diaInteiro`. Code.gs versão 6:

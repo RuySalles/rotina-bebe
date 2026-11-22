@@ -121,6 +121,9 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
   lembretes de próxima dose (evento de dia inteiro, com aviso na véspera às 9h). Não precisa de autorização nova:
   cole o `Code.gs`, rode **sincronizarAgenda** uma vez (para criar os lembretes das vacinas que já têm data) e
   republique. Enquanto não republicar, o app funciona igual, só sem esses lembretes na agenda.
+- *Fase 16 (versão 7, consultas):* ao marcar, mudar ou apagar uma consulta, o script refaz os lembretes das consultas
+  (evento de 1 hora na hora da consulta, com aviso na véspera e 2 horas antes). Também não precisa de autorização
+  nova: cole o `Code.gs`, rode **sincronizarAgenda** uma vez e republique.
 
 ## Lembretes no Google Agenda
 
@@ -133,6 +136,10 @@ Desde a versão 6, a **data da próxima dose** anotada numa vacina também vira 
 agenda, por exemplo "💉 Pentavalente · 3ª dose", com aviso **na véspera às 9h**. Quando a vacina com o mesmo nome é
 registrada no app, o lembrete some. Mudou ou apagou a data: o lembrete muda ou some.
 
+Desde a versão 7, cada **consulta marcada** vira um evento de 1 hora na hora da consulta, por exemplo
+"🩺 Retorno com o pediatra · Clínica", com aviso **na véspera e 2 horas antes** no seu celular. No celular da sua esposa valem as notificações padrão
+dela para a agenda "Rotina do bebê" (as mesmas dos remédios: na hora), como explicado no passo 3 abaixo.
+
 **1. Autorizar e publicar (uma vez, no computador)** — nesta ordem:
 1. Cole o `Code.gs` novo no editor e salve.
 2. Na lista de funções, escolha **sincronizarAgenda** e clique em **Executar**. O Google pede uma permissão nova
@@ -141,7 +148,7 @@ registrada no app, o lembrete some. Mudou ou apagou a data: o lembrete muda ou s
    > Se republicar antes deste passo, o Web App fica sem a permissão e o app mostra "Não foi possível sincronizar"
    > até você rodar o **sincronizarAgenda** e autorizar. Nenhum registro se perde (ficam na fila do celular).
 3. Republique: **Implantar → Gerenciar implantações → lápis → Versão: Nova versão → Implantar**.
-4. No app, **Ajustes → Este celular → Sincronizar agora**: deve aparecer "Web App: versão 6" e, embaixo,
+4. No app, **Ajustes → Este celular → Sincronizar agora**: deve aparecer "Web App: versão 7" e, embaixo,
    "Google Agenda: N lembretes · próximo …".
 
 **2. No seu celular** (a agenda é da sua conta): abra o app Google Agenda → menu ☰ → confira que **Rotina do bebê**

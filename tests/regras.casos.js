@@ -936,6 +936,49 @@ export function casos({ grupo, teste }) {
   });
 
   // ---------------------------------------------------------------------
+  grupo('Consultas');
+  const cons = (dia, hora, dados, extra) => linha('consulta', T(dia, hora), dados, extra);
+  teste('Marcada: no botão, e no PRÓXIMO até 7 dias antes (além das 24h), sem tomar o lugar da rotina', () => {
+    const linhasC = [
+      cons('29', '14:30', { motivo: 'Retorno com o pediatra', local: 'Clínica' }),   // em 4 dias
+      cons('30', '10:00', { motivo: 'Longe' }, { id: 'longe' })                      // fora? 30/10 = 5 dias: dentro
+    ];
+    const ctxC = ctxRel(linhasC, t('25', '12:00'));
+    igual(TIPOS.consulta.regras.status(ctxC).linhas, ['Retorno com o pediatra', 'qui 29/10 14:30 · Clínica']);
+    const agenda = montarAgenda(ctxC, 24);
+    igual(agenda.map((i) => i.titulo), ['Consulta · Retorno com o pediatra', 'Consulta · Longe']);
+    igual(escolherProximo(agenda).principal, null);
+    const longe = ctxRel([cons('25', '09:00', {}, { id: 'x' }), linha('consulta', '2026-11-03T10:00:00-03:00', { motivo: 'Daqui a 9 dias' })], t('25', '12:00'));
+    igual(montarAgenda(longe, 24).length, 0);
+  });
+  teste('No dia: destaque; depois da hora, sem anotação, o botão lembra de anotar', () => {
+    const hoje = ctxRel([cons('25', '15:00', { motivo: 'Pediatra' })], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.proximos(hoje).map((i) => [i.destaque, i.informativo]), [[true, true]]);
+    igual(TIPOS.consulta.regras.status(hoje).linhas, ['Pediatra', 'hoje 15:00']);
+    const depois = ctxRel([cons('25', '09:00', { motivo: 'Pediatra' })], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.proximos(depois), []);
+    igual(TIPOS.consulta.regras.status(depois).linhas, ['Anote o que o médico disse', 'Pediatra · 25/10']);
+    const anotada = ctxRel([cons('25', '09:00', { motivo: 'Pediatra', anotacoes: 'Tudo bem' })], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.status(anotada).linhas, ['Nenhuma marcada', 'Última: Pediatra · 25/10']);
+    const antiga = ctxRel([cons('20', '09:00', { motivo: 'Pediatra' })], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.status(antiga).linhas[0], 'Nenhuma marcada'); // mais de 3 dias: não insiste
+  });
+  teste('Lembrete de anotar: o botão abre a consulta; salvar sem anotar faz parar de pedir', () => {
+    const orig = cons('25', '09:00', { motivo: 'Pediatra' }, { id: 'c-1' });
+    const ctx1 = ctxRel([orig], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.registrarComo(ctx1), { editarId: 'c-1', titulo: 'Anotar a consulta' });
+    const salvaSemAnotar = cons('25', '09:00', { motivo: 'Pediatra', anotacoes: '' }, { substitui_id: 'c-1', criado_em: T('25', '11:00') });
+    const ctx2 = ctxRel([orig, salvaSemAnotar], t('25', '12:00'));
+    igual(TIPOS.consulta.regras.registrarComo(ctx2), null);
+    igual(TIPOS.consulta.regras.status(ctx2).linhas[0], 'Nenhuma marcada');
+  });
+  teste('Resumo com local e o começo das anotações', () => {
+    igual(TIPOS.consulta.resumo({ motivo: 'Retorno', local: 'Posto', anotacoes: 'Peso ótimo.\nVoltar em 30 dias.' }).texto,
+      'Retorno · Posto · Peso ótimo. Voltar em 30 dias.');
+    igual(TIPOS.consulta.resumo({}).texto, 'Consulta');
+  });
+
+  // ---------------------------------------------------------------------
   grupo('Família participando');
   const rotinaF = ['alimentacao', 'sono', 'fralda', 'banho', 'febre', 'tylenol', 'vacina'].map((id) => TIPOS[id]);
   const de = (quem, l) => ({ ...l, quem });

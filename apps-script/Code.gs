@@ -13,10 +13,11 @@
  * Versão deste código. SUBA O NÚMERO a cada mudança no Code.gs (e atualize VERSAO_BACKEND_ESPERADA no
  * js/store.js). O app mostra em Ajustes qual versão está publicada, para conferir se a republicação pegou.
  * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda);
- * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda).
+ * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda);
+ * 7 = fase 16 (lembrete das consultas marcadas no Google Agenda).
  * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 6;
+var VERSAO_BACKEND = 7;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -223,6 +224,8 @@ function anotarAgenda_(agenda, acao, payload, resultado) {
   if (acao === 'salvar_config' && AGENDA_CONFIG.indexOf(String(payload.chave)) !== -1) agenda.tudo = true;
   // Vacina registrada, corrigida ou apagada: refaz os lembretes de próxima dose.
   if (acao === 'adicionar_evento' && resultado === 'adicionado' && String(payload.tipo) === 'vacina') agenda.tipos.vacina = true;
+  // Consulta marcada, mudada ou apagada: refaz os lembretes das consultas.
+  if (acao === 'adicionar_evento' && resultado === 'adicionado' && String(payload.tipo) === 'consulta') agenda.tipos.consulta = true;
 }
 
 function atualizarAgenda_(agenda) {
@@ -236,6 +239,7 @@ function atualizarAgenda_(agenda) {
     var existentes = eventosDoApp_(agendaG, agora);
     if (agenda.tudo) {
       if (tipos.indexOf('vacina') === -1) tipos.push('vacina');
+      if (tipos.indexOf('consulta') === -1) tipos.push('consulta');
       // Também limpa tipos que têm lembrete e hoje não têm mais plano.
       existentes.forEach(function (ev) {
         var t = ev.getTag('rb_tipo');
@@ -245,6 +249,7 @@ function atualizarAgenda_(agenda) {
     var config = lerConfig_();
     tipos.forEach(function (tipo) {
       if (tipo === 'vacina') sincronizarVacinas_(agendaG, existentes, agora);
+      else if (tipo === 'consulta') sincronizarConsultas_(agendaG, existentes, agora);
       else sincronizarTipo_(agendaG, tipo, planos[tipo] || [], existentes, config, agora);
     });
     gravarSituacaoAgenda_(props, agendaG);
@@ -371,12 +376,52 @@ function vacinasPendentes_() {
     });
 }
 
+function vacinasAtuais_() { return eventosAtuais_('vacina'); }
+
+// ---------------------------------------------------------------------------
+// Consultas marcadas (fase 16): evento de 1 hora na hora da consulta, com aviso na véspera e 2 horas antes.
+// Mudou a hora, o motivo ou o local, ou apagou: o lembrete muda ou some. Só consultas futuras.
+// ---------------------------------------------------------------------------
+
+var CONSULTA_DURACAO_MIN = 60;
+var CONSULTA_AVISOS_MIN = [24 * 60, 2 * 60];
+
+function sincronizarConsultas_(agendaG, existentes, agora) {
+  var faltam = {};
+  eventosAtuais_('consulta').forEach(function (e) {
+    if (e.t <= agora.getTime()) return;
+    var motivo = String(e.dados.motivo || '').trim() || 'Consulta';
+    var local = String(e.dados.local || '').trim();
+    var titulo = '🩺 ' + motivo + (local ? ' · ' + local : '');
+    faltam[String(e.t) + '|' + titulo] = { t: e.t, titulo: titulo, local: local };
+  });
+  existentes.forEach(function (ev) {
+    if (ev.getTag('rb_tipo') !== 'consulta') return;
+    var chave = ev.getTag('rb_horario');
+    if (faltam[chave]) delete faltam[chave]; // já está certo
+    else ev.deleteEvent();
+  });
+  Object.keys(faltam).forEach(function (chave) {
+    var c = faltam[chave];
+    var ev = agendaG.createEvent(c.titulo, new Date(c.t), new Date(c.t + CONSULTA_DURACAO_MIN * 60000), {
+      location: c.local,
+      description: 'Consulta marcada no app. Depois dela, abra no app para anotar o que o médico disse.\n' +
+        'Lembrete criado pelo app Rotina do bebê: muda sozinho quando a consulta muda.'
+    });
+    ev.setTag('rb_tipo', 'consulta');
+    ev.setTag('rb_horario', chave);
+    ev.removeAllReminders();
+    CONSULTA_AVISOS_MIN.forEach(function (m) { ev.addPopupReminder(m); });
+  });
+}
+
 /**
- * Registros de vacina valendo hoje: aplica edições e exclusões como o resolverEventos do app (vale a versão mais
+ * Registros de um tipo valendo hoje: aplica edições e exclusões como o resolverEventos do app (vale a versão mais
  * funda de cada cadeia de substitui_id; empate: a criada por último; se ela estiver apagada, some).
+ * → [{ t, dados }]
  */
-function vacinasAtuais_() {
-  var linhas = lerLinhas_('eventos').filter(function (l) { return l.tipo === 'vacina' && l.id; });
+function eventosAtuais_(tipo) {
+  var linhas = lerLinhas_('eventos').filter(function (l) { return l.tipo === tipo && l.id; });
   var porId = {};
   linhas.forEach(function (l) { porId[l.id] = l; });
   var grupos = {};

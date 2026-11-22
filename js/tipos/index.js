@@ -5,10 +5,11 @@
 // Formato de um tipo:
 // {
 //   id, rotulo, cor, icone (SVG), lembrete? (texto ou (ctx) → texto), interno? (sem botão/histórico/resumo),
-//   campos: [{ id, rotulo, tipo: 'texto' | 'numero' | 'opcoes' | 'multiplas' | 'hora' | 'data', opcoes?, min?, max?, passo?, casas?,
+//   campos: [{ id, rotulo, tipo: 'texto' | 'textolongo' | 'numero' | 'opcoes' | 'multiplas' | 'hora' | 'data', opcoes?, min?, max?, passo?, casas?,
 //              placeholder?, ajuda?, mostrarSe?(dados) → bool, atalhos?(ctx, dados) → [{ valor, rotulo }] }],
 //     ('multiplas': opcoes = [{ valor, rotulo }], guarda uma lista; campo com mostrarSe falso não é gravado)
 //     ('hora' guarda um ISO: o primeiro horário HH:MM a partir do horário do registro; vazio = '')
+//     ('textolongo': texto de várias linhas)
 //     ('data' guarda um dia do calendário, AAAA-MM-DD; vazio = ''. Ex.: próxima dose da vacina)
 //   resumo(dados, ctx, evento?) → { texto, destaque? },
 //   padroes?(ctx) → dados                 (valores já preenchidos num registro novo)
@@ -17,12 +18,16 @@
 //   painel?(ctx) → { titulo, itens }      (bloco extra na tela principal)
 //   evolucao?(ctx) → [{ id, rotulo, fmt(v), pontos: [{ t, v }] }]   (gráficos no topo do Histórico filtrado pelo tipo)
 //   naInicio?(ctx) → bool                (false = fora da tela inicial agora, ex. tratamento concluído; o Histórico continua)
+//   agendavel?: true                     (registro com dia e hora à frente, ex. consulta: o formulário oferece Amanhã e
+//                                         datas futuras; no Histórico, só depois que a hora passa)
+//   tituloNovo?: texto                    (título do formulário de um registro novo, ex. "Marcar consulta")
 //   rotina?: true                         (botão grande no topo da tela inicial; os outros vão para a faixa compacta)
 //   regras?: {
 //     prioridade, usaPlano?, intervaloMinimoH?, recorrenciaH?,
 //     status(ctx) → { linhas, alerta?, aviso?, ok?, ativo? },   (ativo: algo em andamento, ex. dormindo)
 //     proximos(ctx) → [{ t, titulo, detalhe, alerta?, informativo?, destaque?, diaInteiro? }],
-//       (destaque: primeira linha do "Depois", em destaque; diaInteiro: mostra "Hoje" em vez da hora)
+//       (destaque: primeira linha do "Depois", em destaque; diaInteiro: mostra "Hoje" em vez da hora;
+//        alemDe24h: entra mesmo depois das próximas 24h, ex. consulta daqui a 5 dias)
 //     registrarComo?(ctx) → { editarId, dados?, titulo? } | null   (o botão abre um registro existente)
 //     infoRegistro?(ctx, horario, editandoId) → texto,
 //     avisos?(ctx, horario, dados, editandoId) → [{ texto, confirmar? }],
@@ -39,12 +44,13 @@ import fralda from './fralda.js';
 import banho from './banho.js';
 import vacina from './vacina.js';
 import medidas from './medidas.js';
+import consulta from './consulta.js';
 
 import ajuste from './ajuste.js';
 import { lerRemedios, criarTipoRemedio } from './remedio.js';
 
 /** Tipos fixos (os que estão no código). */
-export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina, medidas];
+export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas];
 
 export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
 
@@ -55,7 +61,7 @@ export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
  */
 export function montarTipos(config = {}) {
   const remedios = lerRemedios(config).map(criarTipoRemedio);
-  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina, medidas];
+  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas];
   return {
     todos,
     visiveis: todos.filter((t) => !t.remedio || t.remedio.ativo),

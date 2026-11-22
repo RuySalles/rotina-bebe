@@ -450,6 +450,9 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .medicao-valor--alto { color: var(--alerta); }
 .medicao-valor--alto::before { content: "● "; font-size: 0.625rem; vertical-align: 2px; }
 .medicao-quando { color: var(--texto-2); font-variant-numeric: tabular-nums; }
+/* Textos longos (ex. consultas marcadas): à esquerda, com a data sem quebrar. */
+.medicao { gap: 0.75rem; text-align: left; }
+.medicao-quando { flex: none; white-space: nowrap; }
 
 /* --- Histórico ------------------------------------------------------------ */
 

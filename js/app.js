@@ -422,7 +422,7 @@ function textoVersaoBackend() {
 /** Lembretes dos planos no Google Agenda (fase 10): quantos há e o próximo, ou o problema. */
 function textoAgenda() {
   const a = estado.sync.agenda;
-  if (!a) return (estado.sync.backend ?? 0) >= 5 ? 'Google Agenda: ainda sem lembretes (salve um plano de horários ou anote a próxima dose de uma vacina)' : '';
+  if (!a) return (estado.sync.backend ?? 0) >= 5 ? 'Google Agenda: ainda sem lembretes (salve um plano de horários, anote a próxima dose de uma vacina ou marque uma consulta)' : '';
   if (a.ok === false) return 'Google Agenda: não foi possível atualizar os lembretes (veja o SETUP.md)';
   if (!a.lembretes) return 'Google Agenda: nenhum lembrete pela frente';
   const t = Date.parse(a.proximo);
@@ -561,14 +561,14 @@ function linhaFaixa(tipo) {
 
 /**
  * Ordem dos tipos nas listas (faixa, filtros): rotina, tratamentos em andamento, febre, "só se precisar", vacinas,
- * medidas.
+ * consultas, medidas.
  * Encerrados (remédio encerrado ou tratamento concluído) por último.
  */
 function pesoTipo(t) {
   if (t.rotina) return 0;
   if (t.remedio ? !t.remedio.ativo : t.naInicio && !t.naInicio(ctx)) return 5;
   if (t.id === 'febre') return 2;
-  if (t.id === 'vacina' || t.id === 'medidas') return 4;
+  if (t.id === 'vacina' || t.id === 'consulta' || t.id === 'medidas') return 4;
   if (t.id === 'tylenol' || t.remedio?.modo === 'se_precisar') return 3;
   return 1;
 }
@@ -627,15 +627,17 @@ function paineis() {
 // ---------------------------------------------------------------------------
 
 function vistaHistorico() {
+  // Agendáveis (consulta) só entram no Histórico depois da hora; as marcadas ficam no cartão "Marcadas" do filtro.
   const eventos = ctx.eventos
     .filter((e) => TIPOS[e.tipo] && !TIPOS[e.tipo].interno && (!filtroHistorico || e.tipo === filtroHistorico))
+    .filter((e) => !(TIPOS[e.tipo].agendavel && e.t > ctx.agora))
     .sort((a, b) => b.t - a.t);
   const comChip = ordenarTipos(TODOS_TIPOS.filter((t) => (LISTA_TIPOS.includes(t) && (!t.naInicio || t.naInicio(ctx))) || ctx.doTipo(t.id).length));
   const chips = [['', 'Todos'], ...comChip.map((t) => [t.id, t.rotulo])]
     .map(([id, rotulo]) => `<button class="chip ${filtroHistorico === id ? 'chip--ativo' : ''}" data-acao="filtro" data-tipo="${id}">${esc(rotulo)}</button>`)
     .join('');
   if (!eventos.length) {
-    return `<div class="chips">${chips}</div><p class="vazio vazio--grande">Nenhum registro ainda.</p>`;
+    return `<div class="chips">${chips}</div>${cartaoMarcadas(TIPOS[filtroHistorico])}<p class="vazio vazio--grande">Nenhum registro ainda.</p>`;
   }
   const dias = new Map();
   for (const e of eventos) {
@@ -672,7 +674,27 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? cartaoEvolucao(filtrado) : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? cartaoMarcadas(filtrado) + cartaoEvolucao(filtrado) : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+}
+
+/** Registros marcados para a frente do tipo filtrado (agendavel, ex. consultas), antes da lista do Histórico. */
+function cartaoMarcadas(tipo) {
+  if (!tipo?.agendavel) return '';
+  const marcadas = ctx.doTipo(tipo.id).filter((e) => e.t > ctx.agora).sort((a, b) => a.t - b.t);
+  if (!marcadas.length) return '';
+  return `
+    <section class="secao">
+      <h2 class="secao-titulo">Marcadas</h2>
+      <ul class="cartao lista-medicoes" ${estiloCor(tipo)}>
+        ${marcadas.map((e) => `
+          <li>
+            <button class="medicao" data-acao="editar" data-id="${esc(e.id)}">
+              <span class="medicao-valor">${esc(tipo.resumo(e.dados, ctx, e).texto)}</span>
+              <span class="medicao-quando">${esc(quandoCurto(e.t, ctx.agora))}</span>
+            </button>
+          </li>`).join('')}
+      </ul>
+    </section>`;
 }
 
 /** Gráficos de evolução do tipo filtrado (tipo.evolucao, ex. Medidas), antes da lista do Histórico. */
@@ -1506,6 +1528,14 @@ function campoHtml(campo, dados) {
         </div>
       </div>`;
   }
+  if (campo.tipo === 'textolongo') {
+    return `
+      <div class="campo" data-campo="${esc(campo.id)}">
+        <label class="campo-rotulo" for="${nome}">${esc(campo.rotulo)}</label>
+        <textarea id="${nome}" name="${nome}" rows="4" placeholder="${esc(campo.placeholder || '')}">${esc(valor ?? '')}</textarea>
+        ${campo.ajuda ? `<small>${esc(campo.ajuda)}</small>` : ''}
+      </div>`;
+  }
   if (campo.tipo === 'data') {
     // Dia do calendário (AAAA-MM-DD), ex. próxima dose da vacina. Vazio = sem data.
     const dia = /^\d{4}-\d{2}-\d{2}$/.test(String(valor || '')) ? valor : '';
@@ -1594,12 +1624,15 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
   const dadosIniciais = { ...padroes, ...(evento?.dados || {}), ...(extra.dados || {}) };
   const inicial = evento ? evento.t : Date.now();
   const hoje = chaveDia(Date.now());
-  const dias = [hoje, somarDias(hoje, -1)];
+  // Agendável (ex. consulta): marca dia e hora à frente; os outros registram o que já aconteceu.
+  const agendavel = !!tipo.agendavel;
+  const dias = agendavel ? [hoje, somarDias(hoje, 1)] : [hoje, somarDias(hoje, -1)];
   const diaInicial = chaveDia(inicial);
   if (!dias.includes(diaInicial)) dias.push(diaInicial);
   const [horaInicial, minutoInicial] = fmtHora(inicial).split(':');
-  const rotDia = (d) => (d === hoje ? 'Hoje' : d === somarDias(hoje, -1) ? 'Ontem' : fmtData(Date.parse(`${d}T12:00:00-03:00`)));
-  const titulo = extra.titulo || `${evento ? 'Editar' : 'Registrar'} ${nomeNaFrase(tipo)}`;
+  const rotDia = (d) => (d === hoje ? 'Hoje' : d === somarDias(hoje, -1) ? 'Ontem' : d === somarDias(hoje, 1) ? 'Amanhã'
+    : fmtData(Date.parse(`${d}T12:00:00-03:00`)));
+  const titulo = extra.titulo || (!evento && tipo.tituloNovo) || `${evento ? 'Editar' : 'Registrar'} ${nomeNaFrase(tipo)}`;
   const lembrete = typeof tipo.lembrete === 'function' ? tipo.lembrete(ctx) : tipo.lembrete;
 
   folha.innerHTML = `
@@ -1615,15 +1648,15 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
       </header>
       ${lembrete ? `<p class="lembrete">${esc(lembrete)}</p>` : ''}
       <div class="campo">
-        <span>Horário</span>
+        <span>${agendavel ? 'Dia e hora' : 'Horário'}</span>
         <div class="quando">
           <div class="seg">
             ${dias.map((d) => `<label><input type="radio" name="dia" value="${d}" ${d === diaInicial ? 'checked' : ''}><span>${esc(rotDia(d))}</span></label>`).join('')}
             <label><input type="radio" name="dia" value="outro"><span>Outro dia</span></label>
           </div>
-          <button type="button" class="botao botao--leve botao--pequeno" data-acao="agora">Agora</button>
+          ${agendavel ? '' : '<button type="button" class="botao botao--leve botao--pequeno" data-acao="agora">Agora</button>'}
         </div>
-        <input type="date" name="dia_outro" class="dia-outro" max="${hoje}" value="${diaInicial}" aria-label="Dia" hidden>
+        <input type="date" name="dia_outro" class="dia-outro" ${agendavel ? '' : `max="${hoje}"`} value="${diaInicial}" aria-label="Dia" hidden>
         <div class="hora">
           <select name="h" aria-label="Hora">${opcoesNumero(24, horaInicial)}</select>
           <span aria-hidden="true">:</span>
@@ -1657,7 +1690,7 @@ function abrirFolha(tipoId, eventoId = null, extra = {}) {
     const info = tipo.regras?.infoRegistro ? tipo.regras.infoRegistro(ctx, h, evento?.id || '') : '';
     form.querySelector('#folha-info').textContent = info || (evento ? quandoCurto(evento.t) : '');
     const avisos = [...(tipo.regras?.avisos ? tipo.regras.avisos(ctx, h, dados, evento?.id || '') : [])];
-    if (h > Date.now() + 5 * 60 * 1000) avisos.unshift({ texto: 'Esse horário está no futuro. Confira o dia e a hora.', confirmar: true });
+    if (!agendavel && h > Date.now() + 5 * 60 * 1000) avisos.unshift({ texto: 'Esse horário está no futuro. Confira o dia e a hora.', confirmar: true });
     for (const campo of tipo.campos || []) {
       const v = dados[campo.id];
       if (campo.tipo === 'numero' && v !== null && ((campo.min !== undefined && v < campo.min) || (campo.max !== undefined && v > campo.max))) {

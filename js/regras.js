@@ -387,7 +387,8 @@ export function montarAgenda(ctx, horas = 24) {
   for (const tipo of Object.values(ctx.tipos)) {
     const lista = tipo.regras?.proximos ? tipo.regras.proximos(ctx) : [];
     for (const item of lista || []) {
-      if (!Number.isFinite(item.t) || item.t > limite) continue;
+      // alemDe24h: o tipo já decidiu até quando mostrar (ex. consulta marcada daqui a 5 dias).
+      if (!Number.isFinite(item.t) || (item.t > limite && !item.alemDe24h)) continue;
       if (item.t < ctx.agora - 12 * HORA) continue;
       itens.push({ prioridade: tipo.regras?.prioridade || 0, ...item, tipo: tipo.id });
     }

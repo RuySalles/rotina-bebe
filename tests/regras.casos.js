@@ -9,6 +9,7 @@ import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
 import { descreverAjuste } from '../js/tipos/ajuste.js';
 import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
+import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -778,6 +779,62 @@ export function casos({ grupo, teste }) {
       '{"ordem":["sono","alimentacao","fralda","banho"],"ocultos":[]}');
     igual(JSON.parse(textoBotoesInicio({ ordem: padrao, ocultos: ['banho'] }, padrao)).ocultos, ['banho']);
   });
+  // ---------------------------------------------------------------------
+  grupo('Relatório para a consulta');
+  const ctxRel = (linhas, agora, config = {}) =>
+    criarContexto({ eventos: resolverEventos(linhas, TIPOS), planos: {}, config, agora, tipos: TIPOS });
+  const ordemRel = ['alimentacao', 'sono', 'fralda', 'banho', 'amoxicilina', 'febre', 'tylenol', 'vacina'].map((id) => TIPOS[id]);
+  teste('3 dias = hoje e os 2 anteriores; só colunas com registro no período', () => {
+    const linhasR = [
+      linha('fralda', T('20', '10:00'), { conteudo: 'Xixi' }),          // fora do período (3 dias antes)
+      linha('fralda', T('23', '08:00'), { conteudo: 'Xixi' }),
+      linha('fralda', T('25', '09:00'), { conteudo: 'Cocô' }),
+      linha('alimentacao', T('24', '07:00'), { itens: ['leite'], ml: 150 }, { schema_version: '2' })
+    ];
+    const rel = montarRelatorio(ctxRel(linhasR, t('25', '12:00')), ordemRel, 3);
+    igual(rel.dias, ['2026-10-23', '2026-10-24', '2026-10-25']);
+    igual(rel.colunas.map((c) => c.tipo.id), ['alimentacao', 'fralda']);
+    igual(rel.colunas[1].celulas.map((c) => c && c.valor), ['1 troca', null, '1 troca']);
+    igual(rel.inicio, t('23', '00:00'));
+  });
+  teste('Temperaturas do período em ordem, com o limite da config', () => {
+    const linhasR = [
+      linha('febre', T('25', '11:00'), { temperatura: 38.4 }),
+      linha('febre', T('24', '22:00'), { temperatura: 37.2 }),
+      linha('febre', T('21', '22:00'), { temperatura: 39 })        // fora (7 dias seria dentro)
+    ];
+    const rel = montarRelatorio(ctxRel(linhasR, t('25', '12:00'), { febre_limite_c: '38' }), ordemRel, 3);
+    igual(rel.temperaturas.map((m) => m.c), [37.2, 38.4]);
+    igual(rel.limite, 38);
+    igual(montarRelatorio(ctxRel(linhasR, t('25', '12:00')), ordemRel, 7).temperaturas.length, 3);
+  });
+  teste('Remédios com as doses e o texto de cada uma; sem dose no período, não aparece', () => {
+    const linhasR = [
+      linha('tylenol', T('25', '08:00'), { dose: '1,5 mL' }),
+      linha('tylenol', T('24', '20:00'), { dose: '1,5 mL' }),
+      linha('amoxicilina', T('10', '08:00'), { dose: '4 mL' })
+    ];
+    const rel = montarRelatorio(ctxRel(linhasR, t('25', '12:00')), ordemRel, 3);
+    igual(rel.remedios.map((r) => r.tipo.id), ['tylenol']);
+    igual(rel.remedios[0].doses.map((d) => [fmtHora(d.t), d.texto]), [['20:00', '1,5 mL'], ['08:00', '1,5 mL']]);
+  });
+  teste('Gráfico: um ponto por medição, linha do limite e marca da dose de antitérmico', () => {
+    const linhasR = [
+      linha('febre', T('25', '09:00'), { temperatura: 38.6 }),
+      linha('febre', T('25', '11:00'), { temperatura: 37.5 }),
+      linha('tylenol', T('25', '09:10'), { dose: '1,5 mL' })
+    ];
+    const rel = montarRelatorio(ctxRel(linhasR, t('25', '12:00')), ordemRel, 1);
+    const svg = graficoTemperatura(rel, rel.remedios[0].doses, TIPOS.tylenol);
+    igual((svg.match(/class="graf-ponto/g) || []).length, 2);
+    verdade(svg.includes('graf-limite') && svg.includes('febre 37,8'), 'linha do limite');
+    igual((svg.match(/class="graf-dose"/g) || []).length, 1);
+    verdade(svg.includes('25/10 09:00 · 38,6 °C'), 'valor de cada ponto no título');
+  });
+  teste('Dia da tabela sem "hoje/ontem" (o PDF pode ser lido depois)', () => {
+    igual(diaCurto('2026-10-25'), 'dom 25/10');
+  });
+
   teste('Histórico de ajustes descreve a escolha pelos nomes', () => {
     const nomes = { alimentacao: 'Alimentação', sono: 'Sono', fralda: 'Fralda', banho: 'Banho' };
     const d = descreverAjuste({ chave: 'config:inicio_botoes', antes: '', depois: '{"ordem":["sono","alimentacao","fralda","banho"],"ocultos":["banho"]}' }, nomes);

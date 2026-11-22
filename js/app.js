@@ -6,6 +6,7 @@ import { lerRemedios, corPara, MODOS, HORA_REF_PADRAO, horaValida } from './tipo
 import { descreverAjuste } from './tipos/ajuste.js';
 import { ritmoDoSono } from './tipos/sono.js';
 import { ritmoDoLeite } from './tipos/alimentacao.js';
+import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO } from './relatorio.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -23,6 +24,7 @@ let vista = 'inicio';
 let filtroHistorico = '';
 let urlDoConfig = '';
 let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
+let diasRelatorio = PERIODO_PADRAO; // período do Relatório (dias inteiros até hoje)
 
 // Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
 let TIPOS = {};
@@ -40,6 +42,7 @@ const ICONES = {
   compartilhar: '<svg viewBox="0 0 24 24"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg>',
   sync: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.8 3.5v3.7h-3.7M6.2 20.5v-3.7h3.7"/></svg>',
   subir: '<svg viewBox="0 0 24 24"><path d="M6.5 14.5 12 9l5.5 5.5"/></svg>',
+  relatorio: '<svg viewBox="0 0 24 24"><path d="M7 3.5h7.5L19 8v11a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1-1.5z"/><path d="M14 3.5V8h4.5M9 13.5l2 2 4-4.5"/></svg>',
   descer: '<svg viewBox="0 0 24 24"><path d="M6.5 9.5 12 15l5.5-5.5"/></svg>'
 };
 
@@ -352,7 +355,8 @@ function aoMudarEstado() {
 
 function render() {
   ctx = contexto();
-  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
+  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'relatorio' ? vistaRelatorio()
+    : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
   const html = `
     ${cabecalho()}
     <main class="conteudo">${corpo}${rodape()}</main>
@@ -420,8 +424,9 @@ function textoAgenda() {
 }
 
 function navegacao() {
+  const aba = vista === 'relatorio' ? 'historico' : vista; // o Relatório abre de dentro do Histórico
   const item = (id, rotulo) => `
-    <button class="nav-item ${vista === id ? 'nav-item--ativo' : ''}" data-acao="vista" data-vista="${id}" ${vista === id ? 'aria-current="page"' : ''}>
+    <button class="nav-item ${aba === id ? 'nav-item--ativo' : ''}" data-acao="vista" data-vista="${id}" ${aba === id ? 'aria-current="page"' : ''}>
       ${ICONES[id]}<span>${rotulo}</span>
     </button>`;
   return `<nav class="nav">${item('inicio', 'Início')}${item('historico', 'Histórico')}${item('ajustes', 'Ajustes')}</nav>`;
@@ -657,7 +662,44 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+  return `${botaoRelatorio()}<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+}
+
+const botaoRelatorio = () => `
+  <button class="cartao rel-abrir" data-acao="vista" data-vista="relatorio">
+    <span class="icone icone--pequeno">${ICONES.relatorio}</span>
+    <span class="bloco-textos">
+      <span class="bloco-titulo">Relatório para a consulta</span>
+      <span class="bloco-detalhe">Temperatura, remédios, sono, fraldas e leite por dia · salvar em PDF</span>
+    </span>
+    <span class="bloco-seta" aria-hidden="true"></span>
+  </button>`;
+
+/** Relatório para a consulta (js/relatorio.js): período à escolha, para mostrar no celular ou salvar em PDF. */
+function vistaRelatorio() {
+  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
+  return htmlRelatorio(rel, {
+    nome: String(estado.config.nome_bebe || '').trim(),
+    nDias: diasRelatorio,
+    agora: ctx.agora,
+    tipoFebre: TIPOS.febre,
+    tipoAntitermico: TIPOS.tylenol
+  });
+}
+
+/** Abre a impressão do navegador (onde dá para "Salvar como PDF"), com um nome de arquivo que diz o período. */
+function imprimirRelatorio() {
+  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
+  const nome = String(estado.config.nome_bebe || '').trim().split(/\s+/)[0];
+  const antes = document.title;
+  document.title = `Relatório ${nome} ${textoPeriodo(rel)}`.replace(/\//g, '-').replace(/\s+/g, ' ').trim();
+  window.addEventListener('afterprint', () => { document.title = antes; }, { once: true });
+  try {
+    window.print();
+  } catch {
+    document.title = antes;
+    toast('Este navegador não abriu a impressão. Abra o app no navegador (Chrome ou Safari) e tente de novo.', 5000);
+  }
 }
 
 /**
@@ -1591,6 +1633,11 @@ app.addEventListener('click', async (e) => {
   } else if (acao === 'editar') {
     const ev = ctx.eventos.find((x) => x.id === b.dataset.id);
     if (ev) abrirFolha(ev.tipo, ev.id);
+  } else if (acao === 'periodo-relatorio') {
+    diasRelatorio = Number(b.dataset.dias) || PERIODO_PADRAO;
+    render();
+  } else if (acao === 'imprimir-relatorio') {
+    imprimirRelatorio();
   } else if (acao === 'filtro') {
     filtroHistorico = b.dataset.tipo;
     render();

@@ -28,17 +28,20 @@ algo) dizem isso em "Você vai precisar".
 | 9 | Abrir o app sem internet | ✅ |
 | 10 | Alertas no celular pelo Google Agenda | ✅ |
 | 11 | Esconder e reordenar botões | ✅ |
-| 12 | Anotações livres | ⬜ |
-| 13 | Relatório para a consulta | ⬜ |
-| 14 | Consultas e retornos | ⬜ |
-| 15 | Peso e altura | ⬜ |
-| 16 | Aviso de vacina | ⬜ |
+| 12 | Relatório para a consulta | 🧪 |
+| 13 | Consultas e retornos | ⬜ |
+| 14 | Peso e altura | ⬜ |
+| 15 | Aviso de vacina | ⬜ |
+| 16 | Anotações livres | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
 iniciados duas vezes (um celular ainda não sabia do outro); e a pergunta do dia a dia é "já está na hora de dormir / de
 comer?". Por isso entraram as fases 4 a 8. A antiga "App leve depois de muitos meses" virou parte da fase 4 e a antiga
 "Mamada completa" (peito, lado) virou a fase 7, porque a alimentação é por mamadeira e sólidos.
+
+**22/11, depois da fase 11:** "Anotações livres" saiu da fila (não é prioridade agora) e foi para o fim, como fase 16;
+as fases seguintes subiram um número.
 
 ---
 
@@ -385,35 +388,33 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
 
 ---
 
-## Fase 12 — Anotações livres
+## Fase 12 — Relatório para a consulta
 
-**O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço",
-"primeira vez que comeu pera"), com texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 13.
-
-**Você vai precisar:** nada.
-
-**Como testar:**
-- [ ] Registrar uma anotação de ontem às 22h: aparece no lugar certo do Histórico.
-- [ ] O filtro "Anotação" mostra só as anotações.
-
----
-
-## Fase 13 — Relatório para a consulta
-
-**O que muda:** uma tela **Relatório** com um período à escolha (ex.: últimos 3 dias): gráfico da temperatura, doses
-de cada remédio com horários, sono por dia, fraldas, leite e sólidos, e anotações. Dá para mostrar no celular ou
-salvar em PDF pelo compartilhar do celular.
+**O que muda:** no topo do **Histórico**, **Relatório para a consulta** abre uma tela com:
+- **Período:** Hoje, 3 dias (padrão), 7 dias ou 14 dias (dias inteiros até agora).
+- **Dia a dia:** uma tabela com uma linha por dia e uma coluna para cada coisa registrada no período (leite em mL e
+  mamadeiras, refeições, sono, fraldas, banho, remédios, febre, vacinas), com os mesmos totais do Histórico. No
+  celular, a tabela rola para o lado.
+- **Temperatura:** máxima, quantas medições e quantas a partir do limite de febre; um gráfico com a linha do limite e
+  as doses de Tylenol marcadas embaixo; e a lista com todas as medições.
+- **Remédios e vacinas:** cada um com as doses do período, por dia, com hora e dose.
+- **Salvar em PDF:** abre a impressão do celular, onde dá para escolher "Salvar como PDF". O PDF sai sempre claro e
+  sem os botões, com o nome do bebê e o período. Os dias aparecem como "sex 20/11" (sem "hoje/ontem"), porque o PDF
+  pode ser lido em outro dia.
+- As anotações livres entram aqui quando a fase 16 for feita.
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Gerar o relatório dos últimos 3 dias e conferir com o Histórico.
-- [ ] Salvar em PDF pelo celular e abrir o arquivo.
-- [ ] No tema escuro do celular, o relatório continua legível (e o PDF sai claro).
+- [ ] Histórico → **Relatório para a consulta** → 3 dias: conferir os totais de um dia com o Histórico.
+- [ ] Trocar para 7 e 14 dias: a tabela cresce e o gráfico começa no dia da primeira medição de temperatura.
+- [ ] **Salvar em PDF** no celular, escolher "Salvar como PDF" e abrir o arquivo. (No iPhone, se o app instalado não
+      abrir a impressão, me avise: aí faço pelo Safari.)
+- [ ] No tema escuro, a tela continua legível e o PDF sai claro.
 
 ---
 
-## Fase 14 — Consultas e retornos
+## Fase 13 — Consultas e retornos
 
 **O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
 aparecem em "Próximas 24 horas" quando estiverem perto, e no card PRÓXIMO no dia.
@@ -426,7 +427,7 @@ aparecem em "Próximas 24 horas" quando estiverem perto, e no card PRÓXIMO no d
 
 ---
 
-## Fase 15 — Peso e altura
+## Fase 14 — Peso e altura
 
 **O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico.
 Sem comparar com curvas de crescimento: isso fica com o pediatra.
@@ -439,7 +440,7 @@ Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
 ---
 
-## Fase 16 — Aviso de vacina
+## Fase 15 — Aviso de vacina
 
 **O que muda:** ao registrar uma vacina, dá para anotar a **data da próxima dose** (como está na caderneta). Perto da
 data, ela aparece na linha do tempo e no botão de Vacinas. O app não calcula o calendário sozinho, para não arriscar
@@ -450,6 +451,19 @@ orientação errada.
 **Como testar:**
 - [ ] Registrar uma vacina com próxima dose daqui a 2 dias: aparece no botão e, no dia, na linha do tempo.
 - [ ] Vacinas antigas continuam iguais.
+
+---
+
+## Fase 16 — Anotações livres
+
+**O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço",
+"primeira vez que comeu pera"), com texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 12.
+
+**Você vai precisar:** nada.
+
+**Como testar:**
+- [ ] Registrar uma anotação de ontem às 22h: aparece no lugar certo do Histórico.
+- [ ] O filtro "Anotação" mostra só as anotações.
 
 ---
 
@@ -489,3 +503,6 @@ orientação errada.
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 12 (feita): `js/relatorio.js`: `montarRelatorio(ctx, tipos, nDias)` (puro, com testes) usa o `resumoDia` e o
+  `resumo` de cada tipo, então tipos novos entram sozinhos na tabela; `htmlRelatorio` e `graficoTemperatura` (SVG).
+  Vista `relatorio` no `app.js` (aberta pelo Histórico); PDF = `window.print()` com `@media print` no `app.css`.

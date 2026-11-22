@@ -21,7 +21,7 @@ algo) dizem isso em "Você vai precisar".
 | 2 | Remédio novo sem precisar de programação | ✅ |
 | 3 | Histórico de ajustes (quem mudou o quê, com volta) | ✅ |
 | 4 | Sincronização mais rápida | ✅ |
-| 5 | Rotina em primeiro lugar na tela inicial | 🧪 |
+| 5 | Rotina em primeiro lugar na tela inicial | ✅ |
 | 6 | Ajustes reorganizado (remédios agrupados) | ⬜ |
 | 7 | Alimentação: leite, sólido ou sopa | ⬜ |
 | 8 | Previsões de sono e de leite | ⬜ |

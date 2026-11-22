@@ -25,7 +25,7 @@ algo) dizem isso em "Você vai precisar".
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
 | 7 | Alimentação: leite, fruta ou refeição | ✅ |
 | 8 | Previsões de sono e de leite | ✅ |
-| 9 | Abrir o app sem internet | ⬜ |
+| 9 | Abrir o app sem internet | 🧪 |
 | 10 | Alertas no celular pelo Google Agenda | ⬜ |
 | 11 | Esconder e reordenar botões | ⬜ |
 | 12 | Anotações livres | ⬜ |
@@ -317,6 +317,9 @@ pode não carregar a tela.
 
 **O que muda:** o app passa a guardar a si mesmo no celular. Abre sempre, mostra os últimos dados conhecidos e envia
 os registros quando a internet voltar. A atualização automática de versão continua funcionando.
+- Sem internet, o indicador no topo mostra "Sem internet" (ou "Sem internet · 1 pendente"), em vez de "Erro".
+- Conferido com o site montado de verdade: abre com o servidor desligado (com os dados do celular), registra em
+  "Pendente", e uma versão nova publicada chega normalmente (a cópia antiga é apagada).
 
 **Você vai precisar:** abrir o app uma vez com internet depois da publicação.
 
@@ -455,5 +458,7 @@ orientação errada.
 - Fase 8 (feita): `ritmoSono`/`preverSono` e `ritmoLeite`/`preverLeite` em `regras.js` (medianas por faixa do dia,
   últimos 14 dias inteiros, com testes); `ritmoDoSono(ctx)` e `ritmoDoLeite(ctx)` nos tipos (cache por contexto).
   Itens com `previsao: true` nunca têm `alerta`.
-- Fase 9: service worker com cache por versão (`v/<sha>/`), alinhado ao `versao.json` e ao `scripts/montar-site.sh`.
+- Fase 9 (feita): `sw.js` (modelo; `scripts/montar-site.sh` preenche a versão e a lista de `v/<sha>/`). Página: internet
+  primeiro com prazo de 4 s; `v/<sha>/`: cópia; `versao.json` e a planilha nunca passam pela cópia. Só registra fora do
+  modo "dev". Testar com `node tests/servidor.mjs _site 8090` (configuração "site-montado" no `.claude/launch.json`).
 - Fase 10: muda o `Code.gs` (retrocompatível): `CalendarApp` ao salvar plano. Atualizar o `SETUP.md`.

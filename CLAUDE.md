@@ -17,6 +17,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   `versao.json` diz a versão mais recente; o `app.js` compara e recarrega sozinho. Por isso, no `index.html`,
   mantenha exatamente `src="js/app.js"`, `href="css/app.css"` e `<meta name="versao" content="dev">` (o script
   falha se não encontrar). Imports entre módulos devem ser sempre relativos.
+- `sw.js` → service worker (abrir sem internet). É um modelo: o `montar-site.sh` troca `__VERSAO__` e a lista de
+  arquivos de `v/<sha>/`. Não registra em "dev". Para testar: monte em `_site` e use a configuração "site-montado".
 - `js/app.js` → telas e navegação (só fala com `store.js` e `regras.js`)
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
 - `js/regras.js` → cálculos puros: tempo (fuso America/Sao_Paulo, 24h), leitura das linhas, `substitui_id`, planos, janelas, agenda

@@ -14,7 +14,7 @@ DESTINO="${2:-_site}"
 
 rm -rf "$DESTINO"
 mkdir -p "$DESTINO/v/$VERSAO"
-cp -r index.html manifest.webmanifest config.js css js img tests "$DESTINO/"
+cp -r index.html manifest.webmanifest config.js sw.js css js img tests "$DESTINO/"
 cp -r js css config.js "$DESTINO/v/$VERSAO/"
 
 sed -i \
@@ -25,6 +25,16 @@ sed -i \
 
 for esperado in "v/$VERSAO/js/app.js" "v/$VERSAO/css/app.css" "content=\"$VERSAO\""; do
   grep -q "$esperado" "$DESTINO/index.html" || { echo "index.html sem: $esperado" >&2; exit 1; }
+done
+
+# Service worker (abrir sem internet): versão e lista dos arquivos desta versão para guardar no celular.
+LISTA=$(cd "$DESTINO" && find "v/$VERSAO" -type f | sort | sed "s#.*#, '&'#" | tr -d '\n')
+sed -i \
+  -e "s#__VERSAO__#$VERSAO#" \
+  -e "s#/\* __ARQUIVOS__ \*/#$LISTA#" \
+  "$DESTINO/sw.js"
+for esperado in "const VERSAO = '$VERSAO'" "'v/$VERSAO/js/app.js'" "'v/$VERSAO/css/app.css'"; do
+  grep -qF "$esperado" "$DESTINO/sw.js" || { echo "sw.js sem: $esperado" >&2; exit 1; }
 done
 
 printf '{"versao":"%s"}\n' "$VERSAO" > "$DESTINO/versao.json"

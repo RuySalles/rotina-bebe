@@ -4,8 +4,20 @@
     {
       "name": "rotina",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["tests/servidor.mjs"],
+      "runtimeArgs": [
+        "tests/servidor.mjs"
+      ],
       "port": 8080
+    },
+    {
+      "name": "site-montado",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tests/servidor.mjs",
+        "_site",
+        "8090"
+      ],
+      "port": 8090
     }
   ]
 }

@@ -192,9 +192,16 @@ function ligarAtualizacaoAutomatica() {
   setInterval(() => { if (document.visibilityState === 'visible') verificarAtualizacao(false); }, CHECAR_VERSAO_MS);
 }
 
+/** Guarda o app no celular para abrir sem internet (sw.js; só na versão publicada). */
+function ligarModoSemInternet() {
+  if (VERSAO === 'dev' || !('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Sem modo offline:', e));
+}
+
 async function iniciar() {
   ssGravar('rb_falhas', '0');
   lerLink();
+  ligarModoSemInternet();
   ligarAtualizacaoAutomatica();
   try {
     const { CONFIG } = await import('../config.js');
@@ -312,6 +319,8 @@ function entrar() {
     store.assinar((novo) => { estado = novo; aoMudarEstado(); });
     store.carregar();
     store.iniciarSincronizacaoAutomatica();
+    window.addEventListener('offline', aoMudarEstado);
+    window.addEventListener('online', aoMudarEstado);
     setInterval(() => { if (vista === 'inicio' && document.visibilityState === 'visible') render(); }, 20 * 1000);
   }
   render();
@@ -367,8 +376,10 @@ function pilulaSync() {
   const s = estado.sync;
   let classe = '';
   let texto = 'Sincronizando…';
-  if (s.estado === 'erro') { classe = 'erro'; texto = 'Erro'; }
-  else if (s.pendentes > 0) { classe = 'pendente'; texto = `Pendente (${s.pendentes})`; }
+  const semInternet = s.mensagem === 'Sem internet' || navigator.onLine === false;
+  if (s.pendentes > 0) { classe = 'pendente'; texto = semInternet ? `Sem internet · ${s.pendentes} pendente${s.pendentes > 1 ? 's' : ''}` : `Pendente (${s.pendentes})`; }
+  else if (s.estado === 'erro' && semInternet) { classe = 'pendente'; texto = 'Sem internet'; }
+  else if (s.estado === 'erro') { classe = 'erro'; texto = 'Erro'; }
   else if (s.ultima && s.estado !== 'sem_config') { classe = 'ok'; texto = `Sincronizado às ${fmtHora(s.ultima)}`; }
   return `<button class="sync sync--${classe}" id="sync" data-acao="sync" aria-label="${esc(texto)}. Toque para sincronizar"><span class="sync-ponto"></span>${esc(texto)}</button>`;
 }

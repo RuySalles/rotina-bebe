@@ -875,7 +875,7 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .seg--largo span { padding: 0 8px; text-align: center; }
 
 /* Ajustes em blocos que abrem ao tocar (<details>). */
-.blocos { display: grid; gap: 10px; margin-top: 22px; }
+.blocos { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 22px; }
 .bloco { background: var(--superficie); border-radius: var(--raio); box-shadow: var(--sombra); }
 .bloco-topo {
   display: flex;
@@ -915,3 +915,12 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .bloco--novo > .bloco-topo .bloco-titulo { color: var(--texto); }
 .bloco--encerrados > .bloco-topo .bloco-titulo { color: var(--texto-2); }
 .ajustes-lista { margin: 0 -4px; }
+
+/* Cartão "Ritmo dele" (topo do Histórico). */
+.ritmo { margin: 4px 0 6px; }
+.ritmo-lista { display: grid; gap: 0; margin: 0; }
+.ritmo-lista > div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--linha); }
+.ritmo-lista > div:first-child { border-top: 0; }
+.ritmo-lista dt { color: var(--texto-2); font-size: 14px; }
+.ritmo-lista dd { margin: 0; text-align: right; font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ritmo-antes { font-weight: 400; color: var(--texto-3); }

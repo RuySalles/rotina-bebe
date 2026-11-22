@@ -1,7 +1,8 @@
 // Casos de teste das regras. Rodam no navegador (regras.test.html) e no Node (node tests/rodar.mjs).
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
-  statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois
+  statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois,
+  mediana, ritmoSono, preverSono, ritmoLeite, preverLeite, textoHoraDecimal
 } from '../js/regras.js';
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
@@ -301,6 +302,63 @@ export function casos({ grupo, teste }) {
     const ctx = montar([], t('25', '12:00'));
     const avisos = alim.avisos(ctx, t('25', '12:00'), { itens: ['leite'], ml: null });
     verdade(avisos.length === 1 && !avisos[0].confirmar);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Ritmo e previsões (últimos 14 dias)');
+  const N = (dia, hora) => Date.parse(`2026-11-${String(dia).padStart(2, '0')}T${hora}:00-03:00`);
+  // Rotina fictícia, igual todo dia: acorda 07:00; cochilos 09:00–10:30, 12:30–14:00, 16:30–17:30; dorme 21:00.
+  const sonosFicticios = [];
+  for (let d = 5; d <= 20; d++) {
+    sonosFicticios.push({ t: N(d, '09:00'), fim: N(d, '10:30') }, { t: N(d, '12:30'), fim: N(d, '14:00') },
+      { t: N(d, '16:30'), fim: N(d, '17:30') }, { t: N(d, '21:00'), fim: N(d + 1, '07:00') });
+  }
+  const periodo = [N(7, '12:00'), N(21, '12:00')];
+  teste('Tempo acordado típico por faixa do dia, hora de dormir e de acordar, cochilos', () => {
+    const r = ritmoSono(sonosFicticios, ...periodo);
+    igual(r.janelas, [null, 120, 120, 150, 210, null]);
+    igual([textoHoraDecimal(r.dormir), textoHoraDecimal(r.acordar), r.cochilosPorDia, r.duracaoCochilo], ['21:00', '07:00', 3, 90]);
+  });
+  teste('Previsão: próximo cochilo pela faixa; à tarde, perto da hora de dormir, prevê a noite', () => {
+    const r = ritmoSono(sonosFicticios, ...periodo);
+    const p1 = preverSono(r, N(21, '10:30'));
+    igual([p1.t, p1.noite, p1.minutos], [N(21, '12:30'), false, 120]);
+    const p2 = preverSono(r, N(21, '17:30'));
+    igual([p2.t, p2.noite], [N(21, '21:00'), true]);
+  });
+  teste('Poucos registros: sem previsão (e o app não inventa)', () => {
+    const r = ritmoSono(sonosFicticios.slice(0, 3), ...periodo);
+    igual([r.geral, r.dormir, preverSono(r, N(21, '10:30'))], [null, null, null]);
+  });
+  teste('Janela acima de 6h é ignorada (sono que não foi registrado)', () => {
+    const comBuraco = [...sonosFicticios.filter((s) => s.t !== N(15, '12:30') && s.t !== N(15, '16:30'))];
+    igual(ritmoSono(comBuraco, ...periodo).janelas[3], 150);
+  });
+  teste('Leite: intervalo típico por faixa do dia; refeição empurra pelo tempo típico até o leite', () => {
+    const leites = [];
+    const refeicoes = [];
+    for (let d = 5; d <= 20; d++) {
+      ['07:00', '10:30', '14:00', '17:30', '21:00'].forEach((h) => leites.push({ t: N(d, h), ml: 180 }));
+      refeicoes.push(N(d, '12:00')); // leite seguinte às 14:00 → 2h depois
+    }
+    const r = ritmoLeite(leites, refeicoes, ...periodo);
+    // 17:30 cai na faixa 14–18h (junto com 14:00); 18–21h fica sem dados.
+    igual([r.faixas.slice(0, 4), r.aposRefeicao, r.porDia, r.mlPorDia], [[210, 210, 210, null], 120, 5, 900]);
+    igual(preverLeite(r, N(21, '07:00')), { t: N(21, '10:30'), minutos: 210, porRefeicao: false });
+    igual(preverLeite(r, N(21, '10:30'), N(21, '12:30')), { t: N(21, '14:30'), minutos: 210, porRefeicao: true });
+  });
+  teste('Sono no card: previsão sem "Atrasado", e sai 1h depois da hora prevista', () => {
+    const linhas = sonosFicticios.filter((s) => s.t < N(21, '00:00')).map((s, i) =>
+      linha('sono', isoSP(s.t), { fim: isoSP(s.fim) }, { id: `s${i}`, schema_version: '2' }));
+    linhas.push(linha('sono', isoSP(N(21, '09:00')), { fim: isoSP(N(21, '10:30')) }, { id: 'hoje', schema_version: '2' }));
+    const ctxEm = (agora) => criarContexto({ eventos: resolverEventos(linhas, TIPOS), planos: {}, config: {}, agora, tipos: TIPOS });
+    const [item] = TIPOS.sono.regras.proximos(ctxEm(N(21, '11:00')));
+    igual([item.t, item.previsao, !!item.alerta], [N(21, '12:30'), true, false]);
+    verdade(TIPOS.sono.regras.status(ctxEm(N(21, '11:00'))).linhas.includes('Próximo sono ~12:30'));
+    igual(TIPOS.sono.regras.proximos(ctxEm(N(21, '13:40'))), []);
+  });
+  teste('Mediana', () => {
+    igual([mediana([3, 1, 2]), mediana([4, 1, 3, 2]), mediana([])], [2, 2.5, null]);
   });
 
   // ---------------------------------------------------------------------

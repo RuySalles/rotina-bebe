@@ -1,4 +1,6 @@
-import { ms, isoSP, fmtHora, fmtData, fmtDuracao, chaveDia, limitesDia, minutosDentro } from '../regras.js';
+import {
+  ms, isoSP, fmtHora, fmtData, fmtDuracao, chaveDia, limitesDia, minutosDentro, ritmoSono, preverSono, periodoRitmo
+} from '../regras.js';
 
 const MIN = 60 * 1000;
 const HORA = 60 * MIN;
@@ -31,6 +33,28 @@ function minutosNoDia(ctx, dia) {
   const [inicio, fim] = limitesDia(dia);
   return ctx.doTipo('sono').reduce((soma, e) => soma + minutosDentro(e.t, fimEfetivo(e, ctx), inicio, fim), 0);
 }
+
+/** Ritmo do sono (últimos 14 dias e os 14 anteriores), calculado uma vez por contexto. */
+const cacheRitmo = new WeakMap();
+export function ritmoDoSono(ctx) {
+  if (!cacheRitmo.has(ctx)) {
+    const sonos = ctx.doTipo('sono').filter((e) => e.t <= ctx.agora).map((e) => ({ t: e.t, fim: fimDe(e) })).filter((x) => x.fim !== null);
+    const p = periodoRitmo(ctx.agora);
+    cacheRitmo.set(ctx, { atual: ritmoSono(sonos, ...p.atual), anterior: ritmoSono(sonos, ...p.anterior) });
+  }
+  return cacheRitmo.get(ctx);
+}
+
+/** Próximo sono previsto (acordado agora), ou null. */
+export function previsaoSono(ctx) {
+  if (emAndamento(ctx)) return null;
+  const ultimo = ctx.ultimo('sono', ctx.agora);
+  const acordou = ultimo ? fimDe(ultimo) : null;
+  if (acordou === null || acordou > ctx.agora) return null;
+  return preverSono(ritmoDoSono(ctx).atual, acordou);
+}
+// Previsão que já passou há mais que isso sai do card (ele pode ter dormido sem registrarem ainda).
+const PREVISAO_VALE_MIN = 60;
 
 const quando = (t, agora) => (chaveDia(t) === chaveDia(agora) ? fmtHora(t) : `${fmtData(t)} ${fmtHora(t)}`);
 
@@ -75,7 +99,23 @@ export default {
       const hoje = minutosNoDia(ctx, chaveDia(ctx.agora));
       if (!ultimo) return { linhas: ['Nenhum registro', 'Toque quando dormir'] };
       const acordou = fimDe(ultimo);
-      return { linhas: [`Acordado há ${fmtDuracao((ctx.agora - acordou) / MIN)}`, `Hoje: ${fmtDuracao(hoje)} de sono`] };
+      const prev = previsaoSono(ctx);
+      const linhaPrev = prev ? `${prev.noite ? 'Dormir à noite' : 'Próximo sono'} ~${fmtHora(prev.t)}` : null;
+      return { linhas: [`Acordado há ${fmtDuracao((ctx.agora - acordou) / MIN)}`, ...(linhaPrev ? [linhaPrev] : []), `Hoje: ${fmtDuracao(hoje)} de sono`] };
+    },
+
+    /** Previsão do próximo sono (pelo ritmo dele); nunca vira "Atrasado". */
+    proximos(ctx) {
+      const prev = previsaoSono(ctx);
+      if (!prev || ctx.agora > prev.t + PREVISAO_VALE_MIN * MIN) return [];
+      return [{
+        t: prev.t,
+        titulo: prev.noite ? 'Sono da noite' : 'Sono',
+        detalhe: prev.noite
+          ? `costuma dormir por volta de ${fmtHora(prev.t)}`
+          : `costuma ficar ~${fmtDuracao(prev.minutos)} acordado ${prev.faixa}`,
+        previsao: true
+      }];
     },
 
     /** Com um sono em andamento, o botão abre esse registro para marcar o despertar. */

@@ -364,3 +364,193 @@ export function escolherProximo(agenda) {
   const depois = principal ? acionaveis.find((i) => i !== principal && i.t >= principal.t) || null : null;
   return { principal, depois };
 }
+
+// ---------------------------------------------------------------------------
+// Ritmo do bebê (fase 8): o que os próprios registros dos últimos dias mostram. Não é orientação.
+// ---------------------------------------------------------------------------
+
+export const RITMO_DIAS = 14;
+const DIA_MS = 24 * HORA;
+
+/** Previsão é "por volta de": arredonda para 5 minutos (instante ou duração em minutos). */
+export const arredondar5 = (t) => Math.round(t / (5 * MIN)) * 5 * MIN;
+export const minutos5 = (m) => Math.round(m / 5) * 5;
+
+export function mediana(valores) {
+  const s = valores.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!s.length) return null;
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+/** Hora do dia em São Paulo como número (14:30 → 14.5). */
+export function horaDecimal(t) {
+  const [h, m] = fmtHora(t).split(':');
+  return Number(h) + Number(m) / 60;
+}
+
+/** Só dias inteiros dentro do período (o primeiro e o de hoje, pela metade, puxariam as médias por dia para baixo). */
+const diaCompleto = (t, desde, ate) => { const d = chaveDia(t); return d > chaveDia(desde) && d < chaveDia(ate); };
+
+/** Faixas do dia para o tempo acordado (pela hora em que acordou). */
+export const FAIXAS_ACORDADO = [
+  { de: 0, ate: 5, texto: 'de madrugada' },
+  { de: 5, ate: 9, texto: 'de manhã cedo' },
+  { de: 9, ate: 12, texto: 'de manhã' },
+  { de: 12, ate: 15, texto: 'no começo da tarde' },
+  { de: 15, ate: 18, texto: 'no fim da tarde' },
+  { de: 18, ate: 24, texto: 'à noite' }
+];
+const faixaDe = (t) => { const h = horaDecimal(t); return FAIXAS_ACORDADO.findIndex((f) => h >= f.de && h < f.ate); };
+
+// Hora de dormir à noite como número contínuo (00:30 → 24.5), para a mediana não "quebrar" na meia-noite.
+const horaNoite = (t) => { const h = horaDecimal(t); return h < 12 ? h + 24 : h; };
+export const textoHoraDecimal = (h) => {
+  const total = Math.round((((h % 24) + 24) % 24 * 60) / 5) * 5;
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+};
+
+/**
+ * Ritmo do sono no período (desde, ate]. sonos: [{ t, fim }] (só os terminados).
+ * janelas: mediana do tempo acordado (min) por faixa do dia (null se poucos dados); geral: todas juntas.
+ * Janelas acima de 6h são ignoradas (quase sempre é um sono que não foi registrado).
+ */
+export function ritmoSono(sonos, desde, ate) {
+  const lista = sonos.filter((s) => Number.isFinite(s.fim) && s.fim > s.t).sort((a, b) => a.t - b.t);
+  const porFaixa = FAIXAS_ACORDADO.map(() => []);
+  const todas = [];
+  for (let i = 1; i < lista.length; i++) {
+    const a = lista[i - 1], b = lista[i];
+    if (a.fim <= desde || a.fim > ate) continue;
+    const min = (b.t - a.fim) / MIN;
+    if (min < 15 || min > 6 * 60) continue;
+    porFaixa[faixaDe(a.fim)].push(min);
+    todas.push(min);
+  }
+  const noPeriodo = lista.filter((s) => s.t > desde && s.t <= ate);
+  // Hora de dormir: por noite, o primeiro sono de 30 min ou mais que começa entre 19:00 e 02:00
+  // (o bebê pode acordar logo depois; o que conta é quando foi deitado para a noite).
+  const inicioNoite = new Map();
+  for (const s of noPeriodo) {
+    const h = horaNoite(s.t);
+    if (h < 19 || h >= 26 || s.fim - s.t < 30 * MIN) continue;
+    const noite = chaveDia(s.t - 12 * HORA);
+    if (!inicioNoite.has(noite) || s.t < inicioNoite.get(noite)) inicioNoite.set(noite, s.t);
+  }
+  // Acordar de manhã: por dia, o fim mais tarde (entre 04:30 e 10:30) de um sono que começou de noite/madrugada.
+  const manhas = new Map();
+  for (const s of noPeriodo) {
+    const ini = horaDecimal(s.t), fim = horaDecimal(s.fim);
+    if (!(ini >= 18 || ini < 7) || fim < 4.5 || fim > 10.5) continue;
+    const dia = chaveDia(s.fim);
+    if (!manhas.has(dia) || s.fim > manhas.get(dia)) manhas.set(dia, s.fim);
+  }
+  // Cochilos: sonos que começam entre 07:00 e 18:00 e duram menos de 4h, por dia com algum registro de sono.
+  const inteiros = noPeriodo.filter((s) => diaCompleto(s.t, desde, ate));
+  const cochilos = inteiros.filter((s) => { const h = horaDecimal(s.t); return h >= 7 && h < 18 && s.fim - s.t < 4 * HORA; });
+  const diasComSono = new Set(inteiros.map((s) => chaveDia(s.t))).size;
+  const minimo = (l, n = 3) => (l.length >= n ? mediana(l) : null);
+  return {
+    janelas: porFaixa.map((l) => minimo(l)),
+    geral: minimo(todas, 5),
+    dormir: inicioNoite.size >= 3 ? mediana([...inicioNoite.values()].map(horaNoite)) : null,
+    acordar: manhas.size >= 3 ? mediana([...manhas.values()].map(horaDecimal)) : null,
+    cochilosPorDia: diasComSono >= 3 ? cochilos.length / diasComSono : null,
+    duracaoCochilo: minimo(cochilos.map((s) => (s.fim - s.t) / MIN)),
+    amostras: todas.length
+  };
+}
+
+/**
+ * Próximo sono previsto, estando acordado desde "acordou" (fim do último sono).
+ * Usa o tempo acordado típico da faixa do dia (ou o geral). Perto da hora de dormir à noite, prevê a noite.
+ * Devolve { t, noite, minutos, faixa } ou null sem dados suficientes.
+ */
+export function preverSono(ritmo, acordou) {
+  if (!ritmo || !Number.isFinite(acordou)) return null;
+  const f = faixaDe(acordou);
+  const bruto = ritmo.janelas[f] ?? ritmo.geral;
+  if (!bruto) return null;
+  const minutos = minutos5(bruto);
+  const t = arredondar5(acordou + bruto * MIN);
+  if (ritmo.dormir !== null) {
+    const hAcordou = horaDecimal(acordou);
+    const hPrevista = horaNoite(t);
+    // Acordou à tarde/noite e o próximo cairia a menos de 45 min da hora de dormir (ou depois): é a noite.
+    if (hAcordou >= 15 && hPrevista >= ritmo.dormir - 0.75) {
+      const dia = chaveDia(acordou);
+      const alvo = deDataHoraSP(ritmo.dormir >= 24 ? somarDias(dia, 1) : dia, textoHoraDecimal(ritmo.dormir));
+      return { t: arredondar5(Math.max(alvo, acordou + 30 * MIN)), noite: true, minutos, faixa: FAIXAS_ACORDADO[f].texto };
+    }
+  }
+  return { t, noite: false, minutos, faixa: FAIXAS_ACORDADO[f].texto };
+}
+
+/** Faixas do dia para o intervalo entre mamadeiras (pela hora da mamadeira anterior). */
+export const FAIXAS_LEITE = [
+  { de: 6, ate: 10 }, { de: 10, ate: 14 }, { de: 14, ate: 18 }, { de: 18, ate: 21 }, { de: 21, ate: 30 }
+];
+const faixaLeite = (t) => { let h = horaDecimal(t); if (h < 6) h += 24; return FAIXAS_LEITE.findIndex((f) => h >= f.de && h < f.ate); };
+
+/**
+ * Ritmo do leite no período (desde, ate]. leites: [{ t, ml }]; refeicoes: [t].
+ * faixas: mediana do intervalo até a mamadeira seguinte (min) por faixa do dia; dia/noite: juntando as faixas.
+ * aposRefeicao: mediana de quanto tempo depois de uma refeição veio o leite seguinte.
+ */
+export function ritmoLeite(leites, refeicoes, desde, ate) {
+  const lista = [...leites].sort((a, b) => a.t - b.t);
+  const dia = [], noite = [];
+  const porFaixa = FAIXAS_LEITE.map(() => []);
+  for (let i = 1; i < lista.length; i++) {
+    const a = lista[i - 1], b = lista[i];
+    if (a.t <= desde || a.t > ate) continue;
+    const min = (b.t - a.t) / MIN;
+    const h = horaDecimal(a.t);
+    const deDia = h >= 6 && h < 21;
+    if (min < 30 || min > (deDia ? 8 : 10) * 60) continue;
+    (deDia ? dia : noite).push(min);
+    porFaixa[faixaLeite(a.t)].push(min);
+  }
+  const apos = [];
+  for (const r of refeicoes) {
+    if (r <= desde || r > ate) continue;
+    const prox = lista.find((l) => l.t > r);
+    if (prox && prox.t - r <= 4 * HORA) apos.push((prox.t - r) / MIN);
+  }
+  const noPeriodo = lista.filter((l) => l.t > desde && l.t <= ate && diaCompleto(l.t, desde, ate));
+  const dias = new Set(noPeriodo.map((l) => chaveDia(l.t))).size;
+  const ml = noPeriodo.reduce((s, l) => s + (Number(l.ml) || 0), 0);
+  return {
+    faixas: porFaixa.map((l) => (l.length >= 3 ? mediana(l) : null)),
+    dia: dia.length >= 4 ? mediana(dia) : null,
+    noite: noite.length >= 3 ? mediana(noite) : null,
+    aposRefeicao: apos.length >= 3 ? mediana(apos) : null,
+    porDia: dias >= 3 ? noPeriodo.length / dias : null,
+    mlPorDia: dias >= 3 && ml ? ml / dias : null
+  };
+}
+
+/**
+ * Próximo leite previsto a partir do último. refeicaoDepois: instante de uma refeição depois dele (ou null).
+ * Usa o intervalo típico da faixa do dia (ou dia/noite); depois de uma refeição, não antes do tempo típico
+ * entre refeição e leite. Devolve { t, minutos, porRefeicao } ou null sem dados suficientes.
+ */
+export function preverLeite(ritmo, ultimo, refeicaoDepois = null) {
+  if (!ritmo || !Number.isFinite(ultimo)) return null;
+  const h = horaDecimal(ultimo);
+  const bruto = ritmo.faixas?.[faixaLeite(ultimo)] ?? (h >= 6 && h < 21 ? ritmo.dia : ritmo.noite);
+  if (!bruto) return null;
+  const minutos = minutos5(bruto);
+  const base = ultimo + bruto * MIN;
+  if (Number.isFinite(refeicaoDepois) && refeicaoDepois > ultimo) {
+    const aposRef = refeicaoDepois + (ritmo.aposRefeicao ?? 60) * MIN;
+    if (aposRef > base) return { t: arredondar5(aposRef), minutos, porRefeicao: true };
+  }
+  return { t: arredondar5(base), minutos, porRefeicao: false };
+}
+
+/** Período "últimos N dias" até agora, e os N anteriores (para comparar). */
+export const periodoRitmo = (agora, dias = RITMO_DIAS) => ({
+  atual: [agora - dias * DIA_MS, agora],
+  anterior: [agora - 2 * dias * DIA_MS, agora - dias * DIA_MS]
+});

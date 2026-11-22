@@ -4,10 +4,12 @@ import * as store from './store.js';
 import { montarTipos } from './tipos/index.js';
 import { lerRemedios, corPara, MODOS, HORA_REF_PADRAO, horaValida } from './tipos/remedio.js';
 import { descreverAjuste } from './tipos/ajuste.js';
+import { ritmoDoSono } from './tipos/sono.js';
+import { ritmoDoLeite } from './tipos/alimentacao.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
-  numero, fmtNumero, ms, isoSP, horaDepois
+  numero, fmtNumero, ms, isoSP, horaDepois, fmtDuracao, textoHoraDecimal, RITMO_DIAS, minutos5
 } from './regras.js';
 
 const app = document.getElementById('app');
@@ -433,7 +435,7 @@ function listaDepois(itens) {
     <ul class="proximo-depois">
       ${itens.map((i) => `
         <li class="${i.informativo ? 'proximo-depois--info' : ''}" ${estiloCor(TIPOS[i.tipo])}>
-          <time>${esc(quandoCurto(i.t, ctx.agora))}</time>
+          <time>${i.previsao ? '~' : ''}${esc(quandoCurto(i.t, ctx.agora))}</time>
           <span class="proximo-depois-ponto"></span>
           <span>${esc(i.titulo)}</span>
         </li>`).join('')}
@@ -454,7 +456,7 @@ function cardProximo(item, depois = []) {
   return `
     <section class="proximo ${item.alerta ? 'proximo--alerta' : ''}" ${estiloCor(tipo)}>
       <div class="proximo-topo">
-        <span class="proximo-rotulo">${item.alerta ? `${ICONES.alerta} Atrasado` : 'Próximo'}</span>
+        <span class="proximo-rotulo">${item.alerta ? `${ICONES.alerta} Atrasado` : item.previsao ? 'Próximo · por volta de' : 'Próximo'}</span>
         <span class="proximo-conta">${esc(contagem(item.t, ctx.agora))}</span>
       </div>
       <div class="proximo-corpo">
@@ -613,7 +615,47 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `<div class="chips">${chips}</div>${blocos}`;
+  return `<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}${blocos}`;
+}
+
+/**
+ * "Ritmo dele": o que os registros dos últimos 14 dias mostram (com os 14 anteriores entre parênteses).
+ * Fica no topo do Histórico, recolhido numa linha.
+ */
+function cartaoRitmo() {
+  const sono = ritmoDoSono(ctx);
+  const leite = ritmoDoLeite(ctx);
+  const a = sono.atual, b = sono.anterior, la = leite.atual, lb = leite.anterior;
+  const dur = (m) => (m ? `~${fmtDuracao(minutos5(m))}` : '');
+  const hora = (h) => (h !== null && h !== undefined ? `~${textoHoraDecimal(h)}` : '');
+  const antes = (agora, depois, fmt, minDif) =>
+    agora !== null && depois !== null && depois !== undefined && Math.abs(agora - depois) >= minDif ? ` <span class="ritmo-antes">(antes ${esc(fmt(depois))})</span>` : '';
+  const linhas = [];
+  const faixas = [[2, 'Acordado de manhã'], [3, 'Acordado no começo da tarde'], [4, 'Acordado no fim da tarde']];
+  for (const [i, rotulo] of faixas) {
+    if (a.janelas[i]) linhas.push([rotulo, esc(dur(a.janelas[i])) + antes(a.janelas[i], b.janelas[i], dur, 10)]);
+  }
+  if (a.cochilosPorDia) {
+    linhas.push(['Cochilos', `${esc(fmtNumero(a.cochilosPorDia, 1))} por dia${a.duracaoCochilo ? ` · ${esc(dur(a.duracaoCochilo))} cada` : ''}` +
+      antes(a.cochilosPorDia, b.cochilosPorDia, (v) => `${fmtNumero(v, 1)}/dia`, 0.3)]);
+  }
+  if (a.dormir !== null) linhas.push(['Dorme à noite', esc(hora(a.dormir)) + antes(a.dormir, b.dormir, hora, 0.25)]);
+  if (a.acordar !== null) linhas.push(['Acorda de manhã', esc(hora(a.acordar)) + antes(a.acordar, b.acordar, hora, 0.25)]);
+  if (la.porDia) {
+    linhas.push(['Leite', `${esc(fmtNumero(la.porDia, 1))} mamadeiras por dia${la.mlPorDia ? ` · ~${Math.round(la.mlPorDia / 10) * 10} mL` : ''}` +
+      antes(la.mlPorDia, lb.mlPorDia, (v) => `~${Math.round(v / 10) * 10} mL`, 50)]);
+  }
+  if (la.dia) linhas.push(['Entre mamadeiras (de dia)', esc(dur(la.dia)) + antes(la.dia, lb.dia, dur, 15)]);
+  if (!linhas.length) return '';
+  const resumo = [a.geral ? `acordado ${dur(a.geral)}` : '', a.dormir !== null ? `dorme ${hora(a.dormir)}` : '',
+    la.porDia ? `${fmtNumero(la.porDia, 1)} mamadeiras/dia` : ''].filter(Boolean).join(' · ');
+  return `
+    <div class="blocos ritmo">
+      ${bloco('ritmo', cabecaBloco(`Ritmo dele · últimos ${RITMO_DIAS} dias`, resumo), `
+        <dl class="ritmo-lista">${linhas.map(([r, v]) => `<div><dt>${esc(r)}</dt><dd>${v}</dd></div>`).join('')}</dl>
+        <p class="ajuda">É o que os registros mostram (entre parênteses, os ${RITMO_DIAS} dias anteriores, quando mudou). As previsões
+          "por volta de" usam estes números. Não é orientação médica.</p>`)}
+    </div>`;
 }
 
 // ---------------------------------------------------------------------------

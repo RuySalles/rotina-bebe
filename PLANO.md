@@ -24,7 +24,7 @@ algo) dizem isso em "Você vai precisar".
 | 5 | Rotina em primeiro lugar na tela inicial | ✅ |
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
 | 7 | Alimentação: leite, fruta ou refeição | ✅ |
-| 8 | Previsões de sono e de leite | ⬜ |
+| 8 | Previsões de sono e de leite | 🧪 |
 | 9 | Abrir o app sem internet | ⬜ |
 | 10 | Alertas no celular pelo Google Agenda | ⬜ |
 | 11 | Esconder e reordenar botões | ⬜ |
@@ -266,30 +266,38 @@ somar o leite do dia, e a "próxima alimentação" contava a partir de qualquer 
 
 ## Fase 8 — Previsões de sono e de leite
 
-**Por quê:** a pergunta de todo dia é "será que já está na hora de dormir? de comer de novo?". O app hoje usa um
-número fixo (3 horas depois de qualquer alimentação) e não diz nada sobre o sono. Um mês de registros mostra que o
-bebê tem um ritmo próprio e bem regular, que muda com a hora do dia.
+**Por quê:** a pergunta de todo dia é "será que já está na hora de dormir? de mamar de novo?". O app usava um número
+fixo (3 horas) e não dizia nada sobre o sono. Um mês de registros mostra que o bebê tem um ritmo próprio e regular, que
+muda com a hora do dia.
 
 **O que muda:**
-- No botão de Sono e no card PRÓXIMO: **"Próximo sono por volta de 14:10"**, a partir de quanto tempo ele costuma
-  ficar acordado naquele horário do dia (de manhã é diferente do fim da tarde), e o horário que costuma dormir à noite.
-- No botão de Alimentação: **"Próximo leite por volta de 15:30"**, a partir do intervalo que ele costuma fazer entre
-  mamadeiras durante o dia. Sólidos não mudam essa conta.
-- As contas usam só os **últimos 14 dias dele**, então se ajustam sozinhas conforme ele cresce. Noites com buracos no
-  registro são ignoradas para não estragar a média.
-- Sempre escrito como "costuma" e "por volta de". Não é orientação: é só o que os próprios registros mostram.
-- Um cartão pequeno **"Ritmo dele"** no Resumo: tempo acordado típico, cochilos por dia, horário de dormir e acordar,
-  mamadeiras por dia (últimos 14 dias comparados com os 14 anteriores).
+- **Sono:** o botão mostra "Próximo sono ~14:10" (ou "Dormir à noite ~21:05" no fim da tarde), pelo tempo que ele
+  costuma ficar acordado naquela faixa do dia (de manhã é diferente do fim da tarde) e pela hora em que costuma ser
+  deitado para a noite.
+- **Leite:** "Próximo leite ~16:35", pelo intervalo que ele costuma fazer entre mamadeiras naquele horário. Depois de
+  uma refeição, pelo tempo que o leite costuma demorar depois dela. Fruta não muda a conta.
+- **Card PRÓXIMO:** mostra o que vem primeiro (sono ou leite), com "Próximo · por volta de"; o outro aparece em
+  "Depois". Previsão **nunca fica vermelha nem vira "Atrasado"**; se passar 1h da hora prevista sem registro, ela sai
+  do card.
+- **Ritmo dele** (topo do Histórico, recolhido numa linha): tempo acordado típico de manhã, no começo e no fim da
+  tarde; cochilos por dia; hora de dormir e de acordar; mamadeiras e mL por dia; intervalo entre mamadeiras. Entre
+  parênteses, os 14 dias anteriores, quando mudou.
+- As contas usam só os **últimos 14 dias** (dias inteiros), então se ajustam sozinhas conforme ele cresce. Tempo
+  acordado acima de 6h é ignorado (quase sempre é um sono que não foi registrado). Horários previstos são arredondados
+  para 5 minutos. Sem registros suficientes, nada é previsto (o leite volta à regra fixa das 3h).
+- Conferido com o mês real (sem tocar na planilha): a previsão do próximo sono erra ~20 minutos em geral (6 em cada 10
+  ficam a até meia hora). A do leite erra mais (~50 min), porque as mamadeiras variam mais; ela melhora a conta fixa
+  das 3h, mas é só uma referência.
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Depois de registrar o fim de um sono de manhã, o botão de Sono mostra "Próximo sono por volta de …" num horário
-      que faz sentido para vocês.
-- [ ] Depois de uma mamadeira, o botão de Alimentação mostra "Próximo leite por volta de …"; registrar uma fruta não
-      muda esse horário.
-- [ ] O cartão "Ritmo dele" bate com o que vocês percebem.
-- [ ] Se o horário previsto passar, ele não fica vermelho nem dá alarme (é previsão, não tarefa).
+- [ ] Depois de marcar o despertar de um cochilo de manhã, o botão de Sono mostra "Próximo sono ~…" num horário que faz
+      sentido para vocês.
+- [ ] Depois de uma mamadeira, o botão de Alimentação mostra "Próximo leite ~…"; registrar uma fruta não muda esse
+      horário.
+- [ ] No card PRÓXIMO, a previsão aparece com "por volta de" e, quando passa da hora, não fica vermelha.
+- [ ] O "Ritmo dele" (topo do Histórico) bate com o que vocês percebem.
 
 ---
 
@@ -435,8 +443,8 @@ orientação errada.
 - Fase 7 (feita): `dados.itens` (leite | fruta | refeicao) e `dados.ml` na alimentação; `SCHEMA_VERSION` 2, com
   `migrar` que deduz itens/mL do texto dos registros versão 1 (só leitura). Campos genéricos novos na folha:
   `multiplas`, `casas`, `mostrarSe(dados)` e `atalhos(ctx, dados)`.
-- Fase 8: funções puras em `regras.js` (janela acordado por faixa do dia, intervalo entre leites; medianas dos últimos
-  14 dias; ignorar janelas acima de um limite, que indicam registro faltando), com testes. Usadas nos `status`/
-  `proximos` de `sono.js` e `alimentacao.js` como `informativo` (não viram alerta).
+- Fase 8 (feita): `ritmoSono`/`preverSono` e `ritmoLeite`/`preverLeite` em `regras.js` (medianas por faixa do dia,
+  últimos 14 dias inteiros, com testes); `ritmoDoSono(ctx)` e `ritmoDoLeite(ctx)` nos tipos (cache por contexto).
+  Itens com `previsao: true` nunca têm `alerta`.
 - Fase 9: service worker com cache por versão (`v/<sha>/`), alinhado ao `versao.json` e ao `scripts/montar-site.sh`.
 - Fase 10: muda o `Code.gs` (retrocompatível): `CalendarApp` ao salvar plano. Atualizar o `SETUP.md`.

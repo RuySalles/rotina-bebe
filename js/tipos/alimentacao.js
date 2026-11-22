@@ -1,4 +1,4 @@
-import { proximaPorRecorrencia, fmtHora, numero } from '../regras.js';
+import { proximaPorRecorrencia, fmtHora, fmtDuracao, numero, ritmoLeite, preverLeite, periodoRitmo } from '../regras.js';
 
 // O que foi, em dados.itens (pode ser mais de um no mesmo registro): leite (com dados.ml), fruta, refeição
 // (papinha, sopa…). dados.quantidade guarda o texto do que comeu; dados.observacao, uma observação.
@@ -71,11 +71,31 @@ function ultimoLeite(ctx) {
 // Depois de uma refeição (papinha, sopa) o leite costuma vir mais tarde: o próximo leite não fica antes disso.
 const APOS_REFEICAO_H = 1;
 
-/** Próximo leite: 3h após o último; se depois dele houve refeição, não antes de 1h após ela. */
+/** Ritmo do leite (últimos 14 dias e os 14 anteriores), calculado uma vez por contexto. */
+const cacheRitmo = new WeakMap();
+export function ritmoDoLeite(ctx) {
+  if (!cacheRitmo.has(ctx)) {
+    const lista = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora);
+    const leites = lista.filter(temLeite).map((e) => ({ t: e.t, ml: mlDe(e) }));
+    const refeicoes = lista.filter((e) => itensDe(e).includes('refeicao')).map((e) => e.t);
+    const p = periodoRitmo(ctx.agora);
+    cacheRitmo.set(ctx, { atual: ritmoLeite(leites, refeicoes, ...p.atual), anterior: ritmoLeite(leites, refeicoes, ...p.anterior) });
+  }
+  return cacheRitmo.get(ctx);
+}
+
+/**
+ * Próximo leite: pelo ritmo dele (intervalo típico nesse horário; depois de uma refeição, o tempo típico até o leite).
+ * Sem dados suficientes, a regra fixa: 3h após o último; depois de refeição, não antes de 1h após ela.
+ */
 function proximoLeite(ctx, leite) {
+  const refeicao = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora && e.t > leite.t && itensDe(e).includes('refeicao')).at(-1) || null;
+  const prev = temLeite(leite) ? preverLeite(ritmoDoLeite(ctx).atual, leite.t, refeicao?.t ?? null) : null;
+  if (prev) return { t: prev.t, refeicao: prev.porRefeicao ? refeicao : null, minutos: prev.minutos, ritmo: true };
   const base = proximaPorRecorrencia(leite, RECORRENCIA_H);
-  const refeicao = ctx.doTipo('alimentacao').filter((e) => e.t <= ctx.agora && e.t > leite.t && itensDe(e).includes('refeicao')).at(-1);
-  return refeicao ? { t: Math.max(base, refeicao.t + APOS_REFEICAO_H * 60 * MIN), refeicao } : { t: base, refeicao: null };
+  return refeicao && refeicao.t + APOS_REFEICAO_H * 60 * MIN > base
+    ? { t: refeicao.t + APOS_REFEICAO_H * 60 * MIN, refeicao, ritmo: false }
+    : { t: base, refeicao: null, ritmo: false };
 }
 
 /** Tylenol dado nos últimos 30 min, se houver. */
@@ -205,7 +225,7 @@ export default {
         linhas.push(temLeite(leite) ? `Leite ${fmtHora(leite.t)}${ml ? ` · ${ml} mL` : ''}` : `Última ${fmtHora(leite.t)}`);
       }
       if (tyl) linhas.push(`20–30 min após o Tylenol (${fmtHora(tyl.t + 20 * MIN)}–${fmtHora(tyl.t + 30 * MIN)})`);
-      else if (leite) linhas.push(`Próximo leite ${fmtHora(proximoLeite(ctx, leite).t)}`);
+      else if (leite) { const pr = proximoLeite(ctx, leite); linhas.push(`Próximo leite ${pr.ritmo ? '~' : ''}${fmtHora(pr.t)}`); }
       // Comida recente num registro separado (se foi junto com o leite, a linha do leite já basta).
       if (comida && comida.id !== leite?.id && (!leite || comida.t > leite.t - 6 * 60 * MIN)) {
         linhas.push(`${itensDe(comida).includes('refeicao') ? 'Refeição' : 'Fruta'} ${fmtHora(comida.t)}`);
@@ -224,14 +244,26 @@ export default {
       }
       const leite = ultimoLeite(ctx);
       if (!leite) return [];
-      const { t, refeicao } = proximoLeite(ctx, leite);
+      const pr = proximoLeite(ctx, leite);
+      if (pr.ritmo) {
+        // Previsão pelo ritmo: nunca vira "Atrasado"; passou de 1h, sai do card (pode ter mamado sem registro).
+        if (ctx.agora > pr.t + 60 * MIN) return [];
+        return [{
+          t: pr.t,
+          titulo: 'Leite',
+          detalhe: pr.refeicao
+            ? `depois da refeição das ${fmtHora(pr.refeicao.t)}, costuma vir nesse horário`
+            : `costuma ser a cada ~${fmtDuracao(pr.minutos)} nesse horário (último ${fmtHora(leite.t)})`,
+          previsao: true
+        }];
+      }
       return [{
-        t,
+        t: pr.t,
         titulo: temLeite(leite) ? 'Leite' : 'Alimentação',
-        detalhe: refeicao && t > proximaPorRecorrencia(leite, RECORRENCIA_H)
-          ? `1h após a refeição (${fmtHora(refeicao.t)})`
+        detalhe: pr.refeicao
+          ? `1h após a refeição (${fmtHora(pr.refeicao.t)})`
           : `3h após ${temLeite(leite) ? 'o último leite' : 'a última'} (${fmtHora(leite.t)})`,
-        alerta: ctx.agora - t > 30 * MIN
+        alerta: ctx.agora - pr.t > 30 * MIN
       }];
     },
 

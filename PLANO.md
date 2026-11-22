@@ -22,7 +22,7 @@ algo) dizem isso em "Você vai precisar".
 | 3 | Histórico de ajustes (quem mudou o quê, com volta) | ✅ |
 | 4 | Sincronização mais rápida | ✅ |
 | 5 | Rotina em primeiro lugar na tela inicial | ✅ |
-| 6 | Ajustes reorganizado (remédios agrupados) | ⬜ |
+| 6 | Organização das 3 abas (Início, Histórico, Ajustes) | 🧪 |
 | 7 | Alimentação: leite, sólido ou sopa | ⬜ |
 | 8 | Previsões de sono e de leite | ⬜ |
 | 9 | Abrir o app sem internet | ⬜ |
@@ -199,26 +199,37 @@ conferir a hora em "Avisar se não for dada até" e tocar em **Salvar alteraçõ
 
 ---
 
-## Fase 6 — Ajustes reorganizado (remédios agrupados)
+## Fase 6 — Organização das 3 abas (Início, Histórico, Ajustes)
 
-**Por quê:** em Ajustes, Tylenol e amoxicilina ficam misturados com o nome do bebê e o limite de febre, os remédios
-cadastrados ficam em outra seção e os horários de cada um em uma terceira. Para mudar um remédio é preciso procurar em
-três lugares.
+**Por quê:** depois da fase 5, cada aba ainda repetia informação ou misturava assuntos. No Início, o Resumo repetia o
+que os botões já mostram e "Próximas 24 horas" repetia o card PRÓXIMO. No Histórico, os filtros começavam pelos
+remédios e o dia só dizia "20 registros". Ajustes era uma página muito longa: nome e febre misturados com seis campos
+de Tylenol e amoxicilina, o formulário de remédio sempre aberto e os horários dos planos numa seção separada.
 
 **O que muda:**
-- **Bebê:** nome e limite de febre.
-- **Remédios:** uma lista só, com todos (Tylenol, amoxicilina e os cadastrados). Tocar num remédio abre tudo dele:
-  dose, jeito de dar, horários do plano, máximo, lembrete, encerrar/reativar.
-- **Tratamentos encerrados** ficam recolhidos no fim da lista.
-- O Histórico de ajustes continua registrando tudo, com Voltar.
+- **Início = o agora.** Ficam o card PRÓXIMO, os 4 botões da rotina e a faixa. Os próximos horários viram até 3
+  linhas "Depois" dentro do card PRÓXIMO. O Resumo sai daqui e vai para o Histórico.
+- **Histórico:** cada dia começa com os totais (alimentação, sono, fraldas, banho, remédios); tocar num total filtra.
+  Os filtros seguem a ordem da tela inicial (rotina, remédios em uso, febre, "só se precisar", vacinas) e os
+  tratamentos encerrados ficam no fim.
+- **Ajustes em blocos que abrem ao tocar:**
+  - **Bebê:** nome e limite de febre.
+  - **Remédios:** um item por remédio (Tylenol, os cadastrados e a amoxicilina); tocar abre tudo dele: dose, jeito
+    de dar, horários do plano, encerrar. **+ Adicionar remédio** só abre ao tocar. Tratamentos encerrados ficam
+    recolhidos no fim.
+  - **Histórico de ajustes** e **Este celular** (apelido, link, sincronia, versões).
+- Nada muda nos dados: só a arrumação das telas. O Histórico de ajustes continua registrando tudo, com Voltar.
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Mudar a dose do Tylenol pela lista de Remédios: vale no registro e aparece no Histórico de ajustes.
-- [ ] Abrir um remédio de horários fixos: os horários do plano estão dentro dele.
-- [ ] A amoxicilina aparece em "Tratamentos encerrados"; reativar e encerrar de novo funciona.
-- [ ] Nada mudou nos registros já feitos.
+- [ ] O Início mostra PRÓXIMO (com as linhas "Depois"), os 4 botões e a faixa, sem Resumo nem "Próximas 24 horas".
+- [ ] No Histórico, cada dia mostra os totais no topo; tocar em "Sono" filtra só os sonos. Os filtros começam por
+      Alimentação, Sono, Fralda, Banho.
+- [ ] Em Ajustes, os blocos começam fechados. Abrir Remédios → Tylenol, mudar a dose e salvar: vale no próximo
+      registro e aparece no Histórico de ajustes.
+- [ ] A amoxicilina está em "Tratamentos encerrados", com os horários do plano dentro dela.
+- [ ] Mudar o nome em Bebê e o apelido em Este celular continua funcionando.
 
 ---
 
@@ -412,7 +423,8 @@ orientação errada.
 - Fase 5: modo novo `diario` em `js/tipos/remedio.js` (com `horaRef` opcional). Tratamento concluído = plano com
   todas as doses registradas → fora de `visiveis` em `montarTipos`. Layout da tela inicial no `app.js`/`app.css`
   (rotina em grade grande, remédios em faixa compacta).
-- Fase 6: só `app.js` (telas de Ajustes); tudo continua passando por `registrarAjuste`.
+- Fase 6: só `app.js`/`app.css` (telas); tudo continua passando por `registrarAjuste`. Blocos de Ajustes são
+  `<details>` com o estado aberto guardado em memória (o redesenho não fecha o que está aberto).
 - Fase 7: campos novos em `dados` da alimentação (`categoria`: leite | solido | sopa, `ml`); registros antigos sem
   eles são lidos por inferência do texto (só leitura, nada é regravado). Se o formato de um campo existente mudar,
   subir `SCHEMA_VERSION` com `migrar` e teste em `tests/regras.casos.js`.

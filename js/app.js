@@ -18,9 +18,7 @@ let estado = store.obterEstado();
 let ctx = null;
 let vista = 'inicio';
 let filtroHistorico = '';
-let diaResumo = 0; // 0 = hoje, -1 = ontem
 let urlDoConfig = '';
-let remedioEditando = ''; // id do remédio aberto no formulário de Ajustes ('' = novo)
 let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
 
 // Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
@@ -415,7 +413,9 @@ const estiloCor = (tipo) => `style="--cor:${esc(tipo.cor)}"`;
 
 function vistaInicio() {
   const agenda = montarAgenda(ctx, 24);
-  const { principal, depois } = escolherProximo(agenda);
+  const { principal } = escolherProximo(agenda);
+  // Os próximos horários (no máximo 3) entram no próprio card, como "Depois".
+  const depois = agenda.filter((i) => i !== principal).slice(0, 3);
   return `
     ${cardProximo(principal, depois)}
     <section class="secao">
@@ -423,21 +423,31 @@ function vistaInicio() {
       <div class="grade">${LISTA_TIPOS.filter((t) => t.rotina).map(tile).join('')}</div>
       ${faixaCompacta()}
     </section>
-    ${resumoDoDia()}
-    <section class="secao">
-      <h2 class="secao-titulo">Próximas 24 horas</h2>
-      ${linhaDoTempo(agenda)}
-    </section>
     ${paineis()}`;
 }
 
-function cardProximo(item, depois) {
+/** Linhas "Depois" do card PRÓXIMO. */
+function listaDepois(itens) {
+  if (!itens.length) return '';
+  return `
+    <ul class="proximo-depois">
+      ${itens.map((i) => `
+        <li class="${i.informativo ? 'proximo-depois--info' : ''}" ${estiloCor(TIPOS[i.tipo])}>
+          <time>${esc(quandoCurto(i.t, ctx.agora))}</time>
+          <span class="proximo-depois-ponto"></span>
+          <span>${esc(i.titulo)}</span>
+        </li>`).join('')}
+    </ul>`;
+}
+
+function cardProximo(item, depois = []) {
   if (!item) {
     return `
       <section class="proximo proximo--vazio">
         <span class="proximo-rotulo">Próximo</span>
         <p class="proximo-titulo">Nada programado</p>
         <p class="proximo-detalhe">Nenhum horário previsto nas próximas 24 horas.</p>
+        ${listaDepois(depois)}
       </section>`;
   }
   const tipo = TIPOS[item.tipo];
@@ -456,7 +466,7 @@ function cardProximo(item, depois) {
         <p class="proximo-hora">${esc(quandoCurto(item.t, ctx.agora))}</p>
       </div>
       <button class="botao botao--cheio botao--grande" data-acao="registrar" data-tipo="${tipo.id}">Registrar ${esc(nomeNaFrase(tipo))}</button>
-      ${depois ? `<p class="proximo-depois">Depois: ${esc(depois.titulo)} · ${esc(quandoCurto(depois.t, ctx.agora))}</p>` : ''}
+      ${listaDepois(depois)}
     </section>`;
 }
 
@@ -481,12 +491,7 @@ function tile(tipo) {
  * "só se precisar", vacinas. Tratamento concluído (naInicio = false) sai daqui e continua no Histórico.
  */
 function faixaCompacta() {
-  const peso = (t) => (t.id === 'febre' ? 1 : t.id === 'vacina' ? 3 : t.id === 'tylenol' || t.remedio?.modo === 'se_precisar' ? 2 : 0);
-  const tipos = LISTA_TIPOS
-    .filter((t) => !t.rotina && (!t.naInicio || t.naInicio(ctx)))
-    .map((t, i) => ({ t, i }))
-    .sort((a, b) => peso(a.t) - peso(b.t) || a.i - b.i)
-    .map(({ t }) => t);
+  const tipos = ordenarTipos(LISTA_TIPOS.filter((t) => !t.rotina && (!t.naInicio || t.naInicio(ctx))));
   if (!tipos.length) return '';
   return `<ul class="cartao lista faixa" aria-label="Remédios e saúde">${tipos.map(linhaFaixa).join('')}</ul>`;
 }
@@ -508,60 +513,34 @@ function linhaFaixa(tipo) {
     </li>`;
 }
 
-/** Totais do dia por tipo (cada tipo diz o seu em resumoDia). */
-function resumoDoDia() {
-  const hoje = chaveDia(ctx.agora);
-  const dia = somarDias(hoje, diaResumo);
-  const itens = TODOS_TIPOS
-    .map((tipo) => ({ tipo, r: tipo.resumoDia ? tipo.resumoDia(ctx, dia) : null }))
-    .filter((i) => i.r)
-    .sort((a, b) => Number(!!b.tipo.rotina) - Number(!!a.tipo.rotina)); // rotina primeiro (ordem estável no resto)
-  const botao = (n, rotulo) =>
-    `<button class="chip chip--pequeno ${diaResumo === n ? 'chip--ativo' : ''}" data-acao="dia-resumo" data-dia="${n}">${rotulo}</button>`;
-  return `
-    <section class="secao">
-      <h2 class="secao-titulo">Resumo <span class="secao-acoes">${botao(0, 'Hoje')}${botao(-1, 'Ontem')}</span></h2>
-      ${itens.length ? `
-      <div class="resumo">
-        ${itens.map(({ tipo, r }) => `
-          <button class="resumo-item" data-acao="ver-historico" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
-            <span class="resumo-rotulo"><span class="icone icone--mini">${tipo.icone}</span>${esc(tipo.rotulo)}</span>
-            <span class="resumo-valor ${r.destaque ? 'resumo-valor--alto' : ''}">${esc(r.valor)}</span>
-            ${r.detalhe ? `<span class="resumo-detalhe">${esc(r.detalhe)}</span>` : ''}
-          </button>`).join('')}
-      </div>` : `<p class="vazio">Nada registrado ${diaResumo === 0 ? 'hoje' : 'ontem'}.</p>`}
-    </section>`;
+/**
+ * Ordem dos tipos nas listas (faixa, filtros): rotina, tratamentos em andamento, febre, "só se precisar", vacinas.
+ * Encerrados (remédio encerrado ou tratamento concluído) por último.
+ */
+function pesoTipo(t) {
+  if (t.rotina) return 0;
+  if (t.remedio ? !t.remedio.ativo : t.naInicio && !t.naInicio(ctx)) return 5;
+  if (t.id === 'febre') return 2;
+  if (t.id === 'vacina') return 4;
+  if (t.id === 'tylenol' || t.remedio?.modo === 'se_precisar') return 3;
+  return 1;
 }
+const ordenarTipos = (lista) => lista.map((t, i) => ({ t, i })).sort((a, b) => pesoTipo(a.t) - pesoTipo(b.t) || a.i - b.i).map(({ t }) => t);
 
-function linhaDoTempo(agenda) {
-  if (!agenda.length) return '<p class="vazio">Nada previsto por enquanto.</p>';
-  const hoje = chaveDia(ctx.agora);
-  let diaAtual = hoje;
-  let marcouAgora = false;
-  const partes = [];
-  for (const item of agenda) {
-    const dia = chaveDia(item.t);
-    if (!marcouAgora && item.t > ctx.agora) {
-      partes.push(`<li class="tempo-agora"><span>Agora · ${fmtHora(ctx.agora)}</span></li>`);
-      marcouAgora = true;
-    }
-    if (dia !== diaAtual) {
-      partes.push(`<li class="tempo-dia">${esc(rotuloDia(dia, ctx.agora))}</li>`);
-      diaAtual = dia;
-    }
-    const tipo = TIPOS[item.tipo];
-    partes.push(`
-      <li class="tempo-item ${item.alerta ? 'tempo-item--alerta' : ''} ${item.informativo ? 'tempo-item--info' : ''}" ${estiloCor(tipo)}>
-        <time>${fmtHora(item.t)}</time>
-        <span class="tempo-ponto"></span>
-        <div class="tempo-textos">
-          <p class="tempo-titulo">${esc(item.titulo)}${item.alerta ? ' <span class="selo selo--alerta">atrasado</span>' : ''}</p>
-          <p class="tempo-detalhe">${esc(item.detalhe || '')}</p>
-        </div>
-      </li>`);
-  }
-  if (!marcouAgora) partes.push(`<li class="tempo-agora"><span>Agora · ${fmtHora(ctx.agora)}</span></li>`);
-  return `<ol class="tempo">${partes.join('')}</ol>`;
+/** Totais do dia (cada tipo diz o seu em resumoDia), no topo de cada dia do Histórico. Tocar filtra. */
+function totaisDoDia(dia) {
+  const itens = ordenarTipos(TODOS_TIPOS)
+    .map((tipo) => ({ tipo, r: tipo.resumoDia ? tipo.resumoDia(ctx, dia) : null }))
+    .filter((i) => i.r);
+  if (!itens.length) return '';
+  return `
+    <div class="totais">
+      ${itens.map(({ tipo, r }) => `
+        <button class="total ${r.destaque ? 'total--alto' : ''}" data-acao="filtro" data-tipo="${tipo.id}" ${estiloCor(tipo)} aria-label="${esc(tipo.rotulo)}: ${esc(r.valor)}. Toque para ver só ${esc(nomeNaFrase(tipo))}">
+          <span class="icone icone--mini">${tipo.icone}</span>
+          <span class="total-valor">${esc(r.valor)}</span>
+        </button>`).join('')}
+    </div>`;
 }
 
 function paineis() {
@@ -592,7 +571,7 @@ function vistaHistorico() {
   const eventos = ctx.eventos
     .filter((e) => TIPOS[e.tipo] && !TIPOS[e.tipo].interno && (!filtroHistorico || e.tipo === filtroHistorico))
     .sort((a, b) => b.t - a.t);
-  const comChip = TODOS_TIPOS.filter((t) => LISTA_TIPOS.includes(t) || ctx.doTipo(t.id).length);
+  const comChip = ordenarTipos(TODOS_TIPOS.filter((t) => (LISTA_TIPOS.includes(t) && (!t.naInicio || t.naInicio(ctx))) || ctx.doTipo(t.id).length));
   const chips = [['', 'Todos'], ...comChip.map((t) => [t.id, t.rotulo])]
     .map(([id, rotulo]) => `<button class="chip ${filtroHistorico === id ? 'chip--ativo' : ''}" data-acao="filtro" data-tipo="${id}">${esc(rotulo)}</button>`)
     .join('');
@@ -613,6 +592,7 @@ function vistaHistorico() {
   const blocos = [...dias.entries()].map(([dia, lista]) => `
     <section class="secao">
       <h2 class="secao-titulo">${esc(maiuscula(rotuloDia(dia, ctx.agora)))} <span class="secao-conta">${esc(conta(dia, lista))}</span></h2>
+      ${filtrado ? '' : totaisDoDia(dia)}
       <ul class="cartao lista">
         ${lista.map((e) => {
           const tipo = TIPOS[e.tipo];
@@ -640,125 +620,238 @@ function vistaHistorico() {
 // Ajustes
 // ---------------------------------------------------------------------------
 
+// Blocos de Ajustes que estão abertos (o redesenho da tela mantém aberto o que estava aberto).
+const blocosAbertos = new Set();
+
+/** Bloco que abre ao tocar (<details>). chave identifica o bloco; resumo é o HTML da linha de cima. */
+function bloco(chave, resumo, conteudo, classe = '', estilo = '') {
+  return `
+    <details class="bloco ${classe}" data-bloco="${esc(chave)}" ${blocosAbertos.has(chave) ? 'open' : ''} ${estilo}>
+      <summary class="bloco-topo">${resumo}<span class="bloco-seta" aria-hidden="true"></span></summary>
+      <div class="bloco-corpo">${conteudo}</div>
+    </details>`;
+}
+
+/** Linha de cima de um bloco: título e, embaixo, um resumo do que tem dentro. */
+const cabecaBloco = (titulo, detalhe, icone = '') => `
+  ${icone ? `<span class="icone icone--pequeno">${icone}</span>` : ''}
+  <span class="bloco-textos">
+    <span class="bloco-titulo">${esc(titulo)}</span>
+    ${detalhe ? `<span class="bloco-detalhe">${esc(detalhe)}</span>` : ''}
+  </span>`;
+
+const decimal = (v) => esc(String(v ?? '').replace('.', ','));
+
 function vistaAjustes() {
   const c = estado.config;
-  const chave = store.lerChave();
-  const planos = LISTA_TIPOS.filter((t) => t.regras?.usaPlano).map((tipo) => {
-    const plano = ctx.plano(tipo.id);
-    const linhas = plano ? plano.horarios.map((t) => `${fmtData(t)}/${chaveDia(t).slice(0, 4)} ${fmtHora(t)}`).join('\n') : '';
-    const resumo = plano && plano.horarios.length
-      ? `${plano.horarios.length} horários · de ${quandoCurto(plano.horarios[0])} a ${quandoCurto(plano.horarios.at(-1))}`
-      : 'Nenhum plano ativo';
-    return `
-      <form class="cartao form" data-form="plano" data-tipo="${tipo.id}" ${estiloCor(tipo)}>
-        <div class="form-topo"><span class="icone icone--pequeno">${tipo.icone}</span><strong>${esc(tipo.rotulo)}</strong></div>
-        <p class="ajuda">${esc(resumo)}</p>
-        <label class="campo">
-          <span>Um horário por linha (dia/mês/ano hora)</span>
-          <textarea name="horarios" rows="8" spellcheck="false" placeholder="25/10/2026 08:00">${esc(linhas)}</textarea>
-        </label>
-        <p class="ajuda">Os horários ficam fixos: uma dose atrasada não muda as próximas.</p>
-        <div class="botoes">
-          <button class="botao botao--cheio" type="submit">Salvar plano</button>
-          ${plano ? '<button class="botao botao--leve" type="button" data-acao="desativar-plano">Encerrar plano</button>' : ''}
-        </div>
-      </form>`;
-  }).join('');
-
+  const nome = String(c.nome_bebe || '').trim();
+  const limite = String(c.febre_limite_c || '37.8').replace('.', ',');
+  const ajustes = ctx.eventos.filter((e) => e.tipo === 'ajuste');
+  const ultimoAjuste = ajustes.at(-1);
+  const emUso = remediosNaLista().emUso.length;
   return `
-    <section class="secao">
-      <h2 class="secao-titulo">Bebê e cuidados</h2>
-      <form class="cartao form" data-form="config">
-        <label class="campo">
-          <span>Nome do bebê</span>
-          <input name="nome_bebe" maxlength="40" autocomplete="off" value="${esc(c.nome_bebe || '')}" placeholder="O primeiro nome aparece no topo da tela">
-        </label>
-        <label class="campo">
-          <span>Febre a partir de (°C)</span>
-          <input name="febre_limite_c" inputmode="decimal" value="${esc(String(c.febre_limite_c ?? '').replace('.', ','))}" placeholder="37,8">
-        </label>
-        <div class="campo">
-          <span>Tylenol: remédio em uso</span>
-          <div class="seg seg--largo">
-            <label><input type="radio" name="tylenol_apresentacao" value="suspensao" ${c.tylenol_apresentacao === 'gotas' ? '' : 'checked'}><span>Tylenol Bebê</span></label>
-            <label><input type="radio" name="tylenol_apresentacao" value="gotas" ${c.tylenol_apresentacao === 'gotas' ? 'checked' : ''}><span>Paracetamol gotas</span></label>
-          </div>
-          <small>As concentrações são diferentes (100 mg/mL e 200 mg/mL): a dose de um não vale para o outro. Ao trocar de remédio, troque aqui.</small>
+    <div class="blocos">
+      ${bloco('bebe', cabecaBloco('Bebê', [nome || 'Sem nome', `febre a partir de ${limite} °C`].join(' · ')), formBebe())}
+      ${bloco('remedios', cabecaBloco('Remédios', emUso === 1 ? '1 em uso' : `${emUso} em uso`), conteudoRemedios())}
+      ${bloco('historico-ajustes', cabecaBloco('Histórico de ajustes', ultimoAjuste
+        ? `Última mudança: ${quandoCurto(ultimoAjuste.t, ctx.agora)}${ultimoAjuste.quem ? ` · ${ultimoAjuste.quem}` : ''}`
+        : 'Nenhuma mudança ainda'), conteudoHistoricoAjustes())}
+      ${bloco('celular', cabecaBloco('Este celular', [store.lerApelido(), textoSyncCurto()].filter(Boolean).join(' · ')), conteudoCelular())}
+    </div>`;
+}
+
+const textoSyncCurto = () => {
+  const s = estado.sync;
+  if (s.pendentes) return `${s.pendentes} esperando internet`;
+  return s.ultima ? `sincronizado às ${fmtHora(s.ultima)}` : '';
+};
+
+function formBebe() {
+  const c = estado.config;
+  return `
+    <form class="form" data-form="config">
+      <label class="campo">
+        <span>Nome do bebê</span>
+        <input name="nome_bebe" maxlength="40" autocomplete="off" value="${esc(c.nome_bebe || '')}" placeholder="O primeiro nome aparece no topo da tela">
+      </label>
+      <label class="campo">
+        <span>Febre a partir de (°C)</span>
+        <input name="febre_limite_c" inputmode="decimal" value="${decimal(c.febre_limite_c)}" placeholder="37,8">
+      </label>
+      <button class="botao botao--cheio" type="submit">Salvar</button>
+    </form>`;
+}
+
+/** Remédios em uso (Tylenol, cadastrados ativos, amoxicilina durante o tratamento) e encerrados. */
+function remediosNaLista() {
+  const cadastrados = lerRemedios(estado.config);
+  const amox = TIPOS.amoxicilina;
+  const amoxEmUso = !!amox && (!amox.naInicio || amox.naInicio(ctx));
+  return {
+    emUso: [
+      ...cadastrados.filter((r) => r.ativo).map((r) => ({ id: `remedio_${r.id}`, r })),
+      ...(amoxEmUso ? [{ id: 'amoxicilina' }] : []),
+      { id: 'tylenol' }
+    ],
+    encerrados: [
+      ...cadastrados.filter((r) => !r.ativo).map((r) => ({ id: `remedio_${r.id}`, r })),
+      ...(amox && !amoxEmUso ? [{ id: 'amoxicilina' }] : [])
+    ]
+  };
+}
+
+function conteudoRemedios() {
+  const { emUso, encerrados } = remediosNaLista();
+  const item = (x) => blocoRemedio(x);
+  return `
+    <p class="ajuda">Toque num remédio para ver e mudar a dose, o jeito de dar e os horários.</p>
+    <div class="blocos blocos--dentro">
+      ${emUso.map(item).join('')}
+      ${bloco('rem:novo', cabecaBloco('+ Adicionar remédio', 'Vitamina, antibiótico, xarope…'), formRemedio(null), 'bloco--novo')}
+      ${encerrados.length ? bloco('encerrados', cabecaBloco('Tratamentos encerrados', `${encerrados.length} · as doses continuam no Histórico`),
+        `<div class="blocos blocos--dentro">${encerrados.map(item).join('')}</div>`, 'bloco--encerrados') : ''}
+    </div>`;
+}
+
+const num = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
+const descricaoRemedio = (x) => [
+  x.modo === 'intervalo' && x.cadaH ? `A cada ${num(x.cadaH)}h` : x.modo === 'diario' ? `1 vez por dia (até ${x.horaRef})` : MODOS[x.modo],
+  x.dose
+].filter(Boolean).join(' · ');
+
+/** Um remédio da lista: linha com nome e resumo; dentro, tudo dele. */
+function blocoRemedio({ id, r }) {
+  const tipo = TIPOS[id];
+  if (!tipo) return '';
+  const c = estado.config;
+  let detalhe = '';
+  let conteudo = '';
+  if (r) {
+    detalhe = descricaoRemedio(r);
+    conteudo = formRemedio(r) + (r.modo === 'fixo' && r.ativo ? formPlano(tipo) : '');
+  } else if (id === 'tylenol') {
+    const gotas = c.tylenol_apresentacao === 'gotas';
+    const dose = gotas ? (c.tylenol_dose_gotas ? `${c.tylenol_dose_gotas} gotas` : '') : (c.tylenol_dose_ml ? `${num(c.tylenol_dose_ml)} mL` : '');
+    detalhe = ['Só se precisar', gotas ? 'Paracetamol gotas' : 'Tylenol Bebê', dose].filter(Boolean).join(' · ');
+    conteudo = formTylenol();
+  } else if (id === 'amoxicilina') {
+    const plano = ctx.plano('amoxicilina');
+    detalhe = [c.amoxicilina_dose_ml ? `${num(c.amoxicilina_dose_ml)} mL` : '',
+      plano?.horarios.length ? `plano até ${quandoCurto(plano.horarios.at(-1), ctx.agora)}` : 'sem plano'].filter(Boolean).join(' · ');
+    conteudo = formAmoxicilina() + formPlano(tipo);
+  }
+  return bloco(`rem:${id}`, cabecaBloco(tipo.rotulo, detalhe, tipo.icone), conteudo, 'bloco--remedio', estiloCor(tipo));
+}
+
+function formTylenol() {
+  const c = estado.config;
+  return `
+    <form class="form" data-form="config">
+      <div class="campo">
+        <span>Remédio em uso</span>
+        <div class="seg seg--largo">
+          <label><input type="radio" name="tylenol_apresentacao" value="suspensao" ${c.tylenol_apresentacao === 'gotas' ? '' : 'checked'}><span>Tylenol Bebê</span></label>
+          <label><input type="radio" name="tylenol_apresentacao" value="gotas" ${c.tylenol_apresentacao === 'gotas' ? 'checked' : ''}><span>Paracetamol gotas</span></label>
         </div>
-        <label class="campo">
-          <span>Tylenol: máximo de doses em 24 horas</span>
-          <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="${c.tylenol_apresentacao === 'gotas' ? 'Conforme a bula das gotas' : 'A bula do Tylenol Bebê diz 5'}">
-          <small>${c.tylenol_max_24h ? 'Confira sempre com a bula do remédio em uso ou a orientação médica.' : 'Ainda não preenchido. Preencha conforme a bula ou a orientação médica.'}</small>
-        </label>
-        <label class="campo">
-          <span>Tylenol Bebê (100 mg/mL): dose em mL</span>
-          <input name="tylenol_dose_ml" inputmode="decimal" value="${esc(String(c.tylenol_dose_ml ?? '').replace('.', ','))}" placeholder="Como orientado pelo pediatra">
-          <small>Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
-        </label>
-        <label class="campo">
-          <span>Paracetamol em gotas (200 mg/mL): dose em gotas</span>
-          <input name="tylenol_dose_gotas" inputmode="numeric" value="${esc(c.tylenol_dose_gotas || '')}" placeholder="Como na receita do pediatra">
-          <small>A dose do remédio em uso já vem preenchida ao registrar.</small>
-        </label>
-        <label class="campo">
-          <span>Amoxicilina: dose da receita (mL)</span>
-          <input name="amoxicilina_dose_ml" inputmode="decimal" value="${esc(String(c.amoxicilina_dose_ml ?? '').replace('.', ','))}" placeholder="Como na receita do pediatra">
-          <small>Já vem preenchida ao registrar uma dose.</small>
-        </label>
-        <label class="campo">
-          <span>Amoxicilina: frasco preparado em</span>
-          <input name="amoxicilina_frasco_preparado" type="date" max="${chaveDia(ctx.agora)}" value="${esc(c.amoxicilina_frasco_preparado || '')}">
-          <small>Depois de misturado com água, a bula diz que vale 14 dias na geladeira. Ao preparar um frasco novo, troque a data.</small>
-        </label>
-        <button class="botao botao--cheio" type="submit">Salvar</button>
-      </form>
-    </section>
+        <small>As concentrações são diferentes (100 mg/mL e 200 mg/mL): a dose de um não vale para o outro. Ao trocar de remédio, troque aqui.</small>
+      </div>
+      <label class="campo">
+        <span>Tylenol Bebê (100 mg/mL): dose em mL</span>
+        <input name="tylenol_dose_ml" inputmode="decimal" value="${decimal(c.tylenol_dose_ml)}" placeholder="Como orientado pelo pediatra">
+        <small>Para bebês com menos de 11 kg ou 2 anos, a bula pede orientação médica.</small>
+      </label>
+      <label class="campo">
+        <span>Paracetamol em gotas (200 mg/mL): dose em gotas</span>
+        <input name="tylenol_dose_gotas" inputmode="numeric" value="${esc(c.tylenol_dose_gotas || '')}" placeholder="Como na receita do pediatra">
+        <small>A dose do remédio em uso já vem preenchida ao registrar.</small>
+      </label>
+      <label class="campo">
+        <span>Máximo de doses em 24 horas</span>
+        <input name="tylenol_max_24h" inputmode="numeric" value="${esc(c.tylenol_max_24h || '')}" placeholder="${c.tylenol_apresentacao === 'gotas' ? 'Conforme a bula das gotas' : 'A bula do Tylenol Bebê diz 5'}">
+        <small>${c.tylenol_max_24h ? 'Confira sempre com a bula do remédio em uso ou a orientação médica.' : 'Ainda não preenchido. Preencha conforme a bula ou a orientação médica.'}</small>
+      </label>
+      <button class="botao botao--cheio" type="submit">Salvar</button>
+    </form>`;
+}
 
-    ${secaoRemedios()}
+function formAmoxicilina() {
+  const c = estado.config;
+  return `
+    <form class="form" data-form="config">
+      <label class="campo">
+        <span>Dose da receita (mL)</span>
+        <input name="amoxicilina_dose_ml" inputmode="decimal" value="${decimal(c.amoxicilina_dose_ml)}" placeholder="Como na receita do pediatra">
+        <small>Já vem preenchida ao registrar uma dose.</small>
+      </label>
+      <label class="campo">
+        <span>Frasco preparado em</span>
+        <input name="amoxicilina_frasco_preparado" type="date" max="${chaveDia(ctx.agora)}" value="${esc(c.amoxicilina_frasco_preparado || '')}">
+        <small>Depois de misturado com água, a bula diz que vale 14 dias na geladeira. Ao preparar um frasco novo, troque a data.</small>
+      </label>
+      <button class="botao botao--cheio" type="submit">Salvar</button>
+    </form>`;
+}
 
-    <section class="secao">
-      <h2 class="secao-titulo">Planos de horário</h2>
-      ${planos}
-    </section>
+/** Horários fixos de um remédio (aba planos). */
+function formPlano(tipo) {
+  const plano = ctx.plano(tipo.id);
+  const linhas = plano ? plano.horarios.map((t) => `${fmtData(t)}/${chaveDia(t).slice(0, 4)} ${fmtHora(t)}`).join('\n') : '';
+  const resumo = plano && plano.horarios.length
+    ? `${plano.horarios.length} horários · de ${quandoCurto(plano.horarios[0])} a ${quandoCurto(plano.horarios.at(-1))}`
+    : 'Nenhum plano ativo';
+  return `
+    <form class="form form--plano" data-form="plano" data-tipo="${tipo.id}">
+      <strong>Horários do plano</strong>
+      <p class="ajuda">${esc(resumo)}</p>
+      <label class="campo">
+        <span>Um horário por linha (dia/mês/ano hora)</span>
+        <textarea name="horarios" rows="6" spellcheck="false" placeholder="25/10/2026 08:00">${esc(linhas)}</textarea>
+      </label>
+      <p class="ajuda">Os horários ficam fixos: uma dose atrasada não muda as próximas.</p>
+      <div class="botoes">
+        <button class="botao botao--cheio" type="submit">Salvar plano</button>
+        ${plano ? '<button class="botao botao--leve" type="button" data-acao="desativar-plano">Encerrar plano</button>' : ''}
+      </div>
+    </form>`;
+}
 
-    ${secaoHistoricoAjustes()}
-
-    <section class="secao">
-      <h2 class="secao-titulo">Este celular</h2>
-      <form class="cartao form" data-form="apelido">
-        <label class="campo">
-          <span>Seu apelido</span>
-          <input name="apelido" maxlength="20" autocomplete="off" value="${esc(store.lerApelido())}">
-        </label>
-        <button class="botao botao--cheio" type="submit">Salvar apelido</button>
-      </form>
-      <div class="cartao form">
-        <div class="linha-chave">
-          <div>
-            <span class="rotulo-pequeno">Chave de acesso</span>
-            <code id="chave" data-chave="${esc(chave)}">${esc(mascarar(chave))}</code>
-          </div>
-          <button class="botao botao--leve" type="button" data-acao="mostrar-chave">Mostrar</button>
+function conteudoCelular() {
+  const chave = store.lerChave();
+  return `
+    <form class="form" data-form="apelido">
+      <label class="campo">
+        <span>Seu apelido</span>
+        <input name="apelido" maxlength="20" autocomplete="off" value="${esc(store.lerApelido())}">
+        <small>Aparece no Histórico ao lado do que você registrar.</small>
+      </label>
+      <button class="botao botao--cheio" type="submit">Salvar apelido</button>
+    </form>
+    <div class="form form--separado">
+      <div class="linha-chave">
+        <div>
+          <span class="rotulo-pequeno">Chave de acesso</span>
+          <code id="chave" data-chave="${esc(chave)}">${esc(mascarar(chave))}</code>
         </div>
-        <button class="botao botao--cheio" type="button" data-acao="compartilhar">${ICONES.compartilhar} Compartilhar link de acesso</button>
-        <button class="botao botao--leve" type="button" data-acao="copiar-link">Copiar link</button>
-        <p class="ajuda">Quem tiver o link consegue ver e registrar. Envie só para quem cuida do bebê.</p>
+        <button class="botao botao--leve" type="button" data-acao="mostrar-chave">Mostrar</button>
       </div>
-      ${instalado() ? '' : `
-      <div class="cartao form instalar">
-        <strong>Instalar na tela de início</strong>
-        <p class="ajuda"><b>iPhone (Safari):</b> toque em <b>Copiar link</b> acima. Depois toque em Compartilhar
-          <span class="simbolo">${ICONES.compartilhar}</span> → <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.
-          Abra pelo ícone novo e cole o link quando pedir (o iPhone guarda o app separado do Safari).</p>
-        <p class="ajuda"><b>Android (Chrome):</b> menu <b>⋮</b> → <b>Adicionar à tela inicial</b> (ou <b>Instalar app</b>).</p>
-      </div>`}
-      <div class="cartao form">
-        <p class="ajuda" id="status-sync">${esc(textoSyncDetalhado())}</p>
-        <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
-        <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
-        <p class="ajuda versao" id="versao-backend">${esc(textoVersaoBackend())}</p>
-      </div>
-    </section>`;
+      <button class="botao botao--cheio" type="button" data-acao="compartilhar">${ICONES.compartilhar} Compartilhar link de acesso</button>
+      <button class="botao botao--leve" type="button" data-acao="copiar-link">Copiar link</button>
+      <p class="ajuda">Quem tiver o link consegue ver e registrar. Envie só para quem cuida do bebê.</p>
+    </div>
+    ${instalado() ? '' : `
+    <div class="form form--separado instalar">
+      <strong>Instalar na tela de início</strong>
+      <p class="ajuda"><b>iPhone (Safari):</b> toque em <b>Copiar link</b> acima. Depois toque em Compartilhar
+        <span class="simbolo">${ICONES.compartilhar}</span> → <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.
+        Abra pelo ícone novo e cole o link quando pedir (o iPhone guarda o app separado do Safari).</p>
+      <p class="ajuda"><b>Android (Chrome):</b> menu <b>⋮</b> → <b>Adicionar à tela inicial</b> (ou <b>Instalar app</b>).</p>
+    </div>`}
+    <div class="form form--separado">
+      <p class="ajuda" id="status-sync">${esc(textoSyncDetalhado())}</p>
+      <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
+      <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
+      <p class="ajuda versao" id="versao-backend">${esc(textoVersaoBackend())}</p>
+    </div>`;
 }
 
 /** Horários de meia em meia hora (05:00 a 23:00), sempre em 24h; inclui o atual se for "quebrado". */
@@ -769,82 +862,56 @@ function opcoesHoraRef(atual) {
   return lista.map((h) => `<option value="${h}" ${h === atual ? 'selected' : ''}>${h}</option>`).join('');
 }
 
-/** Cadastro de remédios (config.remedios): lista + formulário de novo/edição. */
-function secaoRemedios() {
-  const lista = lerRemedios(estado.config);
-  const r = lista.find((x) => x.id === remedioEditando) || null;
+/** Formulário de um remédio cadastrado (config.remedios); r = null para um remédio novo. */
+function formRemedio(r) {
   const modo = r?.modo || 'intervalo';
-  const num = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','));
-  const descricao = (x) => [
-    x.modo === 'intervalo' && x.cadaH ? `A cada ${num(x.cadaH)}h` : x.modo === 'diario' ? `1 vez por dia (até ${x.horaRef})` : MODOS[x.modo],
-    x.dose
-  ].filter(Boolean).join(' · ');
-  const itens = lista.map((x) => `
-    <li>
-      <button class="registro registro--remedio" type="button" data-acao="editar-remedio" data-id="${esc(x.id)}" style="--cor:${esc(x.cor)}">
-        <span class="icone icone--pequeno">${TIPOS[`remedio_${x.id}`]?.icone || ''}</span>
-        <span class="registro-textos">
-          <span class="registro-tipo">${esc(x.nome)}${x.ativo ? '' : ' <span class="selo">encerrado</span>'}</span>
-          <span class="registro-resumo">${esc(descricao(x))}</span>
-        </span>
-        <span class="registro-editar">${ICONES.lapis}</span>
-      </button>
-    </li>`).join('');
   return `
-    <section class="secao" id="remedios">
-      <h2 class="secao-titulo">Remédios</h2>
-      ${lista.length ? `<ul class="cartao lista">${itens}</ul>` : '<p class="ajuda">Remédios receitados (vitamina, antibiótico, xarope…) ganham botão na tela inicial, contador e avisos. Amoxicilina e Tylenol continuam como estão.</p>'}
-      <form class="cartao form" data-form="remedio" data-id="${esc(r?.id || '')}" ${r ? `style="--cor:${esc(r.cor)}"` : ''}>
-        <strong>${r ? `Editar ${esc(r.nome)}` : 'Adicionar remédio'}</strong>
-        <label class="campo">
-          <span>Nome</span>
-          <input name="nome" maxlength="40" autocomplete="off" value="${esc(r?.nome || '')}" placeholder="Ex.: Vitamina D">
-        </label>
-        <label class="campo">
-          <span>Dose</span>
-          <input name="dose" maxlength="40" autocomplete="off" value="${esc(r?.dose || '')}" placeholder="Como na receita, ex. 4 mL ou 2 gotas">
-          <small>Já vem preenchida ao registrar.</small>
-        </label>
-        <div class="campo">
-          <span>Como dar</span>
-          <div class="seg seg--largo">
-            ${Object.entries(MODOS).map(([id, rotulo]) => `<label><input type="radio" name="modo" value="${id}" ${modo === id ? 'checked' : ''}><span>${esc(rotulo.replace('A cada X horas', 'A cada X h'))}</span></label>`).join('')}
-          </div>
-          <small class="so-fixo">Horários fixos: depois de salvar, preencha os horários em Planos de horário (como a amoxicilina).</small>
-          <small class="so-se_precisar">Só se precisar: nunca aparece como próximo; o app só mostra quando está liberado.</small>
-          <small class="so-diario">1 vez por dia: mostra se já foi dada hoje. Passando da hora abaixo sem registro, aparece como próximo.</small>
+    <form class="form" data-form="remedio" data-id="${esc(r?.id || '')}">
+      <label class="campo">
+        <span>Nome</span>
+        <input name="nome" maxlength="40" autocomplete="off" value="${esc(r?.nome || '')}" placeholder="Ex.: Vitamina D">
+      </label>
+      <label class="campo">
+        <span>Dose</span>
+        <input name="dose" maxlength="40" autocomplete="off" value="${esc(r?.dose || '')}" placeholder="Como na receita, ex. 4 mL ou 2 gotas">
+        <small>Já vem preenchida ao registrar.</small>
+      </label>
+      <div class="campo">
+        <span>Como dar</span>
+        <div class="seg seg--largo">
+          ${Object.entries(MODOS).map(([id, rotulo]) => `<label><input type="radio" name="modo" value="${id}" ${modo === id ? 'checked' : ''}><span>${esc(rotulo.replace('A cada X horas', 'A cada X h'))}</span></label>`).join('')}
         </div>
-        <label class="campo so-diario">
-          <span>Avisar se não for dada até</span>
-          <select name="horaRef">${opcoesHoraRef(r?.horaRef || HORA_REF_PADRAO)}</select>
-        </label>
-        <label class="campo so-intervalo">
-          <span>A cada quantas horas</span>
-          <input name="cadaH" inputmode="decimal" value="${esc(num(r?.cadaH))}" placeholder="Ex.: 8">
-        </label>
-        <label class="campo">
-          <span>Intervalo mínimo entre doses (horas)</span>
-          <input name="minimoH" inputmode="decimal" value="${esc(num(r?.minimoH))}" placeholder="Opcional">
-          <small>Avisa se alguém registrar antes disso.</small>
-        </label>
-        <label class="campo">
-          <span>Máximo de doses em 24 horas</span>
-          <input name="maxDia" inputmode="numeric" value="${esc(num(r?.maxDia))}" placeholder="Opcional, conforme a bula">
-        </label>
-        <label class="campo">
-          <span>Lembrete na hora de registrar</span>
-          <input name="lembrete" maxlength="200" autocomplete="off" value="${esc(r?.lembrete || '')}" placeholder="Opcional, ex. dar depois de mamar">
-        </label>
-        <div class="botoes">
-          <button class="botao botao--cheio" type="submit">${r ? 'Salvar alterações' : 'Adicionar remédio'}</button>
-          ${r ? '<button class="botao botao--leve" type="button" data-acao="cancelar-remedio">Cancelar</button>' : ''}
-        </div>
-        ${r ? `<button class="botao botao--perigo" type="button" data-acao="encerrar-remedio" data-id="${esc(r.id)}">${r.ativo ? 'Encerrar remédio' : 'Reativar remédio'}</button>
-        <p class="ajuda">${r.ativo ? 'Encerrar tira o botão da tela inicial. As doses continuam no Histórico.' : 'Reativar volta o botão para a tela inicial.'}</p>
-        ${ctx.doTipo(`remedio_${r.id}`).length ? '' : `<button class="botao botao--perigo" type="button" data-acao="excluir-remedio" data-id="${esc(r.id)}">Excluir remédio</button>
-        <p class="ajuda">Só aparece para remédio sem nenhuma dose registrada (ex. cadastrado por engano).</p>`}` : ''}
-      </form>
-    </section>`;
+        <small class="so-fixo">Horários fixos: depois de salvar, os horários do plano aparecem logo abaixo deste formulário.</small>
+        <small class="so-se_precisar">Só se precisar: nunca aparece como próximo; o app só mostra quando está liberado.</small>
+        <small class="so-diario">1 vez por dia: mostra se já foi dada hoje. Passando da hora abaixo sem registro, aparece como próximo.</small>
+      </div>
+      <label class="campo so-diario">
+        <span>Avisar se não for dada até</span>
+        <select name="horaRef">${opcoesHoraRef(r?.horaRef || HORA_REF_PADRAO)}</select>
+      </label>
+      <label class="campo so-intervalo">
+        <span>A cada quantas horas</span>
+        <input name="cadaH" inputmode="decimal" value="${esc(num(r?.cadaH))}" placeholder="Ex.: 8">
+      </label>
+      <label class="campo">
+        <span>Intervalo mínimo entre doses (horas)</span>
+        <input name="minimoH" inputmode="decimal" value="${esc(num(r?.minimoH))}" placeholder="Opcional">
+        <small>Avisa se alguém registrar antes disso.</small>
+      </label>
+      <label class="campo">
+        <span>Máximo de doses em 24 horas</span>
+        <input name="maxDia" inputmode="numeric" value="${esc(num(r?.maxDia))}" placeholder="Opcional, conforme a bula">
+      </label>
+      <label class="campo">
+        <span>Lembrete na hora de registrar</span>
+        <input name="lembrete" maxlength="200" autocomplete="off" value="${esc(r?.lembrete || '')}" placeholder="Opcional, ex. dar depois de mamar">
+      </label>
+      <button class="botao botao--cheio" type="submit">${r ? 'Salvar alterações' : 'Adicionar remédio'}</button>
+      ${r ? `<button class="botao botao--perigo" type="button" data-acao="encerrar-remedio" data-id="${esc(r.id)}">${r.ativo ? 'Encerrar remédio' : 'Reativar remédio'}</button>
+      <p class="ajuda">${r.ativo ? 'Encerrar tira o remédio da tela inicial. As doses continuam no Histórico.' : 'Reativar volta o remédio para a tela inicial.'}</p>
+      ${ctx.doTipo(`remedio_${r.id}`).length ? '' : `<button class="botao botao--perigo" type="button" data-acao="excluir-remedio" data-id="${esc(r.id)}">Excluir remédio</button>
+      <p class="ajuda">Só aparece para remédio sem nenhuma dose registrada (ex. cadastrado por engano).</p>`}` : ''}
+    </form>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -873,7 +940,7 @@ function salvarPlanoComAjuste(tipo, horarios) {
   return true;
 }
 
-function secaoHistoricoAjustes() {
+function conteudoHistoricoAjustes() {
   // ctx.eventos já vem em ordem (horário, criação; empates na ordem em que foram gravados): basta inverter.
   const lista = ctx.eventos.filter((e) => e.tipo === 'ajuste').reverse();
   const nomes = Object.fromEntries(TODOS_TIPOS.map((t) => [t.id, t.rotulo]));
@@ -888,13 +955,10 @@ function secaoHistoricoAjustes() {
       </li>`;
   }).join('');
   return `
-    <section class="secao" id="historico-ajustes">
-      <h2 class="secao-titulo">Histórico de ajustes</h2>
       ${lista.length ? `
-        <ul class="cartao lista ajustes-lista">${itens}</ul>
+        <ul class="lista ajustes-lista">${itens}</ul>
         ${lista.length > limiteAjustes ? `<button class="botao botao--leve" type="button" data-acao="mais-ajustes">Ver mais (${lista.length - limiteAjustes})</button>` : ''}
-      ` : '<p class="ajuda">As mudanças feitas aqui em Ajustes aparecem nesta lista, com quem mudou, quando, o valor de antes e o de depois.</p>'}
-    </section>`;
+      ` : '<p class="ajuda">As mudanças feitas aqui em Ajustes aparecem nesta lista, com quem mudou, quando, o valor de antes e o de depois.</p>'}`;
 }
 
 /** Volta ao valor de antes de um ajuste. A volta também fica registrada. */
@@ -969,10 +1033,15 @@ function salvarFormRemedio(form) {
   };
   const atual = lista.find((x) => x.id === form.dataset.id);
   if (atual) Object.assign(atual, dados);
-  else lista.push({ id: Date.now().toString(36), ativo: true, cor: corPara(lista.length), ...dados });
+  else {
+    const novo = { id: Date.now().toString(36), ativo: true, cor: corPara(lista.length), ...dados };
+    lista.push(novo);
+    // Fecha o "Adicionar" e abre o remédio novo (para um de horários fixos, os horários do plano estão nele).
+    blocosAbertos.delete('rem:novo');
+    blocosAbertos.add(`rem:remedio_${novo.id}`);
+  }
   salvarRemedios(lista);
-  remedioEditando = '';
-  toast(atual ? 'Remédio salvo' : modo === 'fixo' ? 'Remédio adicionado. Preencha os horários em Planos de horário.' : 'Remédio adicionado', modo === 'fixo' && !atual ? 4500 : 2800);
+  toast(atual ? 'Remédio salvo' : modo === 'fixo' ? 'Remédio adicionado. Preencha os horários do plano logo abaixo.' : 'Remédio adicionado', modo === 'fixo' && !atual ? 4500 : 2800);
   render();
 }
 
@@ -992,17 +1061,14 @@ function lerLinhaHorario(linha, anoPadrao) {
 function salvarFormAjustes(form) {
   const tipoForm = form.dataset.form;
   if (tipoForm === 'config') {
-    const valores = {
-      nome_bebe: form.nome_bebe.value.trim(),
-      febre_limite_c: form.febre_limite_c.value.trim(),
-      tylenol_max_24h: form.tylenol_max_24h.value.trim(),
-      tylenol_apresentacao: form.tylenol_apresentacao.value === 'gotas' ? 'gotas' : 'suspensao',
-      tylenol_dose_ml: form.tylenol_dose_ml.value.trim(),
-      tylenol_dose_gotas: form.tylenol_dose_gotas.value.trim(),
-      amoxicilina_dose_ml: form.amoxicilina_dose_ml.value.trim(),
-      amoxicilina_frasco_preparado: form.amoxicilina_frasco_preparado.value.trim()
-    };
+    // Cada bloco de Ajustes tem só alguns campos: grava só os que estão neste formulário.
+    const CHAVES = ['nome_bebe', 'febre_limite_c', 'tylenol_max_24h', 'tylenol_apresentacao', 'tylenol_dose_ml',
+      'tylenol_dose_gotas', 'amoxicilina_dose_ml', 'amoxicilina_frasco_preparado'];
+    const valores = {};
+    for (const chave of CHAVES) if (form.elements[chave]) valores[chave] = String(form.elements[chave].value ?? '').trim();
+    if ('tylenol_apresentacao' in valores) valores.tylenol_apresentacao = valores.tylenol_apresentacao === 'gotas' ? 'gotas' : 'suspensao';
     for (const chave of ['tylenol_dose_ml', 'amoxicilina_dose_ml']) {
+      if (!(chave in valores)) continue;
       const dose = numero(valores[chave]);
       if (valores[chave] && (dose === null || dose <= 0 || dose > 10)) {
         return toast('Confira a dose em mL (ex.: 1,2)');
@@ -1022,7 +1088,7 @@ function salvarFormAjustes(form) {
     if (valores.tylenol_max_24h && !/^\d+$/.test(valores.tylenol_max_24h)) {
       return toast('O máximo de doses precisa ser um número inteiro');
     }
-    valores.febre_limite_c = valores.febre_limite_c ? String(numero(valores.febre_limite_c)) : '';
+    if ('febre_limite_c' in valores) valores.febre_limite_c = valores.febre_limite_c ? String(numero(valores.febre_limite_c)) : '';
     let mudou = 0;
     for (const [chave, valor] of Object.entries(valores)) {
       const antes = String(estado.config[chave] ?? '');
@@ -1327,9 +1393,6 @@ app.addEventListener('click', async (e) => {
     const como = TIPOS[tipoId]?.regras?.registrarComo?.(contexto());
     if (como) abrirFolha(b.dataset.tipo, como.editarId, como);
     else abrirFolha(b.dataset.tipo);
-  } else if (acao === 'dia-resumo') {
-    diaResumo = Number(b.dataset.dia) || 0;
-    render();
   } else if (acao === 'ver-historico') {
     filtroHistorico = b.dataset.tipo;
     vista = 'historico';
@@ -1342,6 +1405,11 @@ app.addEventListener('click', async (e) => {
   } else if (acao === 'filtro') {
     filtroHistorico = b.dataset.tipo;
     render();
+    if (b.classList.contains('total')) {
+      // Veio de um total do dia: sobe para o topo, com o filtro escolhido à vista.
+      window.scrollTo({ top: 0 });
+      document.querySelector('.chip--ativo')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
   } else if (acao === 'sync') {
     const r = await store.sincronizar();
     if (r.sync.estado === 'erro') toast(r.sync.mensagem || 'Não foi possível sincronizar');
@@ -1356,10 +1424,6 @@ app.addEventListener('click', async (e) => {
     compartilharLink();
   } else if (acao === 'copiar-link') {
     copiarLink();
-  } else if (acao === 'editar-remedio' || acao === 'cancelar-remedio') {
-    remedioEditando = acao === 'editar-remedio' ? b.dataset.id : '';
-    render();
-    document.querySelector('form[data-form="remedio"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   } else if (acao === 'encerrar-remedio') {
     if (b.dataset.armado !== '1') {
       b.dataset.armado = '1';
@@ -1371,7 +1435,6 @@ app.addEventListener('click', async (e) => {
     if (!r) return;
     r.ativo = !r.ativo;
     salvarRemedios(lista);
-    remedioEditando = '';
     toast(r.ativo ? `${r.nome} voltou para a tela inicial` : `${r.nome} encerrado. As doses continuam no Histórico.`, 3500);
     render();
   } else if (acao === 'voltar-ajuste') {
@@ -1399,7 +1462,6 @@ app.addEventListener('click', async (e) => {
     const r = lista.find((x) => x.id === b.dataset.id);
     if (!r) return;
     salvarRemedios(lista.filter((x) => x !== r));
-    remedioEditando = '';
     toast(`${r.nome} excluído`);
     render();
   } else if (acao === 'desativar-plano') {
@@ -1414,6 +1476,14 @@ app.addEventListener('click', async (e) => {
     render();
   }
 });
+
+// Lembra quais blocos de Ajustes estão abertos ("toggle" não borbulha: escuta na captura).
+app.addEventListener('toggle', (e) => {
+  const d = e.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.dataset.bloco) return;
+  if (d.open) blocosAbertos.add(d.dataset.bloco);
+  else blocosAbertos.delete(d.dataset.bloco);
+}, true);
 
 app.addEventListener('submit', (e) => {
   const form = e.target.closest('form[data-form]');

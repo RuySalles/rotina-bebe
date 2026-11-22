@@ -206,7 +206,11 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
   white-space: nowrap;
 }
 .proximo .botao--cheio { background: var(--cor); color: #fff; }
-.proximo-depois { margin-top: 12px; color: var(--texto-2); font-size: 14px; text-align: center; }
+.proximo-depois { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--linha); display: grid; gap: 8px; }
+.proximo-depois li { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px; font-size: 14px; color: var(--texto-2); }
+.proximo-depois time { min-width: 3.2em; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--texto); }
+.proximo-depois-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--cor); }
+.proximo-depois--info { opacity: 0.75; }
 .proximo--vazio { --cor: var(--ok); }
 .proximo--vazio .proximo-titulo { margin-top: 10px; }
 
@@ -299,6 +303,24 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 .faixa-item--aviso .faixa-status { color: var(--aviso); }
 .faixa-item--ok .faixa-forte { color: var(--ok); }
 .faixa-item--ativo .faixa-forte { color: var(--cor); }
+
+/* Totais no topo de cada dia do Histórico (tocar filtra). */
+.totais { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 10px; }
+.total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 11px 4px 5px;
+  border-radius: 999px;
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.total .icone--mini { width: 24px; height: 24px; }
+.total--alto .total-valor { color: var(--alerta); }
 
 /* --- Resumo do dia -------------------------------------------------------- */
 
@@ -841,3 +863,45 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .seg--largo { display: flex; flex-wrap: wrap; }
 .seg--largo label { flex: 1 1 45%; }
 .seg--largo span { padding: 0 8px; text-align: center; }
+
+/* Ajustes em blocos que abrem ao tocar (<details>). */
+.blocos { display: grid; gap: 10px; margin-top: 22px; }
+.bloco { background: var(--superficie); border-radius: var(--raio); box-shadow: var(--sombra); }
+.bloco-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 16px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--raio);
+}
+.bloco-topo::-webkit-details-marker { display: none; }
+.bloco-topo:focus-visible { outline: 3px solid color-mix(in srgb, var(--cor, var(--texto-3)) 50%, transparent); }
+.bloco-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bloco-titulo { font-size: 16px; font-weight: 650; }
+.bloco-detalhe { font-size: 13.5px; color: var(--texto-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bloco-seta {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-right: 2px solid var(--texto-3);
+  border-bottom: 2px solid var(--texto-3);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.bloco[open] > .bloco-topo .bloco-seta { transform: rotate(45deg); }
+.bloco-corpo { display: grid; gap: 12px; padding: 0 16px 16px; }
+.bloco-corpo > .form { padding: 0; }
+.bloco-corpo > .form + .form { margin-top: 0; }
+.form--separado, .form--plano { padding-top: 16px !important; border-top: 1px solid var(--linha); }
+/* Blocos dentro de blocos (cada remédio): sem sombra, só um contorno. */
+.blocos--dentro { margin-top: 0; gap: 8px; }
+.blocos--dentro .bloco { background: transparent; box-shadow: none; border: 1px solid var(--linha); }
+.blocos--dentro .bloco-topo { min-height: 56px; padding: 10px 12px; }
+.blocos--dentro .bloco-corpo { padding: 0 12px 14px; }
+.bloco--novo > .bloco-topo .bloco-titulo { color: var(--texto); }
+.bloco--encerrados > .bloco-topo .bloco-titulo { color: var(--texto-2); }
+.ajustes-lista { margin: 0 -4px; }

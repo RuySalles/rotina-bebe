@@ -7,7 +7,7 @@
 //   "plano:<tipo>"    → JSON da lista de horários ISO ('' = sem plano)
 // Não tem botão, não entra no Histórico de registros nem no Resumo (interno: true).
 
-import { numero, fmtNumero, fmtHora, fmtData, ms } from '../regras.js';
+import { numero, fmtNumero, fmtHora, fmtData, ms, lerBotoesInicio } from '../regras.js';
 import { MODOS } from './remedio.js';
 
 const CONFIG = {
@@ -63,6 +63,22 @@ export function descreverAjuste(dados = {}, nomes = {}) {
   const alvo = resto.join(':');
   const antes = dados.antes ?? '';
   const depois = dados.depois ?? '';
+
+  if (chave === 'config:inicio_botoes') {
+    // Mostra a ordem dos visíveis e o que ficou escondido, pelos nomes.
+    const fmt = (v) => {
+      const p = lerBotoesInicio({ inicio_botoes: v });
+      if (!p.ordem.length && !p.ocultos.length) return 'padrão';
+      const nome = (id) => nomes[id] || id;
+      const ocultos = new Set(p.ocultos);
+      const partes = [];
+      const visiveis = p.ordem.filter((id) => !ocultos.has(id) && nomes[id]);
+      if (visiveis.length) partes.push(visiveis.map(nome).join(', '));
+      if (ocultos.size) partes.push(`${ocultos.size === 1 ? 'escondido' : 'escondidos'}: ${[...ocultos].map(nome).join(', ')}`);
+      return partes.join(' · ');
+    };
+    return { rotulo: 'Botões da tela inicial', antes: fmt(antes), depois: fmt(depois) };
+  }
 
   if (grupo === 'config') {
     const def = CONFIG[alvo] || { rotulo: alvo };

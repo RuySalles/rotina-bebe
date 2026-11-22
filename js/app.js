@@ -9,7 +9,8 @@ import { ritmoDoLeite } from './tipos/alimentacao.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
-  numero, fmtNumero, ms, isoSP, horaDepois, fmtDuracao, textoHoraDecimal, RITMO_DIAS, minutos5
+  numero, fmtNumero, ms, isoSP, horaDepois, fmtDuracao, textoHoraDecimal, RITMO_DIAS, minutos5,
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio
 } from './regras.js';
 
 const app = document.getElementById('app');
@@ -37,7 +38,9 @@ const ICONES = {
   lua: '<svg viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/><path d="M16.5 3.5v3M15 5h3"/></svg>',
   alerta: '<svg viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>',
   compartilhar: '<svg viewBox="0 0 24 24"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg>',
-  sync: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.8 3.5v3.7h-3.7M6.2 20.5v-3.7h3.7"/></svg>'
+  sync: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.8 3.5v3.7h-3.7M6.2 20.5v-3.7h3.7"/></svg>',
+  subir: '<svg viewBox="0 0 24 24"><path d="M6.5 14.5 12 9l5.5 5.5"/></svg>',
+  descer: '<svg viewBox="0 0 24 24"><path d="M6.5 9.5 12 15l5.5-5.5"/></svg>'
 };
 
 // ---------------------------------------------------------------------------
@@ -447,7 +450,7 @@ function vistaInicio() {
     <div class="inicio">
       <div class="inicio-proximo">${cardProximo(principal, depois)}</div>
       <section class="inicio-registrar" aria-label="Registrar">
-        <div class="grade">${LISTA_TIPOS.filter((t) => t.rotina).map(tile).join('')}</div>
+        <div class="grade">${aplicarBotoesInicio(botoesPadrao().grandes, lerBotoesInicio(estado.config)).map(tile).join('')}</div>
       </section>
       <div class="inicio-faixa">${faixaCompacta()}</div>
       <div class="inicio-paineis">${paineis()}</div>
@@ -519,7 +522,8 @@ function tile(tipo) {
  * "só se precisar", vacinas. Tratamento concluído (naInicio = false) sai daqui e continua no Histórico.
  */
 function faixaCompacta() {
-  const tipos = ordenarTipos(LISTA_TIPOS.filter((t) => !t.rotina && (!t.naInicio || t.naInicio(ctx))));
+  const naTela = botoesPadrao().faixa.filter((t) => !t.naInicio || t.naInicio(ctx));
+  const tipos = aplicarBotoesInicio(naTela, lerBotoesInicio(estado.config));
   if (!tipos.length) return '';
   return `<ul class="cartao lista faixa" aria-label="Remédios e saúde">${tipos.map(linhaFaixa).join('')}</ul>`;
 }
@@ -554,6 +558,18 @@ function pesoTipo(t) {
   return 1;
 }
 const ordenarTipos = (lista) => lista.map((t, i) => ({ t, i })).sort((a, b) => pesoTipo(a.t) - pesoTipo(b.t) || a.i - b.i).map(({ t }) => t);
+
+/**
+ * Botões da tela inicial na ordem padrão, antes da escolha de Ajustes → Tela inicial (config.inicio_botoes).
+ * grandes: rotina; faixa: remédios, febre e vacinas (inclui tratamento concluído, que a faixa filtra na hora).
+ */
+function botoesPadrao() {
+  return {
+    grandes: LISTA_TIPOS.filter((t) => t.rotina),
+    faixa: ordenarTipos(LISTA_TIPOS.filter((t) => !t.rotina))
+  };
+}
+const idsPadraoInicio = () => { const p = botoesPadrao(); return [...p.grandes, ...p.faixa].map((t) => t.id); };
 
 /** Totais do dia (cada tipo diz o seu em resumoDia), no topo de cada dia do Histórico. Tocar filtra. */
 function totaisDoDia(dia) {
@@ -721,6 +737,7 @@ function vistaAjustes() {
     <div class="blocos ajustes">
       ${bloco('bebe', cabecaBloco('Bebê', [nome || 'Sem nome', `febre a partir de ${limite} °C`].join(' · ')), formBebe())}
       ${bloco('remedios', cabecaBloco('Remédios', emUso === 1 ? '1 em uso' : `${emUso} em uso`), conteudoRemedios())}
+      ${bloco('inicio', cabecaBloco('Tela inicial', resumoBotoesInicio()), conteudoBotoesInicio())}
       ${bloco('historico-ajustes', cabecaBloco('Histórico de ajustes', ultimoAjuste
         ? `Última mudança: ${quandoCurto(ultimoAjuste.t, ctx.agora)}${ultimoAjuste.quem ? ` · ${ultimoAjuste.quem}` : ''}`
         : 'Nenhuma mudança ainda'), conteudoHistoricoAjustes())}
@@ -748,6 +765,58 @@ function formBebe() {
       </label>
       <button class="botao botao--cheio" type="submit">Salvar</button>
     </form>`;
+}
+
+/** Linha de cima do bloco Tela inicial. */
+function resumoBotoesInicio() {
+  const prefs = lerBotoesInicio(estado.config);
+  const existentes = new Set(idsPadraoInicio());
+  const ocultos = prefs.ocultos.filter((id) => existentes.has(id)).length;
+  const propria = textoBotoesInicio({ ordem: aplicarBotoesInicio([...existentes].map((id) => ({ id })), prefs, true).map((x) => x.id), ocultos: [] }, [...existentes]);
+  const partes = [ocultos ? (ocultos === 1 ? '1 botão escondido' : `${ocultos} botões escondidos`) : 'Todos os botões aparecem'];
+  if (propria) partes.push('ordem escolhida');
+  return partes.join(' · ');
+}
+
+/** Ajustes → Tela inicial: mostrar/esconder e subir/descer cada botão (grandes e faixa, cada um no seu grupo). */
+function conteudoBotoesInicio() {
+  const prefs = lerBotoesInicio(estado.config);
+  const { grandes, faixa } = botoesPadrao();
+  const linha = (t) => `
+    <li class="ordem-item" data-id="${esc(t.id)}" ${estiloCor(t)}>
+      <span class="icone icone--pequeno">${t.icone}</span>
+      <span class="ordem-textos">
+        <span class="ordem-nome">${esc(t.rotulo)}</span>
+        ${t.naInicio && !t.naInicio(ctx) ? '<small class="ajuda">Só aparece durante o tratamento</small>' : ''}
+      </span>
+      <label class="ordem-mostrar"><input type="checkbox" name="mostrar" ${prefs.ocultos.includes(t.id) ? '' : 'checked'}><span>Mostrar</span></label>
+      <span class="ordem-setas">
+        <button type="button" class="ordem-mover" data-acao="mover" data-dir="-1" aria-label="Subir ${esc(t.rotulo)}">${ICONES.subir}</button>
+        <button type="button" class="ordem-mover" data-acao="mover" data-dir="1" aria-label="Descer ${esc(t.rotulo)}">${ICONES.descer}</button>
+      </span>
+    </li>`;
+  const grupo = (titulo, lista) => `
+    <p class="ordem-titulo">${esc(titulo)}</p>
+    <ul class="lista ordem">${aplicarBotoesInicio(lista, prefs, true).map(linha).join('')}</ul>`;
+  return `
+    <form class="form" data-form="inicio">
+      <p class="ajuda">Escolha o que aparece na tela inicial e em que ordem. Vale para os dois celulares.
+        O que ficar escondido continua no Histórico e no filtro, e os horários continuam no card PRÓXIMO.</p>
+      ${grupo('Botões grandes', grandes)}
+      ${grupo('Remédios e saúde', faixa)}
+      <button class="botao botao--cheio" type="submit">Salvar</button>
+      <button class="botao botao--leve" type="button" data-acao="inicio-padrao">Voltar ao padrão</button>
+    </form>`;
+}
+
+/** Grava a escolha da tela inicial (texto da config) e registra o antes e o depois. */
+function salvarBotoesInicio(texto) {
+  const antes = String(estado.config.inicio_botoes ?? '');
+  if (antes === texto) return toast('Nada mudou');
+  registrarAjuste('config:inicio_botoes', antes, texto);
+  store.salvarConfig('inicio_botoes', texto);
+  toast('Tela inicial atualizada');
+  render();
 }
 
 /** Remédios em uso (Tylenol, cadastrados ativos, amoxicilina durante o tratamento) e encerrados. */
@@ -1169,6 +1238,12 @@ function salvarFormAjustes(form) {
     }
     toast(mudou ? 'Ajustes salvos' : 'Nada mudou');
     render();
+  } else if (tipoForm === 'inicio') {
+    const itens = [...form.querySelectorAll('.ordem-item')];
+    salvarBotoesInicio(textoBotoesInicio({
+      ordem: itens.map((li) => li.dataset.id),
+      ocultos: itens.filter((li) => !li.querySelector('[name="mostrar"]').checked).map((li) => li.dataset.id)
+    }, idsPadraoInicio()));
   } else if (tipoForm === 'remedio') {
     salvarFormRemedio(form);
   } else if (tipoForm === 'plano') {
@@ -1578,6 +1653,18 @@ app.addEventListener('click', async (e) => {
     salvarRemedios(lista.filter((x) => x !== r));
     toast(`${r.nome} excluído`);
     render();
+  } else if (acao === 'mover') {
+    // Ajustes → Tela inicial: troca de lugar com o vizinho, sem redesenhar (só grava no Salvar).
+    const li = b.closest('.ordem-item');
+    const vizinho = b.dataset.dir === '-1' ? li.previousElementSibling : li.nextElementSibling;
+    if (!vizinho) return;
+    if (b.dataset.dir === '-1') vizinho.before(li);
+    else vizinho.after(li);
+    // Mantém o foco na mesma seta; se o item chegou na ponta (seta escondida), passa para a outra.
+    const naPonta = b.dataset.dir === '-1' ? !li.previousElementSibling : !li.nextElementSibling;
+    li.querySelector(`[data-dir="${naPonta ? -b.dataset.dir : b.dataset.dir}"]`)?.focus();
+  } else if (acao === 'inicio-padrao') {
+    salvarBotoesInicio('');
   } else if (acao === 'desativar-plano') {
     const form = b.closest('form');
     if (b.dataset.armado !== '1') {

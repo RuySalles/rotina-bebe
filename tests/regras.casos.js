@@ -2,7 +2,8 @@
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois,
-  mediana, ritmoSono, preverSono, ritmoLeite, preverLeite, textoHoraDecimal
+  mediana, ritmoSono, preverSono, ritmoLeite, preverLeite, textoHoraDecimal,
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio
 } from '../js/regras.js';
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
@@ -741,5 +742,45 @@ export function casos({ grupo, teste }) {
     const p1 = planoLinha([T('25', '08:00')], { criado_em: T('24', '10:00') });
     const p2 = planoLinha([], { criado_em: T('24', '11:00'), ativo: false });
     igual(resolverPlanos([p1, p2]).amoxicilina, undefined);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Botões da tela inicial');
+  const itens = ['alimentacao', 'sono', 'fralda', 'banho'].map((id) => ({ id }));
+  const ids = (l) => l.map((x) => x.id);
+  teste('Sem escolha: tudo, na ordem padrão', () => {
+    igual(lerBotoesInicio({}), { ordem: [], ocultos: [] });
+    igual(ids(aplicarBotoesInicio(itens, lerBotoesInicio({}))), ['alimentacao', 'sono', 'fralda', 'banho']);
+  });
+  teste('Texto inválido na config vale como padrão', () => {
+    igual(lerBotoesInicio({ inicio_botoes: '{quebrado' }), { ordem: [], ocultos: [] });
+    igual(lerBotoesInicio({ inicio_botoes: '{"ordem":"x","ocultos":[1,"ok","ok"]}' }), { ordem: [], ocultos: ['ok'] });
+  });
+  teste('Esconder Banho: some da tela inicial, continua na lista de Ajustes', () => {
+    const prefs = lerBotoesInicio({ inicio_botoes: JSON.stringify({ ordem: [], ocultos: ['banho'] }) });
+    igual(ids(aplicarBotoesInicio(itens, prefs)), ['alimentacao', 'sono', 'fralda']);
+    igual(ids(aplicarBotoesInicio(itens, prefs, true)), ['alimentacao', 'sono', 'fralda', 'banho']);
+  });
+  teste('Ordem escolhida; item novo (fora da ordem) vem depois, na ordem padrão', () => {
+    const prefs = { ordem: ['sono', 'alimentacao', 'fralda'], ocultos: [] };
+    igual(ids(aplicarBotoesInicio(itens, prefs)), ['sono', 'alimentacao', 'fralda', 'banho']);
+    igual(ids(aplicarBotoesInicio([...itens, { id: 'remedio_x' }], { ordem: ['remedio_x', 'sono'], ocultos: [] })),
+      ['remedio_x', 'sono', 'alimentacao', 'fralda', 'banho']);
+  });
+  teste('Id que não existe mais na escolha é ignorado', () => {
+    igual(ids(aplicarBotoesInicio(itens, { ordem: ['remedio_apagado', 'banho'], ocultos: ['remedio_apagado'] })),
+      ['banho', 'alimentacao', 'sono', 'fralda']);
+  });
+  teste('Escolha igual ao padrão grava vazio', () => {
+    const padrao = ['alimentacao', 'sono', 'fralda', 'banho'];
+    igual(textoBotoesInicio({ ordem: padrao, ocultos: [] }, padrao), '');
+    igual(textoBotoesInicio({ ordem: ['sono', 'alimentacao', 'fralda', 'banho'], ocultos: [] }, padrao),
+      '{"ordem":["sono","alimentacao","fralda","banho"],"ocultos":[]}');
+    igual(JSON.parse(textoBotoesInicio({ ordem: padrao, ocultos: ['banho'] }, padrao)).ocultos, ['banho']);
+  });
+  teste('Histórico de ajustes descreve a escolha pelos nomes', () => {
+    const nomes = { alimentacao: 'Alimentação', sono: 'Sono', fralda: 'Fralda', banho: 'Banho' };
+    const d = descreverAjuste({ chave: 'config:inicio_botoes', antes: '', depois: '{"ordem":["sono","alimentacao","fralda","banho"],"ocultos":["banho"]}' }, nomes);
+    igual(d, { rotulo: 'Botões da tela inicial', antes: 'padrão', depois: 'Sono, Alimentação, Fralda · escondido: Banho' });
   });
 }

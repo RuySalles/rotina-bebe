@@ -923,6 +923,37 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .bloco--encerrados > .bloco-topo .bloco-titulo { color: var(--texto-2); }
 .ajustes-lista { margin: 0 -0.25rem; }
 
+/* Ajustes → Tela inicial: mostrar e ordem de cada botão. */
+.ordem-titulo { margin: 0.25rem 0 -0.5rem; font-size: 0.8125rem; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.04em; }
+.ordem { padding: 0; }
+.ordem-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3.5rem;
+  padding: 0.375rem 0;
+}
+.ordem-textos { display: flex; flex-direction: column; min-width: 0; }
+.ordem-nome { font-size: 0.9375rem; font-weight: 600; }
+.ordem-mostrar { display: flex; align-items: center; gap: 0.375rem; font-size: 0.8438rem; color: var(--texto-2); cursor: pointer; }
+.ordem-mostrar input { width: 1.375rem; height: 1.375rem; accent-color: var(--cor, var(--texto)); flex: none; margin: 0; }
+.ordem-item:has(input:not(:checked)) .icone,
+.ordem-item:has(input:not(:checked)) .ordem-nome { opacity: 0.45; }
+.ordem-setas { display: flex; gap: 0.25rem; }
+.ordem-mover {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--superficie-2);
+  color: var(--texto);
+  font-size: 1.25rem;
+}
+.ordem-mover:active { background: var(--linha); }
+.ordem-item:first-child [data-dir="-1"], .ordem-item:last-child [data-dir="1"] { visibility: hidden; }
+
 /* Cartão "Ritmo dele" (topo do Histórico). */
 .ritmo { margin: 0.25rem 0 0.375rem; }
 .ritmo-lista { display: grid; gap: 0; margin: 0; }

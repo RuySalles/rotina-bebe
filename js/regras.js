@@ -203,6 +203,44 @@ function venceDe(a, b) {
   return a.id > b.id;
 }
 
+// ---------------------------------------------------------------------------
+// Botões da tela inicial (fase 11): config.inicio_botoes = JSON { ordem: [tipoId...], ocultos: [tipoId...] }
+// ---------------------------------------------------------------------------
+
+const idValido = (v) => typeof v === 'string' && /^[a-z0-9_]{1,60}$/.test(v);
+
+/** config → { ordem, ocultos } (listas de ids, sem repetir). Vazio ou inválido = padrão (tudo, na ordem do app). */
+export function lerBotoesInicio(config = {}) {
+  let obj = null;
+  try { obj = JSON.parse(config.inicio_botoes || 'null'); } catch { obj = null; }
+  const lista = (v) => [...new Set((Array.isArray(v) ? v : []).filter(idValido))];
+  return { ordem: lista(obj?.ordem), ocultos: lista(obj?.ocultos) };
+}
+
+/**
+ * Aplica a escolha a uma lista já na ordem padrão (itens com .id).
+ * Os que estão em "ordem" vêm primeiro, nessa ordem; os que não estão (ex. remédio cadastrado depois) vêm em
+ * seguida, na ordem padrão. comOcultos: false tira os escondidos (tela inicial); true mantém (tela de Ajustes).
+ */
+export function aplicarBotoesInicio(lista, prefs = { ordem: [], ocultos: [] }, comOcultos = false) {
+  const pos = new Map(prefs.ordem.map((id, i) => [id, i]));
+  const ocultos = new Set(prefs.ocultos);
+  return lista
+    .map((item, i) => ({ item, i, p: pos.has(item.id) ? pos.get(item.id) : Infinity }))
+    .sort((a, b) => a.p - b.p || a.i - b.i)
+    .map(({ item }) => item)
+    .filter((item) => comOcultos || !ocultos.has(item.id));
+}
+
+/** { ordem, ocultos } → texto para a config ('' quando é o padrão: nada escondido e ordem igual à padrão). */
+export function textoBotoesInicio(prefs, idsPadrao = []) {
+  const ordem = [...new Set(prefs.ordem.filter(idValido))];
+  const ocultos = [...new Set(prefs.ocultos.filter(idValido))];
+  const mesmaOrdem = ordem.length === idsPadrao.length && ordem.every((id, i) => id === idsPadrao[i]);
+  if (!ocultos.length && (!ordem.length || mesmaOrdem)) return '';
+  return JSON.stringify({ ordem, ocultos });
+}
+
 /** Aba "planos" → { tipo: { id, horarios: [ms...] } }. Vale o plano mais recente de cada tipo. */
 export function resolverPlanos(linhas) {
   const ultimo = {};

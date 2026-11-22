@@ -27,7 +27,7 @@ algo) dizem isso em "Você vai precisar".
 | 8 | Previsões de sono e de leite | ✅ |
 | 9 | Abrir o app sem internet | ✅ |
 | 10 | Alertas no celular pelo Google Agenda | ✅ |
-| 11 | Esconder e reordenar botões | ⬜ |
+| 11 | Esconder e reordenar botões | 🧪 |
 | 12 | Anotações livres | ⬜ |
 | 13 | Relatório para a consulta | ⬜ |
 | 14 | Consultas e retornos | ⬜ |
@@ -365,14 +365,23 @@ O Google Agenda consegue.
 
 ## Fase 11 — Esconder e reordenar botões
 
-**O que muda:** em Ajustes, escolher quais botões aparecem na tela inicial e em que ordem (a fase 5 já põe a rotina
-primeiro e tira os tratamentos concluídos; esta deixa vocês ajustarem o resto).
+**O que muda:** em Ajustes, um bloco novo **Tela inicial** com dois grupos, **Botões grandes** (Alimentação, Sono,
+Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Mostrar** e setas para subir e descer;
+**Salvar** grava e **Voltar ao padrão** desfaz tudo.
+- Vale para os dois celulares e entra no Histórico de ajustes (com Voltar).
+- O que fica escondido continua no Histórico, no filtro e nos totais do dia. O card PRÓXIMO continua mostrando os
+  horários de tudo (para nenhuma dose de remédio sumir por engano).
+- Remédio cadastrado depois entra no fim da faixa; dá para mudar o lugar dele. Tratamento concluído continua saindo
+  sozinho da tela (a fase 5), mesmo que esteja marcado para mostrar.
 
-**Você vai precisar:** nada. A escolha vale para os dois celulares.
+**Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Esconder Banho: o botão some, os registros continuam no Histórico e no filtro.
-- [ ] Mudar a ordem: vale nos dois celulares.
+- [ ] Ajustes → Tela inicial: desmarcar Banho e Salvar. O botão some do Início; os banhos continuam no Histórico e
+      no filtro.
+- [ ] Subir Sono para o primeiro lugar e Salvar: no outro celular, depois de sincronizar, Sono também vem primeiro.
+- [ ] O Histórico de ajustes mostra "Botões da tela inicial" com o antes e o depois; **Voltar** desfaz.
+- [ ] **Voltar ao padrão**: tudo volta como era.
 
 ---
 
@@ -477,3 +486,6 @@ orientação errada.
   eventos futuros são tocados; a agenda fica em `AGENDA_ID` e o resultado em `AGENDA_STATUS` (propriedades do
   script), que a leitura devolve em `agenda` e o Ajustes mostra. Falha na agenda nunca impede a gravação.
   Editor: `sincronizarAgenda()` (autoriza e refaz tudo).
+- Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
+  `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
+  padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.

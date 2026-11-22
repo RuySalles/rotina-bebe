@@ -1086,8 +1086,15 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .rel-abrir .icone { color: var(--cor); }
 .rel-abrir:active { background: var(--superficie-2); }
 .relatorio { display: grid; gap: var(--espaco); }
-.rel-barra { display: flex; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem; }
+.rel-barra { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem; }
 .rel-barra .botao { width: auto; min-height: 2.875rem; padding: 0 1.125rem; }
+.rel-acoes { display: flex; gap: 0.5rem; }
+.rel-acoes .botao:disabled { opacity: 0.6; }
+/* No celular, os dois botões descem para uma linha própria, cada um com metade da largura. */
+@media (max-width: 699px) {
+  .rel-acoes { flex-basis: 100%; }
+  .rel-acoes .botao { flex: 1 1 0; padding: 0 0.5rem; }
+}
 .relatorio > .chips { margin-top: 0; margin-bottom: 0; }
 .rel-cabeca { padding: 0.25rem 0.25rem 0; }
 .rel-sobre { margin: 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-2); }

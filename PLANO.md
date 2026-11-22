@@ -28,7 +28,7 @@ algo) dizem isso em "Você vai precisar".
 | 9 | Abrir o app sem internet | — | ✅ |
 | 10 | Alertas no celular pelo Google Agenda | — | ✅ |
 | 11 | Esconder e reordenar botões | — | ✅ |
-| 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | 🔄 |
+| 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | 🧪 |
 | 13 | Família participando (placar e ranking) | Alta | ⬜ |
 | 14 | Peso e altura | Alta | ⬜ |
 | 15 | Aviso de vacina | Alta | ⬜ |
@@ -407,15 +407,18 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
   pode ser lido em outro dia.
 - As anotações livres entram aqui quando a fase 17 for feita.
 
-**Ajuste pedido em 22/11 (em andamento):** **Compartilhar como imagem.** Um botão ao lado de "Salvar em PDF" gera
-uma imagem do relatório (do período escolhido) e abre o compartilhar do celular, para mandar direto no WhatsApp. Sem
-servidor e sem mexer na planilha. É a imagem para o médico ou para quem cuida junto; a imagem para o grupo da família
-é outra, sem dados de saúde (fase 13).
+**Ajuste pedido em 22/11 (feito):** **Enviar imagem.** Um botão ao lado de "Salvar em PDF" gera a imagem do
+relatório (do período escolhido, sempre clara) e abre o compartilhar do celular, para mandar direto no WhatsApp. Sem
+servidor e sem mexer na planilha. Como o WhatsApp reduz imagens compridas até ficarem ilegíveis, um relatório longo
+vira **2 ou 3 imagens** (marcadas "1 de 3", "2 de 3"…), cada uma com o nome e o período; uma tabela que continua
+repete os nomes das colunas. No computador, as imagens são baixadas. É a imagem para o médico ou para quem cuida
+junto; a imagem para o grupo da família é outra, sem dados de saúde (fase 13).
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] **Compartilhar como imagem** → WhatsApp: a imagem chega legível, com o nome, o período e as seções.
+- [ ] Relatório → 7 dias → **Enviar imagem** → WhatsApp: as imagens chegam legíveis sem zoom, com o nome, o período e
+      as seções. (Se o celular disser "Imagem pronta, toque de novo", é só tocar de novo.)
 - [ ] Histórico → **Relatório para a consulta** → 3 dias: conferir os totais de um dia com o Histórico.
 - [ ] Trocar para 7 e 14 dias: a tabela cresce e o gráfico começa no dia da primeira medição de temperatura.
 - [ ] **Salvar em PDF** no celular, escolher "Salvar como PDF" e abrir o arquivo. (No iPhone, se o app instalado não
@@ -547,3 +550,7 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 12 (feita): `js/relatorio.js`: `montarRelatorio(ctx, tipos, nDias)` (puro, com testes) usa o `resumoDia` e o
   `resumo` de cada tipo, então tipos novos entram sozinhos na tabela; `htmlRelatorio` e `graficoTemperatura` (SVG).
   Vista `relatorio` no `app.js` (aberta pelo Histórico); PDF = `window.print()` com `@media print` no `app.css`.
+  Imagem: `js/imagem-relatorio.js` desenha em canvas (tema claro fixo) a partir do mesmo `montarRelatorio`; o gráfico
+  é o SVG de `graficoTemperatura` virado imagem. `paginar` (puro, com teste) quebra em imagens de até 1600 px de altura.
+  `compartilharRelatorio` no `app.js`: `navigator.share({ files })`; sem suporte, baixa; se o celular recusar por
+  demora (NotAllowedError), guarda as imagens e o próximo toque compartilha na hora.

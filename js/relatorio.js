@@ -1,4 +1,5 @@
-// Relatório para a consulta (fase 12): o período escolhido num lugar só, para mostrar ao pediatra ou salvar em PDF.
+// Relatório para a consulta (fase 12): o período escolhido num lugar só, para mostrar ao pediatra, salvar em PDF
+// ou mandar como imagem (js/imagem-relatorio.js).
 // montarRelatorio é puro (testado em tests/regras.casos.js); htmlRelatorio só monta o texto da tela.
 // Usa o que cada tipo já sabe dizer (resumoDia e resumo), então um tipo novo entra sozinho na tabela dia a dia.
 
@@ -74,13 +75,16 @@ export function htmlRelatorio(rel, opcoes) {
     <div class="relatorio">
       <div class="rel-barra nao-imprimir">
         <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="historico">‹ Histórico</button>
-        <button class="botao botao--cheio rel-pdf" data-acao="imprimir-relatorio">Salvar em PDF</button>
+        <span class="rel-acoes">
+          <button class="botao botao--cheio rel-imagem" data-acao="compartilhar-relatorio">Enviar imagem</button>
+          <button class="botao botao--leve rel-pdf" data-acao="imprimir-relatorio">Salvar em PDF</button>
+        </span>
       </div>
       <div class="chips nao-imprimir" role="group" aria-label="Período">${chips}</div>
       <header class="rel-cabeca">
         <p class="rel-sobre">Relatório para a consulta</p>
         <h2 class="rel-titulo">${esc(nome || 'Rotina do bebê')}</h2>
-        <p class="rel-periodo">${esc(textoPeriodo(rel))} · ${nDias === 1 ? 'hoje' : `últimos ${nDias} dias`} · gerado em ${esc(fmtData(agora))} às ${esc(fmtHora(agora))}</p>
+        <p class="rel-periodo">${esc(linhaPeriodo(rel, nDias, agora))}</p>
       </header>
       ${vazio ? '<p class="vazio vazio--grande">Nenhum registro neste período.</p>' : ''}
       ${secaoDias(rel, agora)}
@@ -115,15 +119,28 @@ function secaoDias(rel, agora) {
     </section>`;
 }
 
-function secaoTemperatura(rel, { tipoFebre, tipoAntitermico, agora }) {
-  if (!rel.temperaturas.length) return '';
+/** Doses de antitérmico (Tylenol) do período, para marcar no gráfico. */
+export const dosesAntitermico = (rel) => (rel.remedios.find((r) => r.tipo.id === 'tylenol')?.doses) || [];
+
+/** "máxima 38,6 °C (25/10 09:00) · 2 medições · 1 a partir de 37,8 °C" */
+export function resumoTemperatura(rel) {
   const temps = rel.temperaturas;
   const maxima = temps.reduce((m, x) => (x.c > m.c ? x : m), temps[0]);
   const acima = temps.filter((x) => x.c >= rel.limite).length;
-  const antitermico = (rel.remedios.find((r) => r.tipo.id === 'tylenol')?.doses) || [];
-  const resumo = [`máxima ${graus(maxima.c)} (${fmtData(maxima.t)} ${fmtHora(maxima.t)})`,
+  return [`máxima ${graus(maxima.c)} (${fmtData(maxima.t)} ${fmtHora(maxima.t)})`,
     `${temps.length} ${temps.length === 1 ? 'medição' : 'medições'}`,
     acima ? `${acima} a partir de ${graus(rel.limite)}` : `nenhuma a partir de ${graus(rel.limite)}`].join(' · ');
+}
+
+/** "20/11 a 22/11 · últimos 3 dias · gerado em 22/11 às 14:05" */
+export const linhaPeriodo = (rel, nDias, agora) =>
+  `${textoPeriodo(rel)} · ${nDias === 1 ? 'hoje' : `últimos ${nDias} dias`} · gerado em ${fmtData(agora)} às ${fmtHora(agora)}`;
+
+function secaoTemperatura(rel, { tipoFebre, tipoAntitermico, agora }) {
+  if (!rel.temperaturas.length) return '';
+  const temps = rel.temperaturas;
+  const antitermico = dosesAntitermico(rel);
+  const resumo = resumoTemperatura(rel);
   return `
     <section class="cartao rel-secao" ${estiloCor(tipoFebre)}>
       <h3 class="rel-secao-titulo">Temperatura</h3>

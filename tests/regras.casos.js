@@ -10,6 +10,7 @@ import { lerRemedios } from '../js/tipos/remedio.js';
 import { descreverAjuste } from '../js/tipos/ajuste.js';
 import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
 import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.js';
+import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -833,6 +834,20 @@ export function casos({ grupo, teste }) {
   });
   teste('Dia da tabela sem "hoje/ontem" (o PDF pode ser lido depois)', () => {
     igual(diaCurto('2026-10-25'), 'dom 25/10');
+  });
+  teste('Imagem: relatório longo vira várias páginas, repetindo o cabeçalho da tabela', () => {
+    const b = (h) => ({ h });
+    const vazio = alturaPedaco([]);
+    // Tudo cabe numa página.
+    const curto = paginar([{ titulo: 'A', blocos: [b(100), b(100)] }, { titulo: 'B', blocos: [b(50)] }], 1000);
+    igual(curto.map((p) => p.map((pd) => pd.titulo)), [['A', 'B']]);
+    // Tabela com cabeçalho: 5 linhas de 100 numa página que só cabe vazio + cabeçalho + 3 linhas.
+    const tabela = { titulo: 'Dia a dia', cabecalho: [b(40)], blocos: [b(100), b(100), b(100), b(100), b(100)] };
+    const longo = paginar([tabela, { titulo: 'Remédios', blocos: [b(30)] }], vazio + 40 + 300);
+    igual(longo.map((p) => p.map((pd) => [pd.titulo, pd.continua, pd.blocos.length])),
+      [[['Dia a dia', false, 4]], [['Dia a dia', true, 3]], [['Remédios', false, 1]]]);
+    // Um bloco maior que a página não some.
+    igual(paginar([{ titulo: 'X', blocos: [b(5000)] }], 1000).length, 1);
   });
 
   teste('Histórico de ajustes descreve a escolha pelos nomes', () => {

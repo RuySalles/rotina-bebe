@@ -7,6 +7,7 @@ import { descreverAjuste } from './tipos/ajuste.js';
 import { ritmoDoSono } from './tipos/sono.js';
 import { ritmoDoLeite } from './tipos/alimentacao.js';
 import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO } from './relatorio.js';
+import { imagensRelatorio } from './imagem-relatorio.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -700,6 +701,58 @@ function imprimirRelatorio() {
     document.title = antes;
     toast('Este navegador não abriu a impressão. Abra o app no navegador (Chrome ou Safari) e tente de novo.', 5000);
   }
+}
+
+/**
+ * Relatório como imagem (js/imagem-relatorio.js), pelo compartilhar do celular (WhatsApp). Sem compartilhar de
+ * arquivos (computador), as imagens são baixadas. Se o celular recusar porque a imagem demorou a ficar pronta, ela fica
+ * guardada e o próximo toque compartilha na hora.
+ */
+let imagensProntas = null; // { chave, arquivos }
+async function compartilharRelatorio(botao) {
+  if (botao.disabled) return;
+  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
+  const nomeBebe = String(estado.config.nome_bebe || '').trim();
+  const titulo = `Relatório ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(rel)}`.replace(/\s+/g, ' ').trim();
+  const chave = `${diasRelatorio}|${ctx.eventos.length}|${Math.floor(ctx.agora / 60000)}`;
+  let arquivos = imagensProntas?.chave === chave ? imagensProntas.arquivos : null;
+  if (!arquivos) {
+    const textoAntes = botao.textContent;
+    botao.disabled = true;
+    botao.textContent = 'Preparando…';
+    try {
+      const blobs = await imagensRelatorio(rel, {
+        nome: nomeBebe, nDias: diasRelatorio, agora: ctx.agora, tipoFebre: TIPOS.febre, tipoAntitermico: TIPOS.tylenol
+      });
+      const base = titulo.replace(/\//g, '-');
+      arquivos = blobs.map((b, i) => new File([b], `${base}${blobs.length > 1 ? ` (${i + 1})` : ''}.png`, { type: 'image/png' }));
+      imagensProntas = { chave, arquivos };
+    } catch {
+      toast('Não deu para gerar a imagem. Use "Salvar em PDF".', 5000);
+      return;
+    } finally {
+      botao.disabled = false;
+      botao.textContent = textoAntes;
+    }
+  }
+  if (navigator.canShare?.({ files: arquivos })) {
+    try {
+      await navigator.share({ files: arquivos, title: titulo });
+      imagensProntas = null;
+    } catch (e) {
+      if (e.name === 'NotAllowedError') toast('Imagem pronta. Toque de novo em "Enviar imagem".', 5000);
+      else if (e.name !== 'AbortError') toast('Não deu para compartilhar. Use "Salvar em PDF".', 5000);
+    }
+    return;
+  }
+  for (const arq of arquivos) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(arq);
+    a.download = arq.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+  toast(arquivos.length > 1 ? `${arquivos.length} imagens salvas em Downloads` : 'Imagem salva em Downloads');
 }
 
 /**
@@ -1638,6 +1691,8 @@ app.addEventListener('click', async (e) => {
     render();
   } else if (acao === 'imprimir-relatorio') {
     imprimirRelatorio();
+  } else if (acao === 'compartilhar-relatorio') {
+    compartilharRelatorio(b);
   } else if (acao === 'filtro') {
     filtroHistorico = b.dataset.tipo;
     render();

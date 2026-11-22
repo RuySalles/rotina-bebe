@@ -1158,6 +1158,33 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   .relatorio { max-width: 64rem; }
 }
 
+/* ---------------------------------------------------------------------------
+   Família participando (fase 13)
+   --------------------------------------------------------------------------- */
+.placar-barra { display: flex; height: 1.5rem; border-radius: 0.75rem; overflow: hidden; background: var(--superficie-2); }
+.placar-barra span { background: var(--cor); }
+.placar-barra span + span { border-left: 2px solid var(--superficie); }
+.placar-legenda { list-style: none; margin: 0.875rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.placar-legenda li { display: grid; gap: 0.125rem; }
+.placar-nome { display: flex; align-items: center; gap: 0.375rem; font-weight: 600; font-size: 0.9375rem; }
+.placar-ponto { width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--cor); flex: none; }
+.placar-legenda strong { font-size: 1.75rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.placar-legenda small { color: var(--texto-2); font-size: 0.8125rem; }
+.placar-ranking { list-style: none; margin: 0; padding: 0; }
+.placar-ranking li { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0; border-top: 1px solid var(--linha); }
+.placar-ranking li:first-child { border-top: 0; padding-top: 0.25rem; }
+.placar-pos {
+  display: grid; place-items: center; flex: none;
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: var(--superficie-2); color: var(--texto-2); font-weight: 700; font-size: 0.9375rem;
+}
+.placar-pos[style] { background: var(--cor); color: #fff; }
+.placar-quem { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placar-pontos { color: var(--texto-2); font-size: 0.875rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.placar-numeros { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+.placar-numeros strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.placar .rel-acoes .botao { flex: 1 1 auto; }
+
 /* Impressão / "Salvar como PDF": só o relatório, sempre claro, sem botões nem barra. */
 @media print {
   :root, :root:not([data-theme="light"]) {

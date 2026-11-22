@@ -23,6 +23,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
 - `js/relatorio.js` → Relatório para a consulta (dados puros + HTML/SVG); aberto pelo Histórico, PDF via impressão
 - `js/imagem-relatorio.js` → o mesmo relatório desenhado em canvas (1 a 3 imagens) para o compartilhar do celular
+- `js/familia.js` → placar da família (só rotina conta; ponto do `autor`, quem registrou primeiro) + HTML da tela;
+  `js/imagem-familia.js` → imagem para o grupo (nunca temperatura nem remédios); `js/desenho.js` → canvas comum
 - `js/regras.js` → cálculos puros: tempo (fuso America/Sao_Paulo, 24h), leitura das linhas, `substitui_id`, planos, janelas, agenda
 - `js/tipos/index.js` → registro central; `js/tipos/<id>.js` → um arquivo por tipo de evento
 - `js/tipos/remedio.js` → remédios cadastrados em Ajustes (config `remedios`, JSON); cada um vira o tipo

@@ -188,7 +188,8 @@ export function resolverEventos(linhas, tipos = {}) {
       atual = anterior;
       raiz = atual.id;
     }
-    const candidato = { ...e, raiz, profundidade };
+    // autor = quem fez o registro original (a versão mais antiga encontrada); `quem` é quem fez esta versão.
+    const candidato = { ...e, raiz, profundidade, autor: atual.quem };
     const vencedor = grupos.get(raiz);
     if (!vencedor || venceDe(candidato, vencedor)) grupos.set(raiz, candidato);
   }

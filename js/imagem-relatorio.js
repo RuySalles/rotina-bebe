@@ -5,16 +5,10 @@
 
 import { chaveDia, fmtHora, fmtNumero } from './regras.js';
 import { diaCurto, graficoTemperatura, resumoTemperatura, dosesAntitermico, linhaPeriodo } from './relatorio.js';
+import { COR, FONTE, FONTE_TITULO, fonte, quebrar, retanguloArredondado, bolinha, linhaH, escrever, medir, paraBlob } from './desenho.js';
 
 const LARGURA_MIN = 1080, LARGURA_MAX = 1560, ALTURA_MAX = 1600;
 const MARGEM = 48, PAD = 32, ESPACO = 24, TITULO_H = 52;
-const COR = {
-  fundo: '#f6f2ec', superficie: '#ffffff', texto: '#1f1b18', texto2: '#5d554e', texto3: '#8a8178',
-  linha: 'rgba(0, 0, 0, 0.12)', alerta: '#b3361f', primaria: '#2f6f6a'
-};
-const FONTE = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
-const FONTE_TITULO = '"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif';
-const fonte = (peso, px, familia = FONTE) => `${peso} ${px}px ${familia}`;
 
 // ---------------------------------------------------------------------------
 // Paginação (pura, testada em tests/regras.casos.js)
@@ -55,52 +49,6 @@ export function paginar(secoes, disponivel, espaco = ESPACO) {
   return paginas;
 }
 
-// ---------------------------------------------------------------------------
-// Desenho
-// ---------------------------------------------------------------------------
-
-/** Quebra o texto em linhas que cabem em `largura` (com a fonte já escolhida no contexto). */
-function quebrar(c, texto, largura, maxLinhas = 99) {
-  const linhas = [];
-  for (const paragrafo of String(texto ?? '').split('\n')) {
-    let linha = '';
-    for (const palavra of paragrafo.split(/\s+/).filter(Boolean)) {
-      const tentativa = linha ? `${linha} ${palavra}` : palavra;
-      if (linha && c.measureText(tentativa).width > largura) { linhas.push(linha); linha = palavra; } else linha = tentativa;
-    }
-    linhas.push(linha);
-  }
-  if (linhas.length > maxLinhas) {
-    linhas.length = maxLinhas;
-    linhas[maxLinhas - 1] += '…';
-  }
-  return linhas;
-}
-
-function retanguloArredondado(c, x, y, w, h, r) {
-  c.beginPath();
-  c.moveTo(x + r, y);
-  c.arcTo(x + w, y, x + w, y + h, r);
-  c.arcTo(x + w, y + h, x, y + h, r);
-  c.arcTo(x, y + h, x, y, r);
-  c.arcTo(x, y, x + w, y, r);
-  c.closePath();
-}
-
-const bolinha = (c, x, y, cor, r = 8) => { c.fillStyle = cor || COR.primaria; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); };
-const linhaH = (c, x, y, w) => { c.fillStyle = COR.linha; c.fillRect(x, y, w, 1.5); };
-
-/** Texto em várias linhas a partir de y (topo). */
-function escrever(c, linhas, x, y, alturaLinha, cor, fonteCss) {
-  c.font = fonteCss;
-  c.fillStyle = cor;
-  c.textBaseline = 'top';
-  linhas.forEach((l, i) => c.fillText(l, x, y + i * alturaLinha));
-}
-
-// Um contexto só para medir texto antes de desenhar.
-let medidor = null;
-const medir = () => (medidor ||= document.createElement('canvas').getContext('2d'));
 
 // ---- Dia a dia ----
 
@@ -366,7 +314,7 @@ export async function imagensRelatorio(rel, opcoes) {
       escrever(cx, [`${p + 1} de ${paginas.length}`], largura - MARGEM, yRod + 14, 28, COR.texto2, fonte(650, 22));
       cx.textAlign = 'left';
     }
-    blobs.push(await new Promise((ok, erro) => canvas.toBlob((b) => (b ? ok(b) : erro(new Error('toBlob'))), 'image/png')));
+    blobs.push(await paraBlob(canvas));
   }
   return blobs;
 }

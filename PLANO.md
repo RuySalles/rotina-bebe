@@ -28,8 +28,8 @@ algo) dizem isso em "Você vai precisar".
 | 9 | Abrir o app sem internet | — | ✅ |
 | 10 | Alertas no celular pelo Google Agenda | — | ✅ |
 | 11 | Esconder e reordenar botões | — | ✅ |
-| 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | 🧪 |
-| 13 | Família participando (placar e ranking) | Alta | ⬜ |
+| 12 | Relatório para a consulta (+ compartilhar como imagem) | Alta | ✅ |
+| 13 | Família participando (placar e ranking) | Alta | 🧪 |
 | 14 | Peso e altura | Alta | ⬜ |
 | 15 | Aviso de vacina | Alta | ⬜ |
 | 16 | Consultas e retornos | Média | ⬜ |
@@ -444,8 +444,15 @@ engajamento: avós, tios e quem mais cuida passam a registrar também, e o relat
   temperatura nem remédios**, pronta para mandar no WhatsApp pelo compartilhar do celular.
 - Vale também para os registros antigos: a coluna "quem" já existe em todos.
 
-**A decidir no começo da fase (quiz):** onde fica o placar (no Relatório ou numa tela própria), se registros
-corrigidos ou desfeitos tiram o ponto (proposta: sim, conta só o que está valendo), e os detalhes do visual da imagem.
+**Decidido no quiz (22/11):**
+- **Tela própria:** no topo do Histórico, abaixo do Relatório, o cartão **Família participando** abre o placar
+  (Hoje, 3, 7 ou 14 dias; começa em 7) com o botão **Enviar para a família**.
+- **Corrigido:** o ponto fica com quem registrou primeiro (ex.: a Vó registra o sono e o Pai marca o fim: ponto da Vó).
+  Desfeito ou apagado não conta.
+- **Visual da imagem:** barra Mãe/Pai/Família em %, pódio com medalhas para os 3 primeiros da família (empate divide
+  a posição), o resto em lista, números leves e "Valeu, família!".
+- **Pai e Mãe com variações:** Pai, Papai, Mãe, Mae, Mamãe, Mamae, sem diferença de maiúscula ou acento. Registro sem
+  apelido fica fora do placar.
 
 **Você vai precisar:** mandar o link de acesso para quem da família for participar (Ajustes → Compartilhar link de
 acesso). Atenção: o link dá acesso a tudo, inclusive aos remédios; envie só para quem cuida do bebê.
@@ -454,7 +461,8 @@ acesso). Atenção: o link dá acesso a tudo, inclusive aos remédios; envie só
 - [ ] No período de 7 dias, as porcentagens de Mãe, Pai e família somam 100% e batem com o Histórico.
 - [ ] Um parente com apelido próprio registra uma fralda: aparece no ranking da família; Pai e Mãe nunca aparecem lá.
 - [ ] Registrar um remédio não muda nenhum ponto.
-- [ ] A imagem para o grupo não mostra temperatura nem remédios.
+- [ ] Histórico → **Família participando** → **Enviar para a família** → WhatsApp: a imagem chega legível e não
+      mostra temperatura nem remédios.
 
 ---
 
@@ -547,6 +555,11 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 13 (feita): `js/familia.js`: `papel(apelido)`, `porcentagens` (somam 100) e
+  `montarPlacar(ctx, tipos, nDias)` (puros, com testes); só tipos com `rotina: true` contam. O `resolverEventos`
+  ganhou `autor` (o `quem` da versão mais antiga da cadeia), e o ponto é do autor. `htmlPlacar` (tela) e
+  `js/imagem-familia.js` (canvas). As funções de desenho comuns às duas imagens ficam em `js/desenho.js`; o
+  compartilhar das duas é `compartilharImagens` no `app.js`.
 - Fase 12 (feita): `js/relatorio.js`: `montarRelatorio(ctx, tipos, nDias)` (puro, com testes) usa o `resumoDia` e o
   `resumo` de cada tipo, então tipos novos entram sozinhos na tabela; `htmlRelatorio` e `graficoTemperatura` (SVG).
   Vista `relatorio` no `app.js` (aberta pelo Histórico); PDF = `window.print()` com `@media print` no `app.css`.

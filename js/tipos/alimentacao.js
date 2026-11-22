@@ -58,7 +58,7 @@ export function lerTextoAlimentacao(texto) {
 
 /** Itens de um registro (novos têm dados.itens; os sem nada são "alimentação" genérica). */
 const itensDe = (e) => (Array.isArray(e.dados.itens) ? e.dados.itens : []);
-const temLeite = (e) => itensDe(e).includes('leite');
+export const temLeite = (e) => itensDe(e).includes('leite');
 const ehComida = (e) => itensDe(e).some((v) => v === 'fruta' || v === 'refeicao');
 const mlDe = (e) => (temLeite(e) ? numero(e.dados.ml) : null);
 

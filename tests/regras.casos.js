@@ -11,6 +11,7 @@ import { descreverAjuste } from '../js/tipos/ajuste.js';
 import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
 import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.js';
 import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
+import { papel, porcentagens, montarPlacar } from '../js/familia.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -848,6 +849,53 @@ export function casos({ grupo, teste }) {
       [[['Dia a dia', false, 4]], [['Dia a dia', true, 3]], [['Remédios', false, 1]]]);
     // Um bloco maior que a página não some.
     igual(paginar([{ titulo: 'X', blocos: [b(5000)] }], 1000).length, 1);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Família participando');
+  const rotinaF = ['alimentacao', 'sono', 'fralda', 'banho', 'febre', 'tylenol', 'vacina'].map((id) => TIPOS[id]);
+  const de = (quem, l) => ({ ...l, quem });
+  teste('Pai e Mãe com variações; qualquer outro apelido é família; vazio fica fora', () => {
+    igual(['Mãe', 'mae', ' Mamãe ', 'MAMAE', 'Pai', 'papai', 'Vó Ana', 'Pai Zé', ''].map(papel),
+      ['mae', 'mae', 'mae', 'mae', 'pai', 'pai', 'familia', 'familia', '']);
+  });
+  teste('Porcentagens inteiras somam 100', () => {
+    igual(porcentagens({ mae: 1, pai: 1, familia: 1 }), { mae: 34, pai: 33, familia: 33 });
+    igual(porcentagens({ mae: 0, pai: 0, familia: 0 }), { mae: 0, pai: 0, familia: 0 });
+    igual(porcentagens({ mae: 2, pai: 0, familia: 1 }), { mae: 67, pai: 0, familia: 33 });
+  });
+  teste('Placar: só rotina conta; remédio, febre e vacina não; ranking só da família', () => {
+    const linhasF = [
+      de('Mãe', linha('alimentacao', T('25', '08:00'), { itens: ['leite'], ml: 120 })),
+      de('Mãe', linha('fralda', T('25', '09:00'), { conteudo: 'Xixi' })),
+      de('Pai', linha('sono', T('25', '10:00'), {})),
+      de('Vó Ana', linha('fralda', T('25', '11:00'), { conteudo: 'Xixi' })),
+      de('vó ana', linha('banho', T('24', '18:00'), {})),
+      de('Tia Bia', linha('alimentacao', T('24', '12:00'), { itens: ['fruta'] })),
+      de('Tia Bia', linha('tylenol', T('25', '07:00'), { dose: '1,5 mL' })),   // remédio: não conta
+      de('Tia Bia', linha('febre', T('25', '07:00'), { temperatura: 38 })),    // febre: não conta
+      de('Vô Zé', linha('fralda', T('20', '11:00'), { conteudo: 'Xixi' }))     // fora do período
+    ];
+    const p = montarPlacar(ctxRel(linhasF, t('25', '12:00')), rotinaF, 3);
+    igual(p.total, 6);
+    igual(p.grupos.map((g) => [g.id, g.pontos, g.pct]), [['mae', 2, 33], ['pai', 1, 17], ['familia', 3, 50]]);
+    igual(p.ranking, [{ nome: 'Vó Ana', pontos: 2, pos: 1 }, { nome: 'Tia Bia', pontos: 1, pos: 2 }]);
+    igual(p.numeros.map((n) => `${n.n} ${n.rotulo}`), ['1 mamadeira', '1 outra refeição', '2 fraldas', '1 sono', '1 banho']);
+  });
+  teste('Ranking: empate divide a posição', () => {
+    const linhasF = ['Vó Ana', 'Vó Ana', 'Tia Bia', 'Vô Zé', 'Mãe'].map((q, i) =>
+      de(q, linha('fralda', T('25', `0${i + 1}:00`), { conteudo: 'Xixi' })));
+    const p = montarPlacar(ctxRel(linhasF, t('25', '12:00')), rotinaF, 1);
+    igual(p.ranking.map((r) => `${r.pos} ${r.nome}`), ['1 Vó Ana', '2 Tia Bia', '2 Vô Zé']);
+  });
+  teste('Corrigido: o ponto fica com quem registrou primeiro; desfeito não conta', () => {
+    const orig = de('Vó Ana', linha('sono', T('25', '08:00'), {}, { id: 'sono-1' }));
+    const fim = de('Pai', linha('sono', T('25', '08:00'), { fim: T('25', '09:00') }, { substitui_id: 'sono-1', criado_em: T('25', '09:00') }));
+    const errada = de('Mãe', linha('fralda', T('25', '10:00'), {}, { id: 'fr-1' }));
+    const desfeita = de('Mãe', linha('fralda', T('25', '10:00'), {}, { substitui_id: 'fr-1', apagado: true, criado_em: T('25', '10:01') }));
+    const p = montarPlacar(ctxRel([orig, fim, errada, desfeita], t('25', '12:00')), rotinaF, 1);
+    igual(p.grupos.map((g) => g.pontos), [0, 0, 1]);
+    igual(p.ranking, [{ nome: 'Vó Ana', pontos: 1, pos: 1 }]);
   });
 
   teste('Histórico de ajustes descreve a escolha pelos nomes', () => {

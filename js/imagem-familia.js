@@ -1,0 +1,174 @@
+// Imagem para o grupo da família (fase 13): quem registrou a rotina, pódio da família e números leves.
+// Nunca mostra temperatura nem remédios (só usa o montarPlacar, que só conta tipos de rotina). Sempre clara.
+
+import { COR, FONTE_TITULO, fonte, quebrar, retanguloArredondado, bolinha, escrever, medir, paraBlob } from './desenho.js';
+import { tituloPlacar, textoRegistros, MEDALHAS } from './familia.js';
+
+const LARGURA = 1080, MARGEM = 56, PAD = 40, ESPACO = 28;
+
+/** Mistura a cor com branco (0 = cor, 1 = branco), para o fundo dos degraus do pódio. */
+function clarear(hex, quanto) {
+  const n = parseInt(hex.slice(1), 16);
+  const canal = (v) => Math.round(v + (255 - v) * quanto);
+  return `rgb(${canal(n >> 16)}, ${canal((n >> 8) & 255)}, ${canal(n & 255)})`;
+}
+
+function cartao(cx, y, h) {
+  cx.fillStyle = COR.superficie;
+  retanguloArredondado(cx, MARGEM, y, LARGURA - 2 * MARGEM, h, 32);
+  cx.fill();
+  cx.strokeStyle = COR.linha;
+  cx.lineWidth = 1.5;
+  cx.stroke();
+}
+
+function centro(cx, texto, x, y, cor, fonteCss) {
+  cx.textAlign = 'center';
+  escrever(cx, [texto], x, y, 0, cor, fonteCss);
+  cx.textAlign = 'left';
+}
+
+/** p: montarPlacar(...). opcoes: { nome, nDias, periodo }. → Blob png */
+export async function imagemFamilia(p, { nome, nDias, periodo }) {
+  const c = medir();
+  const larg = LARGURA - 2 * MARGEM;
+  const interno = larg - 2 * PAD;
+
+  // ---- alturas ----
+  const hCab = MARGEM + 34 + 74 + 40 + 16;
+  const hPlacar = PAD + 50 + 48 + 28 + 120 + PAD;
+  const podio = p.ranking.slice(0, 3);
+  const resto = p.ranking.slice(3, 8);
+  const sobra = p.ranking.length - 8;
+  const DEGRAU = [210, 160, 120]; // 1º, 2º, 3º
+  const larguraDegrau = Math.min(260, (interno - 40) / 3);
+  c.font = fonte(650, 28);
+  const nomesPodio = podio.map((r) => quebrar(c, r.nome, larguraDegrau + 20, 2));
+  const hNomes = Math.max(0, ...nomesPodio.map((l) => l.length)) * 34;
+  const hPodio = podio.length ? hNomes + 70 + DEGRAU[0] : 0;
+  const hResto = resto.length * 56 + (sobra > 0 ? 44 : 0);
+  c.font = fonte(400, 24);
+  const vazio = quebrar(c, 'Ninguém da família registrou neste período. Que tal ajudar na próxima?', interno);
+  const hRanking = PAD + 50 + (podio.length ? hPodio + (hResto ? 24 + hResto : 0) : vazio.length * 34) + PAD;
+  c.font = fonte(400, 26);
+  const textoNumeros = p.numeros.map((n) => `${n.n} ${n.rotulo}`).join('  ·  ');
+  const linhasNumeros = textoNumeros ? quebrar(c, textoNumeros, larg) : [];
+  const hNumeros = linhasNumeros.length ? linhasNumeros.length * 36 + 8 : 0;
+  const hRod = 150;
+  const altura = hCab + hPlacar + ESPACO + hRanking + ESPACO + hNumeros + hRod;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = LARGURA;
+  canvas.height = Math.ceil(altura);
+  const cx = canvas.getContext('2d');
+  cx.fillStyle = COR.fundo;
+  cx.fillRect(0, 0, LARGURA, canvas.height);
+
+  // ---- cabeçalho ----
+  let y = MARGEM;
+  escrever(cx, [tituloPlacar(nDias).toUpperCase()], MARGEM, y, 0, COR.primaria, fonte(700, 24));
+  y += 34;
+  c.font = fonte(600, 60, FONTE_TITULO);
+  escrever(cx, quebrar(c, nome || 'Nosso bebê', larg, 1), MARGEM, y, 0, COR.texto, fonte(600, 60, FONTE_TITULO));
+  y += 74;
+  escrever(cx, [periodo], MARGEM, y, 0, COR.texto2, fonte(400, 26));
+  y = hCab;
+
+  // ---- quem registrou a rotina ----
+  cartao(cx, y, hPlacar);
+  let yi = y + PAD;
+  const x0 = MARGEM + PAD;
+  escrever(cx, ['Quem registrou a rotina'], x0, yi, 0, COR.texto, fonte(650, 32));
+  yi += 50;
+  cx.save();
+  retanguloArredondado(cx, x0, yi, interno, 48, 24);
+  cx.clip();
+  cx.fillStyle = '#ebe5dc';
+  cx.fillRect(x0, yi, interno, 48);
+  let xb = x0;
+  for (const g of p.grupos) {
+    if (!g.pontos) continue;
+    const w = (interno * g.pct) / 100;
+    cx.fillStyle = g.cor;
+    cx.fillRect(xb, yi, w + 1, 48);
+    xb += w;
+  }
+  cx.restore();
+  yi += 48 + 28;
+  const colW = interno / 3;
+  p.grupos.forEach((g, i) => {
+    const x = x0 + i * colW;
+    bolinha(cx, x + 10, yi + 16, g.cor, 10);
+    escrever(cx, [g.rotulo], x + 30, yi, 0, COR.texto, fonte(650, 28));
+    escrever(cx, [`${g.pct}%`], x, yi + 40, 0, COR.texto, fonte(700, 52));
+    escrever(cx, [textoRegistros(g.pontos)], x, yi + 98, 0, COR.texto2, fonte(400, 22));
+  });
+  y += hPlacar + ESPACO;
+
+  // ---- ranking da família ----
+  cartao(cx, y, hRanking);
+  yi = y + PAD;
+  escrever(cx, ['Ranking da família'], x0, yi, 0, COR.texto, fonte(650, 32));
+  yi += 50;
+  if (!podio.length) {
+    escrever(cx, vazio, x0, yi, 34, COR.texto2, fonte(400, 24));
+  } else {
+    // Ordem no pódio: 2º à esquerda, 1º no meio, 3º à direita.
+    const meio = MARGEM + larg / 2;
+    const posicoes = [meio, meio - larguraDegrau - 20, meio + larguraDegrau + 20];
+    const base = yi + hPodio;
+    podio.forEach((r, i) => {
+      const xc = posicoes[i];
+      const m = Math.min(r.pos, 3) - 1; // empate: mesma medalha e mesmo degrau
+      const h = DEGRAU[m];
+      const topo = base - h;
+      cx.fillStyle = clarear(MEDALHAS[m], 0.75);
+      retanguloArredondado(cx, xc - larguraDegrau / 2, topo, larguraDegrau, h + 2, 18);
+      cx.fill();
+      cx.fillStyle = '#ffffff';
+      // medalha
+      bolinha(cx, xc, topo, '#ffffff', 31);
+      bolinha(cx, xc, topo, MEDALHAS[m], 26);
+      cx.textBaseline = 'middle';
+      cx.textAlign = 'center';
+      cx.font = fonte(800, 28);
+      cx.fillStyle = '#ffffff';
+      cx.fillText(String(r.pos), xc, topo + 1);
+      cx.textAlign = 'left';
+      // nome acima da medalha
+      const linhas = nomesPodio[i];
+      linhas.forEach((l, k) => centro(cx, l, xc, topo - 40 - (linhas.length - k) * 34, COR.texto, fonte(650, 28)));
+      // pontos dentro do degrau
+      centro(cx, String(r.pontos), xc, topo + 40, COR.texto, fonte(800, 50));
+      centro(cx, r.pontos === 1 ? 'registro' : 'registros', xc, topo + 98, COR.texto2, fonte(400, 22));
+    });
+    yi = base + 24;
+    resto.forEach((r, k) => {
+      const yl = yi + k * 56;
+      cx.fillStyle = COR.linha;
+      cx.fillRect(x0, yl, interno, 1.5);
+      escrever(cx, [`${r.pos}.`], x0, yl + 14, 0, COR.texto2, fonte(650, 26));
+      c.font = fonte(600, 26);
+      escrever(cx, quebrar(c, r.nome, interno - 260, 1), x0 + 50, yl + 14, 0, COR.texto, fonte(600, 26));
+      cx.textAlign = 'right';
+      escrever(cx, [textoRegistros(r.pontos)], x0 + interno, yl + 16, 0, COR.texto2, fonte(400, 24));
+      cx.textAlign = 'left';
+    });
+    if (sobra > 0) {
+      escrever(cx, [`e mais ${sobra} ${sobra === 1 ? 'pessoa' : 'pessoas'}`], x0 + 50, yi + resto.length * 56 + 12, 0, COR.texto2, fonte(400, 22));
+    }
+  }
+  y += hRanking + ESPACO;
+
+  // ---- números leves ----
+  if (linhasNumeros.length) {
+    linhasNumeros.forEach((l, k) => centro(cx, l, LARGURA / 2, y + k * 36, COR.texto2, fonte(400, 26)));
+    y += hNumeros;
+  }
+
+  // ---- rodapé ----
+  centro(cx, 'Valeu, família!', LARGURA / 2, y + 22, COR.primaria, fonte(600, 44, FONTE_TITULO));
+  centro(cx, 'Contam alimentação, sono, fralda e banho.', LARGURA / 2, y + 90, COR.texto3, fonte(400, 20));
+
+  return paraBlob(canvas);
+}

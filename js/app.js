@@ -6,8 +6,10 @@ import { lerRemedios, corPara, MODOS, HORA_REF_PADRAO, horaValida } from './tipo
 import { descreverAjuste } from './tipos/ajuste.js';
 import { ritmoDoSono } from './tipos/sono.js';
 import { ritmoDoLeite } from './tipos/alimentacao.js';
-import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO } from './relatorio.js';
+import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO, PERIODOS } from './relatorio.js';
 import { imagensRelatorio } from './imagem-relatorio.js';
+import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA } from './familia.js';
+import { imagemFamilia } from './imagem-familia.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
@@ -26,6 +28,7 @@ let filtroHistorico = '';
 let urlDoConfig = '';
 let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
 let diasRelatorio = PERIODO_PADRAO; // período do Relatório (dias inteiros até hoje)
+let diasFamilia = PERIODO_FAMILIA; // período do placar da família
 
 // Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
 let TIPOS = {};
@@ -43,6 +46,7 @@ const ICONES = {
   compartilhar: '<svg viewBox="0 0 24 24"><path d="M12 15V3.5M7.5 8 12 3.5 16.5 8"/><path d="M5 12.5V19a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-6.5"/></svg>',
   sync: '<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5"/><path d="M17.8 3.5v3.7h-3.7M6.2 20.5v-3.7h3.7"/></svg>',
   subir: '<svg viewBox="0 0 24 24"><path d="M6.5 14.5 12 9l5.5 5.5"/></svg>',
+  familia: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.3"/><path d="M3.5 19.5c.6-3.3 2.8-5.2 5.5-5.2s4.9 1.9 5.5 5.2M14.5 15.2c.8-.6 1.6-.9 2.5-.9 2 0 3.4 1.6 3.8 4.2"/></svg>',
   relatorio: '<svg viewBox="0 0 24 24"><path d="M7 3.5h7.5L19 8v11a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1-1.5z"/><path d="M14 3.5V8h4.5M9 13.5l2 2 4-4.5"/></svg>',
   descer: '<svg viewBox="0 0 24 24"><path d="M6.5 9.5 12 15l5.5-5.5"/></svg>'
 };
@@ -357,6 +361,7 @@ function aoMudarEstado() {
 function render() {
   ctx = contexto();
   const corpo = vista === 'historico' ? vistaHistorico() : vista === 'relatorio' ? vistaRelatorio()
+    : vista === 'familia' ? vistaFamilia()
     : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
   const html = `
     ${cabecalho()}
@@ -425,7 +430,7 @@ function textoAgenda() {
 }
 
 function navegacao() {
-  const aba = vista === 'relatorio' ? 'historico' : vista; // o Relatório abre de dentro do Histórico
+  const aba = vista === 'relatorio' || vista === 'familia' ? 'historico' : vista; // abrem de dentro do Histórico
   const item = (id, rotulo) => `
     <button class="nav-item ${aba === id ? 'nav-item--ativo' : ''}" data-acao="vista" data-vista="${id}" ${aba === id ? 'aria-current="page"' : ''}>
       ${ICONES[id]}<span>${rotulo}</span>
@@ -663,7 +668,7 @@ function vistaHistorico() {
         }).join('')}
       </ul>
     </section>`).join('');
-  return `${botaoRelatorio()}<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
+  return `${botaoRelatorio()}${botaoFamilia()}<div class="chips">${chips}</div>${filtroHistorico ? '' : cartaoRitmo()}<div class="dias">${blocos}</div>`;
 }
 
 const botaoRelatorio = () => `
@@ -675,6 +680,39 @@ const botaoRelatorio = () => `
     </span>
     <span class="bloco-seta" aria-hidden="true"></span>
   </button>`;
+
+const botaoFamilia = () => `
+  <button class="cartao rel-abrir" data-acao="vista" data-vista="familia" style="--cor:${GRUPOS[2].cor}">
+    <span class="icone icone--pequeno">${ICONES.familia}</span>
+    <span class="bloco-textos">
+      <span class="bloco-titulo">Família participando</span>
+      <span class="bloco-detalhe">Quem registrou a rotina · ranking da família · imagem para o grupo</span>
+    </span>
+    <span class="bloco-seta" aria-hidden="true"></span>
+  </button>`;
+
+/** Família participando (js/familia.js): quanto da rotina cada um registrou; só tipos de rotina contam. */
+const placarAtual = () => montarPlacar(ctx, Object.values(TIPOS), diasFamilia);
+function vistaFamilia() {
+  const p = placarAtual();
+  return htmlPlacar(p, {
+    nome: String(estado.config.nome_bebe || '').trim(),
+    nDias: diasFamilia,
+    periodos: PERIODOS,
+    periodo: textoPeriodo(p)
+  });
+}
+
+/** Imagem para o grupo da família (js/imagem-familia.js): sem temperatura nem remédios. */
+function compartilharFamilia(botao) {
+  const p = placarAtual();
+  const nomeBebe = String(estado.config.nome_bebe || '').trim();
+  return compartilharImagens(botao, {
+    chave: `familia|${diasFamilia}`,
+    titulo: `${tituloPlacar(diasFamilia)} ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(p)}`,
+    gerar: () => imagemFamilia(p, { nome: nomeBebe, nDias: diasFamilia, periodo: textoPeriodo(p) })
+  });
+}
 
 /** Relatório para a consulta (js/relatorio.js): período à escolha, para mostrar no celular ou salvar em PDF. */
 function vistaRelatorio() {
@@ -703,36 +741,46 @@ function imprimirRelatorio() {
   }
 }
 
-/**
- * Relatório como imagem (js/imagem-relatorio.js), pelo compartilhar do celular (WhatsApp). Sem compartilhar de
- * arquivos (computador), as imagens são baixadas. Se o celular recusar porque a imagem demorou a ficar pronta, ela fica
- * guardada e o próximo toque compartilha na hora.
- */
-let imagensProntas = null; // { chave, arquivos }
-async function compartilharRelatorio(botao) {
-  if (botao.disabled) return;
+/** Relatório como imagem (js/imagem-relatorio.js): 1 a 3 imagens, para o médico ou quem cuida junto. */
+function compartilharRelatorio(botao) {
   const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
   const nomeBebe = String(estado.config.nome_bebe || '').trim();
-  const titulo = `Relatório ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(rel)}`.replace(/\s+/g, ' ').trim();
-  const chave = `${diasRelatorio}|${ctx.eventos.length}|${Math.floor(ctx.agora / 60000)}`;
+  return compartilharImagens(botao, {
+    chave: `relatorio|${diasRelatorio}`,
+    titulo: `Relatório ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(rel)}`,
+    planoB: 'Use "Salvar em PDF".',
+    gerar: () => imagensRelatorio(rel, {
+      nome: nomeBebe, nDias: diasRelatorio, agora: ctx.agora, tipoFebre: TIPOS.febre, tipoAntitermico: TIPOS.tylenol
+    })
+  });
+}
+
+/**
+ * Imagens pelo compartilhar do celular (WhatsApp). gerar() → [Blob png]. Sem compartilhar de arquivos (computador),
+ * as imagens são baixadas. Se o celular recusar porque a imagem demorou a ficar pronta, ela fica guardada e o próximo
+ * toque compartilha na hora.
+ */
+let imagensProntas = null; // { chave, arquivos }
+async function compartilharImagens(botao, { chave: chaveBase, titulo: tituloBruto, planoB, gerar }) {
+  if (botao.disabled) return;
+  const titulo = tituloBruto.replace(/\s+/g, ' ').trim();
+  const chave = `${chaveBase}|${ctx.eventos.length}|${Math.floor(ctx.agora / 60000)}`;
+  const rotulo = botao.textContent.trim();
   let arquivos = imagensProntas?.chave === chave ? imagensProntas.arquivos : null;
   if (!arquivos) {
-    const textoAntes = botao.textContent;
     botao.disabled = true;
     botao.textContent = 'Preparando…';
     try {
-      const blobs = await imagensRelatorio(rel, {
-        nome: nomeBebe, nDias: diasRelatorio, agora: ctx.agora, tipoFebre: TIPOS.febre, tipoAntitermico: TIPOS.tylenol
-      });
+      const blobs = [].concat(await gerar());
       const base = titulo.replace(/\//g, '-');
       arquivos = blobs.map((b, i) => new File([b], `${base}${blobs.length > 1 ? ` (${i + 1})` : ''}.png`, { type: 'image/png' }));
       imagensProntas = { chave, arquivos };
     } catch {
-      toast('Não deu para gerar a imagem. Use "Salvar em PDF".', 5000);
+      toast(`Não deu para gerar a imagem.${planoB ? ` ${planoB}` : ''}`, 5000);
       return;
     } finally {
       botao.disabled = false;
-      botao.textContent = textoAntes;
+      botao.textContent = rotulo;
     }
   }
   if (navigator.canShare?.({ files: arquivos })) {
@@ -740,8 +788,8 @@ async function compartilharRelatorio(botao) {
       await navigator.share({ files: arquivos, title: titulo });
       imagensProntas = null;
     } catch (e) {
-      if (e.name === 'NotAllowedError') toast('Imagem pronta. Toque de novo em "Enviar imagem".', 5000);
-      else if (e.name !== 'AbortError') toast('Não deu para compartilhar. Use "Salvar em PDF".', 5000);
+      if (e.name === 'NotAllowedError') toast(`Imagem pronta. Toque de novo em "${rotulo}".`, 5000);
+      else if (e.name !== 'AbortError') toast(`Não deu para compartilhar.${planoB ? ` ${planoB}` : ''}`, 5000);
     }
     return;
   }
@@ -1693,6 +1741,11 @@ app.addEventListener('click', async (e) => {
     imprimirRelatorio();
   } else if (acao === 'compartilhar-relatorio') {
     compartilharRelatorio(b);
+  } else if (acao === 'periodo-familia') {
+    diasFamilia = Number(b.dataset.dias) || PERIODO_FAMILIA;
+    render();
+  } else if (acao === 'compartilhar-familia') {
+    compartilharFamilia(b);
   } else if (acao === 'filtro') {
     filtroHistorico = b.dataset.tipo;
     render();

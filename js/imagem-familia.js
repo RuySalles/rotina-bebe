@@ -1,8 +1,9 @@
 // Imagem para o grupo da família (fase 13): quem registrou a rotina, pódio da família e números leves.
-// Nunca mostra temperatura nem remédios (só usa o montarPlacar, que só conta tipos de rotina). Sempre clara.
+// Nunca mostra temperatura, remédios nem sintomas (só usa o montarPlacar: rotina e marcos). Sempre clara.
 
 import { COR, FONTE_TITULO, fonte, quebrar, retanguloArredondado, bolinha, escrever, medir, paraBlob } from './desenho.js';
 import { tituloPlacar, textoRegistros, MEDALHAS } from './familia.js';
+import { fmtData } from './regras.js';
 
 const LARGURA = 1080, MARGEM = 56, PAD = 40, ESPACO = 28;
 
@@ -54,8 +55,13 @@ export async function imagemFamilia(p, { nome, nDias, periodo }) {
   const textoNumeros = p.numeros.map((n) => `${n.n} ${n.rotulo}`).join('  ·  ');
   const linhasNumeros = textoNumeros ? quebrar(c, textoNumeros, larg) : [];
   const hNumeros = linhasNumeros.length ? linhasNumeros.length * 36 + 8 : 0;
+  // Marcos do período (fase 17): até 5, os mais recentes; nunca sintomas.
+  const marcos = (p.marcos || []).slice(-5);
+  c.font = fonte(400, 24);
+  const linhasMarcos = marcos.map((m) => quebrar(c, m.texto, interno - 110, 2));
+  const hMarcos = marcos.length ? PAD + 50 + linhasMarcos.reduce((s, l) => s + l.length * 32 + 14, 0) + PAD - 14 : 0;
   const hRod = 150;
-  const altura = hCab + hPlacar + ESPACO + hRanking + ESPACO + hNumeros + hRod;
+  const altura = hCab + hPlacar + ESPACO + hRanking + ESPACO + (hMarcos ? hMarcos + ESPACO : 0) + hNumeros + hRod;
 
   const canvas = document.createElement('canvas');
   canvas.width = LARGURA;
@@ -159,6 +165,21 @@ export async function imagemFamilia(p, { nome, nDias, periodo }) {
     }
   }
   y += hRanking + ESPACO;
+
+  // ---- marcos ----
+  if (hMarcos) {
+    cartao(cx, y, hMarcos);
+    let ym = y + PAD;
+    escrever(cx, [p.marcos.length > marcos.length ? 'Marcos (os mais recentes)' : 'Marcos'], x0, ym, 0, COR.texto, fonte(650, 32));
+    ym += 50;
+    marcos.forEach((m, k) => {
+      bolinha(cx, x0 + 8, ym + 14, MEDALHAS[0], 7);
+      escrever(cx, [fmtData(m.t)], x0 + 26, ym, 0, COR.texto2, fonte(600, 22));
+      escrever(cx, linhasMarcos[k], x0 + 110, ym - 2, 32, COR.texto, fonte(400, 24));
+      ym += linhasMarcos[k].length * 32 + 14;
+    });
+    y += hMarcos + ESPACO;
+  }
 
   // ---- números leves ----
   if (linhasNumeros.length) {

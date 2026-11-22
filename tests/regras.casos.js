@@ -979,6 +979,37 @@ export function casos({ grupo, teste }) {
   });
 
   // ---------------------------------------------------------------------
+  grupo('Anotações');
+  const nota = (dia, hora, dados) => linha('anotacao', T(dia, hora), dados);
+  teste('Tipo opcional (sem escolher = Outro); resumo e status', () => {
+    igual(TIPOS.anotacao.resumo({ texto: 'vomitou após mamar', categoria: 'Sintoma' }), { texto: 'Sintoma · vomitou após mamar', destaque: true });
+    igual(TIPOS.anotacao.resumo({ texto: 'foi ao parque' }).texto, 'foi ao parque');
+    const ctxN = ctxRel([nota('24', '22:00', { texto: 'manchinha no braço', categoria: 'Sintoma' })], t('25', '12:00'));
+    igual(TIPOS.anotacao.regras.status(ctxN).linhas, ['manchinha no braço', '24/10 22:00']);
+    igual(TIPOS.anotacao.resumoDia(ctxN, '2026-10-24'), { valor: '1 anotação', detalhe: '1 sintoma' });
+    verdade(TIPOS.anotacao.regras.avisos(ctxN, 0, { texto: '  ' })[0].confirmar, 'sem texto pede confirmação');
+  });
+  teste('Relatório: todas as anotações do período, em seção própria', () => {
+    const linhasN = [
+      nota('24', '22:00', { texto: 'vomitou após mamar', categoria: 'Sintoma' }),
+      nota('25', '08:00', { texto: 'primeira vez que comeu pera', categoria: 'Marco' }),
+      nota('20', '08:00', { texto: 'fora do período' })
+    ];
+    const rel = montarRelatorio(ctxRel(linhasN, t('25', '12:00')), [...ordemRel, TIPOS.anotacao], 3);
+    igual(rel.anotacoes.map((a) => [a.categoria, a.texto]), [['Sintoma', 'vomitou após mamar'], ['Marco', 'primeira vez que comeu pera']]);
+    igual(rel.colunas.map((c) => c.tipo.id), []); // não entra no "Dia a dia"
+  });
+  teste('Família: só os marcos, nunca sintomas, e anotação não dá ponto', () => {
+    const linhasN = [
+      { ...nota('25', '08:00', { texto: 'primeira vez que comeu pera', categoria: 'Marco' }), quem: 'Vó Ana' },
+      { ...nota('25', '09:00', { texto: 'tossiu à noite', categoria: 'Sintoma' }), quem: 'Vó Ana' }
+    ];
+    const p = montarPlacar(ctxRel(linhasN, t('25', '12:00')), Object.values(TIPOS), 1);
+    igual(p.marcos.map((m) => m.texto), ['primeira vez que comeu pera']);
+    igual(p.total, 0);
+  });
+
+  // ---------------------------------------------------------------------
   grupo('Família participando');
   const rotinaF = ['alimentacao', 'sono', 'fralda', 'banho', 'febre', 'tylenol', 'vacina'].map((id) => TIPOS[id]);
   const de = (quem, l) => ({ ...l, quem });

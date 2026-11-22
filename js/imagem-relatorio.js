@@ -4,7 +4,7 @@
 // Usa os mesmos dados da tela (montarRelatorio); o gráfico é o mesmo SVG, convertido em imagem.
 
 import { chaveDia, fmtHora, fmtNumero } from './regras.js';
-import { diaCurto, graficoTemperatura, resumoTemperatura, dosesAntitermico, linhaPeriodo, colunasMedidas, quandoMedida } from './relatorio.js';
+import { diaCurto, graficoTemperatura, resumoTemperatura, dosesAntitermico, linhaPeriodo, colunasMedidas, quandoMedida, anotacoesPorDia } from './relatorio.js';
 import { COR, FONTE, FONTE_TITULO, fonte, quebrar, retanguloArredondado, bolinha, linhaH, escrever, medir, paraBlob } from './desenho.js';
 
 const LARGURA_MIN = 1080, LARGURA_MAX = 1560, ALTURA_MAX = 1600;
@@ -200,6 +200,34 @@ async function secaoTemperatura(rel, opcoes, largInterna) {
   return { titulo: 'Temperatura', blocos };
 }
 
+// ---- Anotações ----
+
+function secaoAnotacoes(rel, largInterna) {
+  if (!rel.anotacoes.length) return null;
+  const c = medir();
+  const colDia = 150, colHora = 80;
+  const largTexto = largInterna - colDia - colHora;
+  const blocos = [];
+  for (const [dia, lista] of anotacoesPorDia(rel)) {
+    lista.forEach((a, i) => {
+      const prefixo = a.categoria !== 'Outro' ? `${a.categoria}: ` : '';
+      c.font = fonte(400, 21);
+      const linhas = quebrar(c, `${prefixo}${a.texto}`, largTexto, 6);
+      const cor = a.categoria === 'Sintoma' ? COR.alerta : COR.texto;
+      blocos.push({
+        h: linhas.length * 29 + 12 + (i === 0 ? 8 : 0),
+        desenhar(cx, x, y0, w) {
+          const y = y0 + (i === 0 ? 8 : 0);
+          if (i === 0) { linhaH(cx, x, y0, w); escrever(cx, [diaCurto(dia)], x, y + 4, 29, COR.texto2, fonte(400, 21)); }
+          escrever(cx, [fmtHora(a.t)], x + colDia, y + 4, 29, COR.texto2, fonte(400, 21));
+          escrever(cx, linhas, x + colDia + colHora, y + 4, 29, cor, fonte(400, 21));
+        }
+      });
+    });
+  }
+  return { titulo: 'Anotações', blocos };
+}
+
 // ---- Medidas ----
 
 function secaoMedidas(rel, largInterna) {
@@ -308,7 +336,8 @@ export async function imagensRelatorio(rel, opcoes) {
   const hCab = MARGEM + 28 + 62 + periodo.length * 30 + 28;
   const hRod = 96;
 
-  const secoes = [secaoDias(rel, largInterna), await secaoTemperatura(rel, opcoes, largInterna), secaoRemedios(rel, largInterna), secaoMedidas(rel, largInterna)]
+  const secoes = [secaoDias(rel, largInterna), await secaoTemperatura(rel, opcoes, largInterna), secaoRemedios(rel, largInterna), secaoMedidas(rel, largInterna),
+    secaoAnotacoes(rel, largInterna)]
     .filter(Boolean);
   if (!secoes.length) {
     secoes.push({ titulo: 'Nenhum registro neste período.', blocos: [{ h: 0, desenhar() {} }] });

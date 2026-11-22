@@ -27,6 +27,9 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   `js/imagem-familia.js` → imagem para o grupo (nunca temperatura nem remédios); `js/desenho.js` → canvas comum
 - `js/grafico.js` → gráfico de evolução (SVG) para tipos com `evolucao(ctx)`, ex. `js/tipos/medidas.js` (peso em kg,
   altura e cabeça em cm; diferença desde a anterior; nunca comparar com curvas de crescimento)
+- `js/tipos/vacina.js` (próxima dose, aviso e lembrete), `js/tipos/consulta.js` (agendavel: marcada à frente) e
+  `js/tipos/anotacao.js` (Sintoma/Marco/Outro; só marcos vão para a família). Os lembretes de vacina e consulta no
+  Google Agenda são feitos pelo `Code.gs` (mesma regra do app, copiada lá)
 - `js/regras.js` → cálculos puros: tempo (fuso America/Sao_Paulo, 24h), leitura das linhas, `substitui_id`, planos, janelas, agenda
 - `js/tipos/index.js` → registro central; `js/tipos/<id>.js` → um arquivo por tipo de evento
 - `js/tipos/remedio.js` → remédios cadastrados em Ajustes (config `remedios`, JSON); cada um vira o tipo

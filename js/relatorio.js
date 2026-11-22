@@ -5,6 +5,7 @@
 
 import { chaveDia, somarDias, deDataHoraSP, fmtData, fmtHora, fmtNumero, numero } from './regras.js';
 import { MEDIDAS, valor as valorMedida, textoDiferencas } from './tipos/medidas.js';
+import { anotacoesEntre } from './tipos/anotacao.js';
 
 export const PERIODOS = [[1, 'Hoje'], [3, '3 dias'], [7, '7 dias'], [14, '14 dias']];
 export const PERIODO_PADRAO = 3;
@@ -16,6 +17,7 @@ const ehRemedio = (t) => !!t.remedio || ['amoxicilina', 'tylenol', 'vacina'].inc
  * tipos: na ordem em que devem aparecer (rotina, remédios, febre…). nDias: dias inteiros até hoje (hoje conta).
  * → { dias, inicio, fim, colunas: [{ tipo, celulas: [resumoDia|null por dia] }], temperaturas, limite, remedios, medidas }
  * medidas: as do período e, antes delas, a última anterior ao período (antes: true), para comparar.
+ * anotacoes: todas as do período (fase 17): [{ t, categoria, texto }].
  */
 export function montarRelatorio(ctx, tipos, nDias) {
   const hoje = chaveDia(ctx.agora);
@@ -26,7 +28,7 @@ export function montarRelatorio(ctx, tipos, nDias) {
   const visiveis = tipos.filter((t) => !t.interno);
 
   const colunas = visiveis
-    .filter((t) => t.resumoDia && t.id !== 'medidas') // medidas têm seção própria (com a anterior ao período)
+    .filter((t) => t.resumoDia && t.id !== 'medidas' && t.id !== 'anotacao') // têm seção própria
     .map((tipo) => ({ tipo, celulas: dias.map((d) => tipo.resumoDia(ctx, d) || null) }))
     .filter((c) => c.celulas.some(Boolean));
 
@@ -58,7 +60,9 @@ export function montarRelatorio(ctx, tipos, nDias) {
     }
   }
 
-  return { dias, inicio, fim, colunas, temperaturas, limite: ctx.numeroConfig('febre_limite_c') ?? LIMITE_FEBRE_PADRAO, remedios, medidas };
+  const anotacoes = visiveis.some((t) => t.id === 'anotacao') ? anotacoesEntre(ctx, inicio, fim) : [];
+
+  return { dias, inicio, fim, colunas, temperaturas, limite: ctx.numeroConfig('febre_limite_c') ?? LIMITE_FEBRE_PADRAO, remedios, medidas, anotacoes };
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +91,8 @@ export function htmlRelatorio(rel, opcoes) {
   const { nome, nDias, agora } = opcoes;
   const chips = PERIODOS.map(([n, rotulo]) =>
     `<button class="chip ${n === nDias ? 'chip--ativo' : ''}" data-acao="periodo-relatorio" data-dias="${n}" ${n === nDias ? 'aria-pressed="true"' : 'aria-pressed="false"'}>${esc(rotulo)}</button>`).join('');
-  const vazio = !rel.colunas.length && !rel.temperaturas.length && !rel.remedios.length && !rel.medidas.some((m) => !m.antes);
+  const vazio = !rel.colunas.length && !rel.temperaturas.length && !rel.remedios.length && !rel.medidas.some((m) => !m.antes) &&
+    !rel.anotacoes.length;
   return `
     <div class="relatorio">
       <div class="rel-barra nao-imprimir">
@@ -108,6 +113,7 @@ export function htmlRelatorio(rel, opcoes) {
       ${secaoTemperatura(rel, opcoes)}
       ${secaoRemedios(rel, agora)}
       ${secaoMedidas(rel)}
+      ${secaoAnotacoes(rel)}
       <p class="ajuda rel-nota">Feito a partir dos registros do app. Horários em 24h (Brasília).</p>
     </div>`;
 }
@@ -294,5 +300,36 @@ function secaoMedidas(rel) {
           <tbody>${linhas}</tbody>
         </table>
       </div>
+    </section>`;
+}
+
+/** Anotações agrupadas por dia: [[dia, [anotação...]]]. */
+export function anotacoesPorDia(rel) {
+  const grupos = new Map();
+  for (const a of rel.anotacoes) {
+    const dia = chaveDia(a.t);
+    if (!grupos.has(dia)) grupos.set(dia, []);
+    grupos.get(dia).push(a);
+  }
+  return [...grupos];
+}
+
+function secaoAnotacoes(rel) {
+  if (!rel.anotacoes.length) return '';
+  return `
+    <section class="cartao rel-secao">
+      <h3 class="rel-secao-titulo">Anotações</h3>
+      <dl class="rel-anotacoes">
+        ${anotacoesPorDia(rel).map(([dia, lista]) => `
+          <div>
+            <dt>${esc(diaCurto(dia))}</dt>
+            <dd><ul>${lista.map((a) => `
+              <li class="${a.categoria === 'Sintoma' ? 'rel-alto' : ''}">
+                <time>${esc(fmtHora(a.t))}</time>
+                ${a.categoria !== 'Outro' ? `<strong>${esc(a.categoria)}</strong>` : ''}
+                <span>${esc(a.texto)}</span>
+              </li>`).join('')}</ul></dd>
+          </div>`).join('')}
+      </dl>
     </section>`;
 }

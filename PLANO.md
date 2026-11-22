@@ -32,8 +32,8 @@ algo) dizem isso em "Você vai precisar".
 | 13 | Família participando (placar e ranking) | Alta | ✅ |
 | 14 | Peso e altura | Alta | ✅ |
 | 15 | Aviso de vacina | Alta | ✅ |
-| 16 | Consultas e retornos | Média | 🧪 |
-| 17 | Anotações livres | Baixa | ⬜ |
+| 16 | Consultas e retornos | Média | ✅ |
+| 17 | Anotações livres | Baixa | 🧪 |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -405,7 +405,7 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
 - **Salvar em PDF:** abre a impressão do celular, onde dá para escolher "Salvar como PDF". O PDF sai sempre claro e
   sem os botões, com o nome do bebê e o período. Os dias aparecem como "sex 20/11" (sem "hoje/ontem"), porque o PDF
   pode ser lido em outro dia.
-- As anotações livres entram aqui quando a fase 17 for feita.
+- As anotações livres entram aqui, numa seção própria (fase 17).
 
 **Ajuste pedido em 22/11 (feito):** **Enviar imagem.** Um botão ao lado de "Salvar em PDF" gera a imagem do
 relatório (do período escolhido, sempre clara) e abre o compartilhar do celular, para mandar direto no WhatsApp. Sem
@@ -553,11 +553,19 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 **O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço",
 "primeira vez que comeu pera"), com texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 12.
 
-**Você vai precisar:** nada.
+**Decidido no quiz (22/11):**
+- Botão **Anotações** na faixa de baixo (o último). **Nova anotação**: texto livre e um tipo opcional, **Sintoma**,
+  **Marco** ou **Outro** (sem escolher, fica Outro). Sintomas aparecem em destaque no Histórico.
+- **Relatório:** seção **Anotações** com todas as do período, por dia e hora, com o tipo (também no PDF e na imagem).
+- **Família:** a tela e a imagem do grupo ganham **Marcos** (só os marcos do período; sintomas e outras nunca
+  entram). Anotação não dá ponto no placar.
+
+**Você vai precisar:** nada (não mexe no Code.gs).
 
 **Como testar:**
 - [ ] Registrar uma anotação de ontem às 22h: aparece no lugar certo do Histórico.
-- [ ] O filtro "Anotação" mostra só as anotações.
+- [ ] O filtro "Anotações" mostra só as anotações.
+- [ ] Uma anotação de Sintoma e uma de Marco no período: as duas no Relatório; só o marco na imagem da família.
 
 ---
 
@@ -597,6 +605,9 @@ aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card 
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 17 (feita): `js/tipos/anotacao.js` (dados: texto, categoria). `anotacoesEntre(ctx, inicio, fim, so?)` é usada
+  pelo `montarRelatorio` (`anotacoes`, seção própria, fora do "Dia a dia") e pelo `montarPlacar` (`marcos`).
+  Sem mudança no Code.gs.
 - Fase 16 (feita): `js/tipos/consulta.js`. O contrato de tipo ganhou `agendavel` (formulário com Amanhã e datas
   futuras, sem o aviso de horário no futuro; no Histórico só depois da hora, antes disso no cartão "Marcadas"),
   `tituloNovo`, o campo `textolongo` e, em `proximos`, `alemDe24h` (o `montarAgenda` aceita além das 24h).

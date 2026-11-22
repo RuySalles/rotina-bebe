@@ -45,12 +45,13 @@ import banho from './banho.js';
 import vacina from './vacina.js';
 import medidas from './medidas.js';
 import consulta from './consulta.js';
+import anotacao from './anotacao.js';
 
 import ajuste from './ajuste.js';
 import { lerRemedios, criarTipoRemedio } from './remedio.js';
 
 /** Tipos fixos (os que estão no código). */
-export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas];
+export const LISTA_TIPOS = [amoxicilina, tylenol, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas, anotacao];
 
 export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
 
@@ -61,7 +62,7 @@ export const TIPOS = Object.fromEntries(LISTA_TIPOS.map((t) => [t.id, t]));
  */
 export function montarTipos(config = {}) {
   const remedios = lerRemedios(config).map(criarTipoRemedio);
-  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas];
+  const todos = [amoxicilina, tylenol, ...remedios, alimentacao, febre, sono, fralda, banho, vacina, consulta, medidas, anotacao];
   return {
     todos,
     visiveis: todos.filter((t) => !t.remedio || t.remedio.ativo),

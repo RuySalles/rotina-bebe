@@ -561,14 +561,14 @@ function linhaFaixa(tipo) {
 
 /**
  * Ordem dos tipos nas listas (faixa, filtros): rotina, tratamentos em andamento, febre, "só se precisar", vacinas,
- * consultas, medidas.
+ * consultas, medidas, anotações.
  * Encerrados (remédio encerrado ou tratamento concluído) por último.
  */
 function pesoTipo(t) {
   if (t.rotina) return 0;
   if (t.remedio ? !t.remedio.ativo : t.naInicio && !t.naInicio(ctx)) return 5;
   if (t.id === 'febre') return 2;
-  if (t.id === 'vacina' || t.id === 'consulta' || t.id === 'medidas') return 4;
+  if (t.id === 'vacina' || t.id === 'consulta' || t.id === 'medidas' || t.id === 'anotacao') return 4;
   if (t.id === 'tylenol' || t.remedio?.modo === 'se_precisar') return 3;
   return 1;
 }

@@ -1178,6 +1178,16 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .graf-titulo { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--texto-2); }
 .graf-rotulo--leve { font-size: 12px; font-weight: 600; }
 .rel-tabela td.rel-antes, .rel-tabela th.rel-antes { color: var(--texto-2); }
+/* Anotações no Relatório (fase 17) */
+.rel-anotacoes { margin: 0; display: grid; gap: 0.625rem; font-size: 0.875rem; }
+.rel-anotacoes > div { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.5rem; }
+.rel-anotacoes dt { color: var(--texto-2); }
+.rel-anotacoes dd { margin: 0; }
+.rel-anotacoes ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.rel-anotacoes li { color: var(--texto); }
+.rel-anotacoes time { color: var(--texto-2); font-variant-numeric: tabular-nums; margin-right: 0.375rem; }
+.rel-anotacoes strong { font-weight: 650; margin-right: 0.25rem; }
+.rel-anotacoes li.rel-alto strong { color: var(--alerta); }
 
 /* ---------------------------------------------------------------------------
    Família participando (fase 13)

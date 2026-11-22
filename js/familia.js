@@ -3,8 +3,9 @@
 // remédio, febre e vacina nunca dão ponto, para não incentivar dose a mais nem registro repetido.
 // O ponto é de quem fez o registro original (`autor`); corrigido continua com ele; desfeito ou apagado não conta.
 
-import { chaveDia, somarDias, deDataHoraSP } from './regras.js';
+import { chaveDia, somarDias, deDataHoraSP, fmtData } from './regras.js';
 import { temLeite } from './tipos/alimentacao.js';
+import { anotacoesEntre } from './tipos/anotacao.js';
 
 export const GRUPOS = [
   { id: 'mae', rotulo: 'Mãe', cor: '#2F6F6A' },
@@ -41,7 +42,8 @@ export function porcentagens(contagens) {
 /**
  * tiposRotina: os tipos que dão ponto (tipo.rotina). nDias: dias inteiros até hoje (hoje conta), como no Relatório.
  * → { dias, inicio, fim, total, grupos: [{ id, rotulo, cor, pontos, pct }], ranking: [{ nome, pontos }],
- *     numeros: [{ id, n, rotulo }] }
+ *     numeros: [{ id, n, rotulo }], marcos: [{ t, texto }] }
+ * marcos (fase 17): anotações do tipo Marco do período. Sintomas e outras anotações nunca entram aqui.
  */
 export function montarPlacar(ctx, tiposRotina, nDias) {
   const hoje = chaveDia(ctx.agora);
@@ -88,7 +90,8 @@ export function montarPlacar(ctx, tiposRotina, nDias) {
     dias, inicio, fim, total,
     grupos: GRUPOS.map((g) => ({ ...g, pontos: contagem[g.id], pct: pct[g.id] })),
     ranking,
-    numeros
+    numeros,
+    marcos: anotacoesEntre(ctx, inicio, fim, 'Marco').map(({ t, texto }) => ({ t, texto }))
   };
 }
 
@@ -159,7 +162,8 @@ export function htmlPlacar(p, { nome, nDias, periodos, periodo }) {
         <h3 class="rel-secao-titulo">Ranking da família</h3>
         ${ranking}
       </section>
+      ${p.marcos.length ? `<section class="cartao rel-secao"><h3 class="rel-secao-titulo">Marcos</h3><ul class="placar-marcos">${p.marcos.map((m) => `<li><time>${esc(fmtData(m.t))}</time> ${esc(m.texto)}</li>`).join('')}</ul></section>` : ''}
       ${numeros ? `<section class="cartao rel-secao"><h3 class="rel-secao-titulo">No período</h3><ul class="placar-numeros">${numeros}</ul></section>` : ''}
-      <p class="ajuda rel-nota">${esc(NOTA_PONTOS)} A imagem para a família não mostra temperatura nem remédios.</p>
+      <p class="ajuda rel-nota">${esc(NOTA_PONTOS)} A imagem para a família não mostra temperatura, remédios nem sintomas (das anotações, só os marcos).</p>
     </div>`;
 }

@@ -23,7 +23,7 @@ algo) dizem isso em "Você vai precisar".
 | 4 | Sincronização mais rápida | ✅ |
 | 5 | Rotina em primeiro lugar na tela inicial | ✅ |
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
-| 7 | Alimentação: leite, fruta ou refeição | 🧪 |
+| 7 | Alimentação: leite, fruta ou refeição | ✅ |
 | 8 | Previsões de sono e de leite | ⬜ |
 | 9 | Abrir o app sem internet | ⬜ |
 | 10 | Alertas no celular pelo Google Agenda | ⬜ |

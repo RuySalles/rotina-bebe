@@ -15,24 +15,24 @@ algo) dizem isso em "Você vai precisar".
 
 **Situação:** ⬜ pendente · 🔄 em andamento · 🧪 publicada, aguardando seu teste · ✅ aprovada
 
-| Fase | Melhoria | Situação |
-|---|---|---|
-| 1 | Desfazer logo depois de registrar | ✅ |
-| 2 | Remédio novo sem precisar de programação | ✅ |
-| 3 | Histórico de ajustes (quem mudou o quê, com volta) | ✅ |
-| 4 | Sincronização mais rápida | ✅ |
-| 5 | Rotina em primeiro lugar na tela inicial | ✅ |
-| 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
-| 7 | Alimentação: leite, fruta ou refeição | ✅ |
-| 8 | Previsões de sono e de leite | ✅ |
-| 9 | Abrir o app sem internet | ✅ |
-| 10 | Alertas no celular pelo Google Agenda | ✅ |
-| 11 | Esconder e reordenar botões | ✅ |
-| 12 | Relatório para a consulta | 🧪 |
-| 13 | Consultas e retornos | ⬜ |
-| 14 | Peso e altura | ⬜ |
-| 15 | Aviso de vacina | ⬜ |
-| 16 | Anotações livres | ⬜ |
+| Fase | Melhoria | Prioridade | Situação |
+|---|---|---|---|
+| 1 | Desfazer logo depois de registrar | — | ✅ |
+| 2 | Remédio novo sem precisar de programação | — | ✅ |
+| 3 | Histórico de ajustes (quem mudou o quê, com volta) | — | ✅ |
+| 4 | Sincronização mais rápida | — | ✅ |
+| 5 | Rotina em primeiro lugar na tela inicial | — | ✅ |
+| 6 | Organização das 3 abas (Início, Histórico, Ajustes) | — | ✅ |
+| 7 | Alimentação: leite, fruta ou refeição | — | ✅ |
+| 8 | Previsões de sono e de leite | — | ✅ |
+| 9 | Abrir o app sem internet | — | ✅ |
+| 10 | Alertas no celular pelo Google Agenda | — | ✅ |
+| 11 | Esconder e reordenar botões | — | ✅ |
+| 12 | Relatório para a consulta | — | 🧪 |
+| 13 | Peso e altura | Alta | ⬜ |
+| 14 | Aviso de vacina | Alta | ⬜ |
+| 15 | Consultas e retornos | Média | ⬜ |
+| 16 | Anotações livres | Baixa | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -40,8 +40,9 @@ iniciados duas vezes (um celular ainda não sabia do outro); e a pergunta do dia
 comer?". Por isso entraram as fases 4 a 8. A antiga "App leve depois de muitos meses" virou parte da fase 4 e a antiga
 "Mamada completa" (peito, lado) virou a fase 7, porque a alimentação é por mamadeira e sólidos.
 
-**22/11, depois da fase 11:** "Anotações livres" saiu da fila (não é prioridade agora) e foi para o fim, como fase 16;
-as fases seguintes subiram um número.
+**Replanejamento de 22/11 (depois da fase 12):** cada fase pendente ganhou uma prioridade (alta, média, baixa) e a
+fila segue essa ordem: primeiro Peso e altura e Aviso de vacina (alta), depois Consultas (média) e por último Anotações
+livres (baixa). Antes disso, "Anotações livres" já tinha ido para o fim. Nenhuma fase ganhou itens novos nesta revisão.
 
 ---
 
@@ -414,22 +415,9 @@ Fralda, Banho) e **Remédios e saúde** (a faixa de baixo). Cada item tem **Most
 
 ---
 
-## Fase 13 — Consultas e retornos
+## Fase 13 — Peso e altura · prioridade alta
 
-**O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
-aparecem em "Próximas 24 horas" quando estiverem perto, e no card PRÓXIMO no dia.
-
-**Você vai precisar:** nada.
-
-**Como testar:**
-- [ ] Cadastrar uma consulta para amanhã: aparece na linha do tempo.
-- [ ] Depois da data, ela vai para o Histórico.
-
----
-
-## Fase 14 — Peso e altura
-
-**O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico.
+**O que muda:** um tipo **Medidas** (peso, altura, perímetro da cabeça, todos opcionais), com a evolução num gráfico, e as medidas do período entram no Relatório.
 Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
 **Você vai precisar:** nada.
@@ -440,21 +428,34 @@ Sem comparar com curvas de crescimento: isso fica com o pediatra.
 
 ---
 
-## Fase 15 — Aviso de vacina
+## Fase 14 — Aviso de vacina · prioridade alta
 
 **O que muda:** ao registrar uma vacina, dá para anotar a **data da próxima dose** (como está na caderneta). Perto da
-data, ela aparece na linha do tempo e no botão de Vacinas. O app não calcula o calendário sozinho, para não arriscar
+data, ela aparece no botão de Vacinas e no card PRÓXIMO. O app não calcula o calendário sozinho, para não arriscar
 orientação errada.
 
 **Você vai precisar:** nada.
 
 **Como testar:**
-- [ ] Registrar uma vacina com próxima dose daqui a 2 dias: aparece no botão e, no dia, na linha do tempo.
+- [ ] Registrar uma vacina com próxima dose daqui a 2 dias: aparece no botão e, no dia, no card PRÓXIMO.
 - [ ] Vacinas antigas continuam iguais.
 
 ---
 
-## Fase 16 — Anotações livres
+## Fase 15 — Consultas e retornos · prioridade média
+
+**O que muda:** um tipo **Consulta** com data, hora, local e motivo (ex. retorno com o pediatra). Consultas futuras
+aparecem nas linhas "Depois" do card PRÓXIMO quando estiverem perto, e no card PRÓXIMO no dia.
+
+**Você vai precisar:** nada.
+
+**Como testar:**
+- [ ] Cadastrar uma consulta para amanhã: aparece em "Depois" no card PRÓXIMO.
+- [ ] Depois da data, ela vai para o Histórico.
+
+---
+
+## Fase 16 — Anotações livres · prioridade baixa
 
 **O que muda:** um tipo **Anotação** para sintomas e acontecimentos ("vomitou após mamar", "manchinha no braço",
 "primeira vez que comeu pera"), com texto livre. Aparece no Histórico, com filtro, e entra no relatório da fase 12.

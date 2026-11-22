@@ -3,7 +3,7 @@ import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois,
   mediana, ritmoSono, preverSono, ritmoLeite, preverLeite, textoHoraDecimal,
-  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto
 } from '../js/regras.js';
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
@@ -14,6 +14,7 @@ import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 import { papel, porcentagens, montarPlacar } from '../js/familia.js';
 import { fmtPeso, fmtCm, textoDiferencas, serie } from '../js/tipos/medidas.js';
 import { pendentes, avisosVacina, nomePendente } from '../js/tipos/vacina.js';
+import { diasParaMedia, numerosDoDia, resumoPeriodo, blocosResumo, comparar, seriesRelatorio, maiorSemCoco } from '../js/resumo.js';
 
 export function igual(obtido, esperado, msg = '') {
   const a = JSON.stringify(obtido), b = JSON.stringify(esperado);
@@ -1007,6 +1008,63 @@ export function casos({ grupo, teste }) {
     const p = montarPlacar(ctxRel(linhasN, t('25', '12:00')), Object.values(TIPOS), 1);
     igual(p.marcos.map((m) => m.texto), ['primeira vez que comeu pera']);
     igual(p.total, 0);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Resumo para a pediatra');
+  // 20/10 a 25/10 (25 ao meio-dia = agora). Leite: 4 x 150 por dia; fraldas: 5 por dia, cocô só nos dias 20 e 23.
+  const linhasR18 = [];
+  for (const d of ['20', '21', '22', '23', '24', '25']) {
+    for (const h of ['06:00', '10:00', '14:00', '18:00']) if (d !== '25' || h < '12:00') linhasR18.push(linha('alimentacao', T(d, h), { itens: ['leite'], ml: 150 }));
+    for (const h of ['07:00', '09:00', '11:00', '15:00', '19:00']) if (d !== '25' || h < '12:00') linhasR18.push(linha('fralda', T(d, h), { conteudo: (d === '20' || d === '23') && h === '09:00' ? 'Cocô' : 'Xixi' }));
+  }
+  linhasR18.push(
+    linha('febre', T('22', '20:00'), { temperatura: 38.5 }), linha('febre', T('23', '06:00'), { temperatura: 38.1 }),
+    linha('febre', T('23', '14:00'), { temperatura: 37.2 }), linha('tylenol', T('22', '20:10'), { dose: '1,5 mL' }),
+    linha('medidas', T('01', '10:00'), { peso: 6.5 }), linha('medidas', T('21', '10:00'), { peso: 7.0, altura: 66 }),
+    linha('anotacao', T('24', '10:00'), { texto: 'Pode dar água?', categoria: 'Pergunta' }),
+    linha('anotacao', T('21', '10:00'), { texto: 'Rolou sozinho', categoria: 'Marco' })
+  );
+  const ctxR18 = ctxRel(linhasR18, t('25', '12:00'));
+  const ini18 = t('20', '00:00'), fim18 = t('25', '12:00');
+  teste('Médias por dia só com dias inteiros (hoje fica de fora)', () => {
+    igual(diasParaMedia(ini18, fim18), ['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24']);
+    igual(diasParaMedia(t('25', '00:00'), fim18), ['2026-10-25']);
+    igual(numerosDoDia(ctxR18, '2026-10-23'), { ml: 600, mamadeiras: 4, refeicoes: 0, frutas: 0, sonoMin: 0, trocas: 5, cocos: 1 });
+  });
+  teste('Resumo do período: leite, fraldas, maior intervalo sem cocô, febre, remédios, dúvidas', () => {
+    const r = resumoPeriodo(ctxR18, Object.values(TIPOS), ini18, fim18);
+    igual([r.alimentacao.mlDia, r.alimentacao.mamadeirasDia], [600, 4]);
+    igual([r.fraldas.trocasDia, r.fraldas.cocosDia], [5, 0.4]);
+    igual([Math.round(r.fraldas.maiorSemCoco.horas), r.fraldas.maiorSemCoco.emAberto], [72, false]); // 20 09:00 → 23 09:00
+    const aberto = maiorSemCoco(ctxR18, t('24', '00:00'), fim18);
+    igual([Math.round(aberto.horas), aberto.emAberto], [51, true]); // 23 09:00 → agora, ainda sem
+    igual(r.febre.episodios.map((e) => [e.max, e.medicoes]), [[38.5, 2]]);
+    igual(r.remedios.map((m) => [m.id, m.doses]), [['tylenol', 1]]);
+    igual(r.perguntas.map((p) => p.texto), ['Pode dar água?']);
+    igual(r.crescimento.map((m) => [m.id, m.atual.v, m.anterior && m.anterior.v, m.dias]), [['peso', 7, 6.5, 20], ['altura', 66, null, null]]);
+  });
+  teste('Blocos do resumo: ganho de peso por dia, seta só com mudança de 10% ou mais', () => {
+    const r = resumoPeriodo(ctxR18, Object.values(TIPOS), ini18, fim18);
+    const ant = { ...r, alimentacao: { ...r.alimentacao, mlDia: 500 }, fraldas: { ...r.fraldas, cocosDia: 0.42 } };
+    const blocos = blocosResumo(r, ant);
+    igual(blocos.map((b) => b.id), ['crescimento', 'alimentacao', 'fraldas', 'intercorrencias', 'vacinas']);
+    igual(blocos[0].linhas[0], { rotulo: 'Peso', valor: '7,00 kg', detalhe: '+500 g em 20 dias · ~25 g por dia · medido em 21/10' });
+    igual(blocos[1].linhas[0].comparacao, { seta: '↑', antes: '500 mL' });
+    igual(blocos[2].linhas[0].comparacao, null); // 0,40 x 0,42: menos de 10%
+    igual(blocos[3].linhas[0].valor, '1 episódio');
+    igual(comparar(100, 0, String), null);
+    // Período anterior com registros em menos de 70% dos dias: não compara.
+    igual(blocosResumo(r, { ...ant, cobertura: 0.3 })[1].linhas[0].comparacao, null);
+  });
+  teste('Gráficos: por dia até 14 dias; por semana em 30 dias', () => {
+    igual(seriesRelatorio(ctxR18, ini18, fim18).map((s) => [s.id, s.pontos.length]), [['leite', 5], ['cocos', 5], ['peso', 2]]);
+    // 30 dias: leite e cocôs viram 1 ponto por semana; com dados numa semana só, não há linha (fica só o peso).
+    igual(seriesRelatorio(ctxR18, t('25', '00:00') - 29 * 86400000, fim18).map((s) => s.id), ['peso']);
+  });
+  teste('Idade a partir da data de nascimento', () => {
+    igual(['2026-10-13', '2026-05-13', '2026-05-31', '2025-08-25', '2026-11-01'].map((n) => idadeTexto(n, t('25', '12:00'))),
+      ['12 dias', '5 meses e 12 dias', '4 meses e 25 dias', '1 ano e 2 meses', '']);
   });
 
   // ---------------------------------------------------------------------

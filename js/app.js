@@ -6,16 +6,16 @@ import { lerRemedios, corPara, MODOS, HORA_REF_PADRAO, horaValida } from './tipo
 import { descreverAjuste } from './tipos/ajuste.js';
 import { ritmoDoSono } from './tipos/sono.js';
 import { ritmoDoLeite } from './tipos/alimentacao.js';
-import { montarRelatorio, htmlRelatorio, textoPeriodo, PERIODO_PADRAO, PERIODOS } from './relatorio.js';
+import { montarRelatorio, htmlRelatorio, textoPeriodo, resolverPeriodo, PERIODO_PADRAO } from './relatorio.js';
 import { imagensRelatorio } from './imagem-relatorio.js';
-import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA } from './familia.js';
+import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA, PERIODOS_FAMILIA } from './familia.js';
 import { imagemFamilia } from './imagem-familia.js';
 import { graficoEvolucao } from './grafico.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
   numero, fmtNumero, ms, isoSP, horaDepois, fmtDuracao, textoHoraDecimal, RITMO_DIAS, minutos5,
-  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto
 } from './regras.js';
 
 const app = document.getElementById('app');
@@ -28,7 +28,7 @@ let vista = 'inicio';
 let filtroHistorico = '';
 let urlDoConfig = '';
 let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
-let diasRelatorio = PERIODO_PADRAO; // período do Relatório (dias inteiros até hoje)
+let diasRelatorio = PERIODO_PADRAO; // período do Relatório: 'consulta' (desde a última consulta) ou dias até hoje
 let diasFamilia = PERIODO_FAMILIA; // período do placar da família
 
 // Tipos fixos + remédios cadastrados em Ajustes; recalculados a cada contexto().
@@ -738,7 +738,7 @@ function vistaFamilia() {
   return htmlPlacar(p, {
     nome: String(estado.config.nome_bebe || '').trim(),
     nDias: diasFamilia,
-    periodos: PERIODOS,
+    periodos: PERIODOS_FAMILIA,
     periodo: textoPeriodo(p)
   });
 }
@@ -755,20 +755,36 @@ function compartilharFamilia(botao) {
 }
 
 /** Relatório para a consulta (js/relatorio.js): período à escolha, para mostrar no celular ou salvar em PDF. */
-function vistaRelatorio() {
-  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
-  return htmlRelatorio(rel, {
+/** Relatório do período escolhido e as opções de desenho (as mesmas para a tela, o PDF e a imagem). */
+function relatorioAtual() {
+  const periodo = resolverPeriodo(ctx, diasRelatorio);
+  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), periodo.nDias);
+  const opcoes = {
     nome: String(estado.config.nome_bebe || '').trim(),
-    nDias: diasRelatorio,
+    idade: idadeTexto(estado.config.nascimento, ctx.agora),
+    escolha: diasRelatorio,
+    nDias: periodo.nDias,
+    consulta: periodo.consulta,
     agora: ctx.agora,
     tipoFebre: TIPOS.febre,
-    tipoAntitermico: TIPOS.tylenol
-  });
+    tipoAntitermico: TIPOS.tylenol,
+    cores: { leite: TIPOS.alimentacao.cor, sono: TIPOS.sono.cor, cocos: TIPOS.fralda.cor, peso: TIPOS.medidas.cor }
+  };
+  return { rel, opcoes };
+}
+
+function vistaRelatorio() {
+  const { rel, opcoes } = relatorioAtual();
+  return htmlRelatorio(rel, opcoes);
 }
 
 /** Abre a impressão do navegador (onde dá para "Salvar como PDF"), com um nome de arquivo que diz o período. */
 function imprimirRelatorio() {
-  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
+  const { rel } = relatorioAtual();
+  // O PDF leva tudo: abre os "Detalhes" só durante a impressão.
+  const fechados = [...document.querySelectorAll('[data-detalhes]:not([open])')];
+  fechados.forEach((d) => { d.open = true; });
+  window.addEventListener('afterprint', () => fechados.forEach((d) => { d.open = false; }), { once: true });
   const nome = String(estado.config.nome_bebe || '').trim().split(/\s+/)[0];
   const antes = document.title;
   document.title = `Relatório ${nome} ${textoPeriodo(rel)}`.replace(/\//g, '-').replace(/\s+/g, ' ').trim();
@@ -783,15 +799,13 @@ function imprimirRelatorio() {
 
 /** Relatório como imagem (js/imagem-relatorio.js): 1 a 3 imagens, para o médico ou quem cuida junto. */
 function compartilharRelatorio(botao) {
-  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), diasRelatorio);
+  const { rel, opcoes } = relatorioAtual();
   const nomeBebe = String(estado.config.nome_bebe || '').trim();
   return compartilharImagens(botao, {
     chave: `relatorio|${diasRelatorio}`,
     titulo: `Relatório ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(rel)}`,
     planoB: 'Use "Salvar em PDF".',
-    gerar: () => imagensRelatorio(rel, {
-      nome: nomeBebe, nDias: diasRelatorio, agora: ctx.agora, tipoFebre: TIPOS.febre, tipoAntitermico: TIPOS.tylenol
-    })
+    gerar: () => imagensRelatorio(rel, opcoes)
   });
 }
 
@@ -918,7 +932,7 @@ function vistaAjustes() {
   const emUso = remediosNaLista().emUso.length;
   return `
     <div class="blocos ajustes">
-      ${bloco('bebe', cabecaBloco('Bebê', [nome || 'Sem nome', `febre a partir de ${limite} °C`].join(' · ')), formBebe())}
+      ${bloco('bebe', cabecaBloco('Bebê', [nome || 'Sem nome', idadeTexto(c.nascimento, ctx.agora), `febre a partir de ${limite} °C`].filter(Boolean).join(' · ')), formBebe())}
       ${bloco('remedios', cabecaBloco('Remédios', emUso === 1 ? '1 em uso' : `${emUso} em uso`), conteudoRemedios())}
       ${bloco('inicio', cabecaBloco('Tela inicial', resumoBotoesInicio()), conteudoBotoesInicio())}
       ${bloco('historico-ajustes', cabecaBloco('Histórico de ajustes', ultimoAjuste
@@ -941,6 +955,11 @@ function formBebe() {
       <label class="campo">
         <span>Nome do bebê</span>
         <input name="nome_bebe" maxlength="40" autocomplete="off" value="${esc(c.nome_bebe || '')}" placeholder="O primeiro nome aparece no topo da tela">
+      </label>
+      <label class="campo">
+        <span>Data de nascimento</span>
+        <input name="nascimento" type="date" max="${chaveDia(Date.now())}" value="${esc(/^\d{4}-\d{2}-\d{2}$/.test(c.nascimento || '') ? c.nascimento : '')}">
+        <small>Para mostrar a idade no Relatório para a consulta.</small>
       </label>
       <label class="campo">
         <span>Febre a partir de (°C)</span>
@@ -1383,7 +1402,7 @@ function salvarFormAjustes(form) {
   const tipoForm = form.dataset.form;
   if (tipoForm === 'config') {
     // Cada bloco de Ajustes tem só alguns campos: grava só os que estão neste formulário.
-    const CHAVES = ['nome_bebe', 'febre_limite_c', 'tylenol_max_24h', 'tylenol_apresentacao', 'tylenol_dose_ml',
+    const CHAVES = ['nome_bebe', 'nascimento', 'febre_limite_c', 'tylenol_max_24h', 'tylenol_apresentacao', 'tylenol_dose_ml',
       'tylenol_dose_gotas', 'amoxicilina_dose_ml', 'amoxicilina_frasco_preparado'];
     const valores = {};
     for (const chave of CHAVES) if (form.elements[chave]) valores[chave] = String(form.elements[chave].value ?? '').trim();
@@ -1402,6 +1421,9 @@ function salvarFormAjustes(form) {
     const preparo = valores.amoxicilina_frasco_preparado;
     if (preparo && (!/^\d{4}-\d{2}-\d{2}$/.test(preparo) || preparo > chaveDia(Date.now()))) {
       return toast('Confira a data em que o frasco foi preparado');
+    }
+    if (valores.nascimento && (!/^\d{4}-\d{2}-\d{2}$/.test(valores.nascimento) || valores.nascimento > chaveDia(Date.now()))) {
+      return toast('Confira a data de nascimento');
     }
     if (valores.febre_limite_c && (numero(valores.febre_limite_c) === null || numero(valores.febre_limite_c) < 36 || numero(valores.febre_limite_c) > 40)) {
       return toast('Confira o limite de febre (ex.: 37,8)');

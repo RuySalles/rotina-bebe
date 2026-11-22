@@ -21,7 +21,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   arquivos de `v/<sha>/`. Não registra em "dev". Para testar: monte em `_site` e use a configuração "site-montado".
 - `js/app.js` → telas e navegação (só fala com `store.js` e `regras.js`)
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
-- `js/relatorio.js` → Relatório para a consulta (dados puros + HTML/SVG); aberto pelo Histórico, PDF via impressão
+- `js/relatorio.js` → Relatório para a consulta (dados puros + HTML/SVG); aberto pelo Histórico, PDF via impressão.
+  O "Em resumo" e os gráficos vêm de `js/resumo.js` (puro): só compara com o próprio bebê no período anterior
 - `js/imagem-relatorio.js` → o mesmo relatório desenhado em canvas (1 a 3 imagens) para o compartilhar do celular
 - `js/familia.js` → placar da família (só rotina conta; ponto do `autor`, quem registrou primeiro) + HTML da tela;
   `js/imagem-familia.js` → imagem para o grupo (nunca temperatura nem remédios); `js/desenho.js` → canvas comum

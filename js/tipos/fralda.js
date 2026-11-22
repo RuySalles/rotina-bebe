@@ -2,7 +2,7 @@ import { fmtHora, fmtData, chaveDia, rotuloDia } from '../regras.js';
 
 const OPCOES = ['Xixi', 'Cocô', 'Os dois'];
 
-const temCoco = (dados) => dados.conteudo === 'Cocô' || dados.conteudo === 'Os dois';
+export const temCoco = (dados) => dados.conteudo === 'Cocô' || dados.conteudo === 'Os dois';
 
 const quando = (t, agora) => {
   const rot = rotuloDia(chaveDia(t), agora);

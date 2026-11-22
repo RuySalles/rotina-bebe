@@ -34,7 +34,7 @@ algo) dizem isso em "Você vai precisar".
 | 15 | Aviso de vacina | Alta | ✅ |
 | 16 | Consultas e retornos | Média | ✅ |
 | 17 | Anotações livres | Baixa | ✅ |
-| 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | 🔄 |
+| 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | 🧪 |
 | 19 | Aba Resumo (Histórico só com a lista) | Alta | ⬜ |
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ⬜ |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ⬜ |
@@ -616,13 +616,28 @@ dia. O relatório de hoje é bom para conferir, mas ruim para apresentar.
   medições de temperatura e as doses.
 - A imagem para o WhatsApp e o PDF começam pelo resumo (a primeira imagem é o resumo inteiro).
 
-**A decidir no começo da fase (quiz):** quais linhas do resumo entram, a forma da comparação com o período anterior,
-e se os detalhes vão para o PDF ou só para a tela.
+**Decidido no quiz (22/11):**
+- Abre em **"Desde a consulta"** (a última consulta antes de hoje; sem consulta registrada, 30 dias). Também 7, 30 e
+  60 dias.
+- O "Em resumo" tem os quatro grupos: crescimento e alimentação; sono e fraldas; intercorrências e vacinas; dúvidas
+  e marcos.
+- **Comparação:** seta só quando mudou 10% ou mais (ex. "900 mL por dia ↑ antes 780 mL"). Ela também só aparece se o
+  período anterior tem registros em pelo menos 70% dos dias (com poucos registros, a comparação enganaria).
+- **PDF com tudo; imagem só com resumo e gráficos** (2 gráficos por linha, normalmente 2 ou 3 imagens).
+
+**Como ficou (além do quiz):**
+- **Ajustes → Bebê → Data de nascimento**: a idade aparece no topo do relatório e no Ajustes ("5 meses e 12 dias").
+- **Anotações** ganharam o tipo **Pergunta**: as do período vão para "Dúvidas para a consulta", no topo.
+- Gráficos de leite, sono e cocôs começam do zero, para uma variação pequena não parecer grande; o de peso não.
+- Em "Detalhes", a tabela dia a dia mostra no máximo os últimos 14 dias (em 30 e 60 dias, a visão por semana são os
+  gráficos). No PDF, os detalhes começam numa página nova.
+- O placar da família ganhou períodos próprios: Hoje, 7 dias e 30 dias ("Rotina do mês").
 
 **Você vai precisar:** preencher a data de nascimento em Ajustes → Bebê.
 
 **Como testar:**
-- [ ] Relatório → "Desde a última consulta": o período começa no dia da última consulta registrada.
+- [ ] Ajustes → Bebê → preencher a data de nascimento: a idade aparece no topo do relatório.
+- [ ] Relatório → "Desde a consulta": o período começa no dia da última consulta registrada.
 - [ ] O resumo cabe numa tela do celular e bate com o Histórico (conferir leite e fraldas de 2 dias).
 - [ ] 60 dias: os gráficos são por semana e a tabela de detalhes fica recolhida.
 - [ ] Uma anotação do tipo Pergunta aparece no topo do relatório.
@@ -728,6 +743,12 @@ não quiser pode esconder (Ajustes → Tela inicial).
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 18 (feita): `js/resumo.js` (puro, com testes): `resumoPeriodo(ctx, tipos, inicio, fim)` (médias só com dias
+  inteiros, `cobertura`), `blocosResumo(r, anterior)` (as linhas do "Em resumo", as mesmas na tela e na imagem),
+  `seriesRelatorio` (por dia até 14 dias, por semana depois) e `comparar`. `montarRelatorio` devolve também
+  `resumo`, `anterior`, `series` e `diasTabela`; `resolverPeriodo(ctx, 'consulta' | dias)`. Config nova
+  `nascimento` (AAAA-MM-DD) e `idadeTexto` em `regras.js`. `graficoEvolucao` ganhou `desdeZero`. Sem mudança no
+  Code.gs (a config aceita chaves novas).
 - Fase 17 (feita): `js/tipos/anotacao.js` (dados: texto, categoria). `anotacoesEntre(ctx, inicio, fim, so?)` é usada
   pelo `montarRelatorio` (`anotacoes`, seção própria, fora do "Dia a dia") e pelo `montarPlacar` (`marcos`).
   Sem mudança no Code.gs.

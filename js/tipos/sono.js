@@ -29,7 +29,7 @@ function fimEfetivo(e, ctx) {
 }
 
 /** Minutos de sono dentro do dia (conta o pedaço que passa da meia-noite no dia certo). */
-function minutosNoDia(ctx, dia) {
+export function minutosNoDia(ctx, dia) {
   const [inicio, fim] = limitesDia(dia);
   return ctx.doTipo('sono').reduce((soma, e) => soma + minutosDentro(e.t, fimEfetivo(e, ctx), inicio, fim), 0);
 }

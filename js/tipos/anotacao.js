@@ -3,7 +3,7 @@
 
 import { fmtData, fmtHora, chaveDia } from '../regras.js';
 
-export const CATEGORIAS = ['Sintoma', 'Marco', 'Outro'];
+export const CATEGORIAS = ['Sintoma', 'Marco', 'Pergunta', 'Outro']; // Pergunta: dúvida para a próxima consulta (vai para o topo do relatório)
 
 /** Sem tipo escolhido conta como Outro. */
 export const categoria = (dados) => (CATEGORIAS.includes(dados?.categoria) ? dados.categoria : 'Outro');
@@ -26,7 +26,7 @@ export default {
   tituloNovo: 'Nova anotação',
   cor: '#7A7F3A',
   icone: '<svg viewBox="0 0 24 24"><path d="M5.5 4h9l4 4v11.5a.5.5 0 0 1-.5.5H5.5a.5.5 0 0 1-.5-.5v-15a.5.5 0 0 1 .5-.5z"/><path d="M14.5 4v4h4M8.5 12h7M8.5 15.5h5"/></svg>',
-  lembrete: 'Sintomas, marcos ("primeira vez que…") ou o que quiser lembrar. Para algo de outro dia, use “Ontem” ou “Outro dia”.',
+  lembrete: 'Sintomas, marcos ("primeira vez que…"), dúvidas para a próxima consulta (tipo Pergunta: vão para o topo do relatório) ou o que quiser lembrar.',
   campos: [
     { id: 'texto', rotulo: 'Anotação', tipo: 'textolongo', placeholder: 'ex. vomitou após mamar; manchinha no braço; primeira vez que comeu pera' },
     { id: 'categoria', rotulo: 'Tipo (opcional)', tipo: 'opcoes', opcoes: CATEGORIAS }

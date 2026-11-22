@@ -100,6 +100,7 @@ export function tituloPlacar(nDias) {
   if (nDias === 1) return 'Rotina de hoje';
   if (nDias === 7) return 'Rotina da semana';
   if (nDias === 14) return 'Rotina das últimas 2 semanas';
+  if (nDias === 30) return 'Rotina do mês';
   return `Rotina dos últimos ${nDias} dias`;
 }
 
@@ -109,6 +110,7 @@ export function tituloPlacar(nDias) {
 
 export const MEDALHAS = ['#D4A72C', '#9AA5B1', '#B9773F']; // ouro, prata, bronze
 export const PERIODO_FAMILIA = 7;
+export const PERIODOS_FAMILIA = [[1, 'Hoje'], [7, '7 dias'], [30, '30 dias']];
 export const textoRegistros = (n) => `${n} ${n === 1 ? 'registro' : 'registros'}`;
 export const NOTA_PONTOS = 'Contam alimentação, sono, fralda e banho, para quem registrou primeiro. ' +
   'Remédios, febre e vacinas não contam. Pai e Mãe ficam fora do ranking.';

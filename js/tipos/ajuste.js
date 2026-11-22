@@ -12,6 +12,7 @@ import { MODOS } from './remedio.js';
 
 const CONFIG = {
   nome_bebe: { rotulo: 'Nome do bebê' },
+  nascimento: { rotulo: 'Data de nascimento', fmt: (v) => v.split('-').reverse().join('/') },
   febre_limite_c: { rotulo: 'Limite de febre', fmt: (v) => `${fmtNumero(numero(v))} °C` },
   tylenol_apresentacao: { rotulo: 'Tylenol: remédio em uso', fmt: (v) => (v === 'gotas' ? 'Paracetamol gotas' : 'Tylenol Bebê') },
   tylenol_max_24h: { rotulo: 'Tylenol: máximo em 24 horas', fmt: (v) => `${v} doses` },

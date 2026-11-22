@@ -15,16 +15,17 @@ function passoEscala(amplitude) {
 }
 
 /**
- * pontos: [{ t, v }] em ordem de tempo. opcoes: { rotulo, fmt(v) → texto, fmtEixo?(v), cor }.
+ * pontos: [{ t, v }] em ordem de tempo. opcoes: { rotulo, fmt(v) → texto, fmtEixo?(v), cor, desdeZero? }.
+ * desdeZero: o eixo começa no zero (quantidades por dia), para uma variação pequena não parecer grande.
  * Um ponto só: mostra o ponto e o valor. Rótulo em todos os pontos até 6; depois, só no último e no maior.
  */
-export function graficoEvolucao(pontos, { rotulo, fmt, fmtEixo, cor }) {
+export function graficoEvolucao(pontos, { rotulo, fmt, fmtEixo, cor, desdeZero = false }) {
   const W = 400, H = 190;
   const m = { esq: 44, dir: 18, topo: 24, base: 30 };
   const largura = W - m.esq - m.dir;
   const altura = H - m.topo - m.base;
   const vs = pontos.map((p) => p.v);
-  let vMin = Math.min(...vs), vMax = Math.max(...vs);
+  let vMin = desdeZero ? 0 : Math.min(...vs), vMax = Math.max(...vs);
   if (vMax - vMin < 1e-9) { const folga = Math.max(Math.abs(vMax) * 0.05, 0.5); vMin -= folga; vMax += folga; }
   const passo = passoEscala(vMax - vMin);
   const yMin = Math.floor(vMin / passo) * passo;

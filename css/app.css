@@ -1178,6 +1178,33 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .graf-titulo { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--texto-2); }
 .graf-rotulo--leve { font-size: 12px; font-weight: 600; }
 .rel-tabela td.rel-antes, .rel-tabela th.rel-antes { color: var(--texto-2); }
+/* Relatório para a pediatra (fase 18): resumo, gráficos e detalhes recolhidos */
+.rel-idade { margin: 0 0 0.125rem; font-weight: 600; color: var(--texto); }
+.rel-perguntas { border-left: 0.25rem solid var(--primaria); }
+.rel-perguntas ul { margin: 0; padding-left: 1.125rem; display: grid; gap: 0.375rem; }
+.rel-perguntas small { color: var(--texto-3); margin-left: 0.25rem; }
+.rel-bloco + .rel-bloco { margin-top: 0.875rem; padding-top: 0.875rem; border-top: 1px solid var(--linha); }
+.rel-bloco-titulo { margin: 0 0 0.375rem; font-size: 0.75rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--texto-2); }
+.rel-bloco dl { margin: 0; display: grid; gap: 0.5rem; }
+.rel-bloco dl > div { display: grid; grid-template-columns: 6.5rem 1fr; gap: 0.75rem; align-items: baseline; }
+.rel-bloco dt { color: var(--texto-2); font-size: 0.875rem; }
+.rel-bloco dd { margin: 0; }
+.rel-bloco dd strong { font-weight: 650; }
+.rel-bloco dd small { display: block; color: var(--texto-2); font-size: 0.8125rem; margin-top: 0.0625rem; }
+.rel-bloco .rel-alto dd strong { color: var(--alerta); }
+.rel-seta { font-size: 0.8125rem; font-weight: 600; color: var(--texto-2); white-space: nowrap; }
+.rel-graficos { display: grid; gap: 1.25rem; }
+@media (min-width: 700px) { .rel-graficos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rel-graficos .grafico { margin: 0; max-width: none; }
+.rel-detalhes { display: grid; gap: var(--espaco); }
+.rel-detalhes > summary { list-style: none; cursor: pointer; padding: 0.875rem 1rem; font-weight: 650; display: flex; flex-wrap: wrap; gap: 0 0.5rem; align-items: baseline; }
+.rel-detalhes > summary::-webkit-details-marker { display: none; }
+.rel-detalhes > summary::after { content: "›"; margin-left: auto; color: var(--texto-3); transform: rotate(90deg); }
+.rel-detalhes[open] > summary::after { transform: rotate(-90deg); }
+.rel-detalhes > summary span { font-weight: 400; font-size: 0.8125rem; color: var(--texto-2); }
+.rel-detalhes[open] { margin-bottom: 0; }
+.rel-secao-titulo small { font-weight: 400; color: var(--texto-2); font-size: 0.8125rem; }
+
 /* Anotações no Relatório (fase 17) */
 .rel-anotacoes { margin: 0; display: grid; gap: 0.625rem; font-size: 0.875rem; }
 .rel-anotacoes > div { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.5rem; }
@@ -1233,5 +1260,10 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   .rel-tabela td small { min-width: 0; }
   .relatorio { max-width: none; }
   .rodape { margin-top: 1rem; }
+  /* PDF: gráficos 2 por linha; "Detalhes" vira só um título, começando numa página nova. */
+  .rel-graficos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rel-detalhes > summary { border: 0; padding: 0; break-before: page; }
+  .rel-detalhes > summary::after { content: none; }
+  .rel-resumo-cartao { break-inside: auto; }
   @page { margin: 12mm; }
 }

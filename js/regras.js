@@ -91,6 +91,30 @@ export function rotuloDia(dia, agora) {
   return fmtDataLonga(Date.parse(`${dia}T12:00:00-03:00`));
 }
 
+/**
+ * Idade a partir da data de nascimento (AAAA-MM-DD), no fuso de São Paulo:
+ * "12 dias", "1 mês e 3 dias", "5 meses", "1 ano e 2 meses". '' se a data for inválida ou no futuro.
+ */
+export function idadeTexto(nascimento, agora) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(nascimento || ''))) return '';
+  const hoje = chaveDia(agora);
+  if (nascimento > hoje) return '';
+  const [an, mn, dn] = nascimento.split('-').map(Number);
+  const [ah, mh, dh] = hoje.split('-').map(Number);
+  let meses = (ah - an) * 12 + (mh - mn);
+  if (dh < dn) meses--;
+  // Dia do "mêsversário" mais recente (dia 31 num mês de 30 dias cai no último dia do mês).
+  const mesRef = mn - 1 + meses;
+  const ultimoDia = new Date(Date.UTC(an, mesRef + 1, 0)).getUTCDate();
+  const ref = Date.UTC(an, mesRef, Math.min(dn, ultimoDia));
+  const dias = Math.round((Date.UTC(ah, mh - 1, dh) - ref) / 86400000);
+  const p = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+  if (meses < 1) return p(dias, 'dia', 'dias');
+  if (meses < 12) return dias ? `${p(meses, 'mês', 'meses')} e ${p(dias, 'dia', 'dias')}` : p(meses, 'mês', 'meses');
+  const anos = Math.floor(meses / 12), resto = meses % 12;
+  return resto ? `${p(anos, 'ano', 'anos')} e ${p(resto, 'mês', 'meses')}` : p(anos, 'ano', 'anos');
+}
+
 /** 134 → "2h 14min"; 45 → "45 min". */
 export function fmtDuracao(minutos) {
   const m = Math.max(0, Math.round(minutos));

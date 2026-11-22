@@ -15,11 +15,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  publicar:
+  # Duas etapas (o formato recomendado pelo GitHub): montar envia o pacote do site; publicar só começa depois.
+  # Num job só, o deploy às vezes procurava o pacote antes de ele estar registrado e falhava na 1ª tentativa.
+  montar:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,5 +44,12 @@ jobs:
         with:
           path: _site
 
+  publicar:
+    needs: montar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v5

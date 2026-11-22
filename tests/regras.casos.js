@@ -531,6 +531,17 @@ export function casos({ grupo, teste }) {
 
   // ---------------------------------------------------------------------
   grupo('Tela inicial: rotina em primeiro lugar');
+  teste('Febre antiga: sem bloco de medições e sem destaque; recente: com os dois', () => {
+    const linhas = [linha('febre', T('25', '11:40'), { temperatura: 38.3 })];
+    const ctxF = (agora) => criarContexto({ eventos: resolverEventos(linhas, TIPOS), planos: {}, config: {}, agora, tipos: TIPOS });
+    const recente = ctxF(t('26', '09:00'));
+    verdade(TIPOS.febre.painel(recente) && TIPOS.febre.regras.status(recente).alerta, 'no dia seguinte');
+    igual(TIPOS.febre.regras.status(recente).linhas[1], 'Medida em 25/10 às 11:40');
+    const antiga = ctxF(t('30', '09:00'));
+    igual(TIPOS.febre.painel(antiga), null);
+    verdade(!TIPOS.febre.regras.status(antiga).alerta, 'sem destaque depois de 3 dias');
+    igual(TIPOS.febre.regras.status(ctxF(t('25', '12:00'))).linhas[1], 'Medida às 11:40');
+  });
   teste('Só alimentação, sono, fralda e banho são botões grandes', () => {
     const { visiveis } = montarTipos(remedios([VIT]));
     igual(visiveis.filter((tp) => tp.rotina).map((tp) => tp.id), ['alimentacao', 'sono', 'fralda', 'banho']);

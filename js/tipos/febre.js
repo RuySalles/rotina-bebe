@@ -1,6 +1,9 @@
 import { numero, fmtNumero, fmtHora, fmtData, chaveDia } from '../regras.js';
 
 const LIMITE_PADRAO = 37.8;
+// Medição mais velha que isso não ganha destaque na tela inicial (continua no Histórico).
+const RECENTE_DIAS = 3;
+const recente = (e, ctx) => !!e && ctx.agora - e.t <= RECENTE_DIAS * 24 * 60 * 60 * 1000;
 
 const limite = (ctx) => ctx.numeroConfig('febre_limite_c') ?? LIMITE_PADRAO;
 
@@ -51,8 +54,8 @@ export default {
       const ultima = ctx.ultimo('febre', ctx.agora);
       if (!ultima) return { linhas: ['Nenhuma medição', `Limite ${fmtNumero(limite(ctx))} °C`] };
       const r = texto(ultima.dados, ctx);
-      const quando = chaveDia(ultima.t) === chaveDia(ctx.agora) ? fmtHora(ultima.t) : `${fmtData(ultima.t)} ${fmtHora(ultima.t)}`;
-      return { linhas: [r.texto, `Medida às ${quando}`], alerta: !!r.destaque };
+      const quando = chaveDia(ultima.t) === chaveDia(ctx.agora) ? `Medida às ${fmtHora(ultima.t)}` : `Medida em ${fmtData(ultima.t)} às ${fmtHora(ultima.t)}`;
+      return { linhas: [r.texto, quando], alerta: !!r.destaque && recente(ultima, ctx) };
     },
 
     avisos(ctx, horario, dados) {
@@ -64,10 +67,10 @@ export default {
     }
   },
 
-  /** Últimas medições, mostradas na tela principal. */
+  /** Últimas medições, na tela principal só se a mais recente for dos últimos dias. */
   painel(ctx) {
     const lista = ctx.doTipo('febre').filter((e) => e.t <= ctx.agora).slice(-6).reverse();
-    if (!lista.length) return null;
+    if (!lista.length || !recente(lista[0], ctx)) return null;
     return {
       titulo: 'Últimas medições',
       itens: lista.map((e) => ({

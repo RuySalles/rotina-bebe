@@ -182,6 +182,8 @@ despercebida quando esquecem.
 - Jeito de dar novo: **1 vez por dia**, com "Avisar se não for dada até" (padrão 10:00, de meia em meia hora). Mostra
   "Hoje: ainda não" ou "Hoje: dada às HH:MM". Passando da hora sem registro, a linha fica em destaque e o remédio entra
   no card PRÓXIMO (sem "Atrasado"). Registrar de novo no mesmo dia pede confirmação.
+- Ajustes depois dos primeiros prints: o topo mostra só o primeiro nome (o completo continua em Ajustes) e o bloco
+  "Febre · últimas medições" só aparece com medição dos últimos 3 dias (febre antiga também perde o destaque).
 
 **Você vai precisar:** em **Ajustes → Remédios**, tocar na vitamina, escolher **1 vez por dia** em "Como dar",
 conferir a hora em "Avisar se não for dada até" e tocar em **Salvar alterações**.
@@ -193,6 +195,7 @@ conferir a hora em "Avisar se não for dada até" e tocar em **Salvar alteraçõ
 - [ ] Com a vitamina em "1 vez por dia": antes de registrar mostra "Hoje: ainda não"; depois, "Hoje: dada às HH:MM".
 - [ ] Num dia em que ninguém deu a vitamina até a hora escolhida, ela aparece no card PRÓXIMO.
 - [ ] O Tylenol continua a um toque e nunca aparece no card PRÓXIMO.
+- [ ] O topo mostra só o primeiro nome; o bloco "Febre · últimas medições" só aparece com medição dos últimos 3 dias.
 
 ---
 

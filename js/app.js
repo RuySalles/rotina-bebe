@@ -351,7 +351,8 @@ function render() {
 let ultimoHtml = '';
 
 function cabecalho() {
-  const nome = String(estado.config.nome_bebe || '').trim();
+  // Só o primeiro nome no topo (o completo continua em Ajustes), para não empurrar o card PRÓXIMO para baixo.
+  const nome = String(estado.config.nome_bebe || '').trim().split(/\s+/)[0];
   return `
     <header class="topo">
       <div class="topo-texto">
@@ -670,7 +671,7 @@ function vistaAjustes() {
       <form class="cartao form" data-form="config">
         <label class="campo">
           <span>Nome do bebê</span>
-          <input name="nome_bebe" maxlength="40" autocomplete="off" value="${esc(c.nome_bebe || '')}" placeholder="Aparece no topo da tela">
+          <input name="nome_bebe" maxlength="40" autocomplete="off" value="${esc(c.nome_bebe || '')}" placeholder="O primeiro nome aparece no topo da tela">
         </label>
         <label class="campo">
           <span>Febre a partir de (°C)</span>

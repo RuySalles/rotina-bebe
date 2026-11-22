@@ -12,9 +12,10 @@
 /**
  * Versão deste código. SUBA O NÚMERO a cada mudança no Code.gs (e atualize VERSAO_BACKEND_ESPERADA no
  * js/store.js). O app mostra em Ajustes qual versão está publicada, para conferir se a republicação pegou.
- * Histórico: 4 = fase 4 (lote e leitura incremental). Antes disso não havia número.
+ * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda).
+ * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 4;
+var VERSAO_BACKEND = 5;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -63,20 +64,27 @@ function doPost(e) {
     lock.waitLock(20000);
     garantirAbas_();
     var payload = corpo.payload || {};
+    var agenda = { tipos: {}, tudo: false };
     if (corpo.acao === 'lote') {
       var idsVistos = {};
       var resultados = (payload.itens || []).map(function (item) {
         try {
-          return { ok: true, resultado: gravar_(item && item.acao, (item && item.payload) || {}, idsVistos) };
+          var r = gravar_(item && item.acao, (item && item.payload) || {}, idsVistos);
+          anotarAgenda_(agenda, item && item.acao, (item && item.payload) || {}, r);
+          return { ok: true, resultado: r };
         } catch (errItem) {
           return { ok: false, erro: String(errItem.message || errItem) };
         }
       });
+      atualizarAgenda_(agenda);
       var resposta = { ok: true, resultados: resultados, versao_backend: VERSAO_BACKEND };
       if (corpo.desde !== undefined) resposta.leitura = leitura_(corpo.desde);
       return json_(resposta);
     }
-    return json_({ ok: true, resultado: gravar_(corpo.acao, payload), versao_backend: VERSAO_BACKEND });
+    var resultado = gravar_(corpo.acao, payload);
+    anotarAgenda_(agenda, corpo.acao, payload, resultado);
+    atualizarAgenda_(agenda);
+    return json_({ ok: true, resultado: resultado, versao_backend: VERSAO_BACKEND });
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   } finally {
@@ -111,7 +119,8 @@ function leitura_(desde) {
     planos: lerLinhas_('planos'),
     config: lerConfig_(),
     linha_eventos: ultima,
-    versao_backend: VERSAO_BACKEND
+    versao_backend: VERSAO_BACKEND,
+    agenda: situacaoAgenda_()
   };
   if (parcial) resposta.parcial = true;
   return resposta;
@@ -180,6 +189,182 @@ function rodarSeed() {
     if (!(chave in config) || config[chave] === '') salvarConfig_(chave, SEED.config[chave]);
   });
   Logger.log('Seed concluído. Linhas novas: ' + novos);
+}
+
+/**
+ * Refaz os lembretes da agenda "Rotina do bebê" a partir dos planos ativos.
+ * Rode uma vez pelo editor depois de colar o código novo e ANTES de republicar: é assim que o Google pede a
+ * autorização da Agenda (veja o SETUP.md). Pode rodar quantas vezes quiser: só cria o que falta e remove o que sobrou.
+ */
+function sincronizarAgenda() {
+  garantirAbas_();
+  atualizarAgenda_({ tipos: {}, tudo: true });
+  Logger.log('Agenda: ' + JSON.stringify(situacaoAgenda_()));
+}
+
+// ---------------------------------------------------------------------------
+// Agenda do Google (fase 10): lembretes dos planos de horário
+// ---------------------------------------------------------------------------
+//
+// Cada horário futuro de um plano ativo vira um evento curto na agenda própria "Rotina do bebê", com aviso na hora.
+// O evento guarda o tipo e o horário em tags, para o script saber quais são dele. Só mexe em eventos futuros: os que
+// já passaram ficam como estão. Qualquer falha aqui NUNCA impede a gravação na planilha; o resultado fica na
+// propriedade AGENDA_STATUS e o app mostra em Ajustes.
+
+var AGENDA_NOME = 'Rotina do bebê';
+var AGENDA_DURACAO_MIN = 10;
+var AGENDA_DIAS = 400;
+var AGENDA_CONFIG = ['remedios', 'amoxicilina_dose_ml']; // mudam o título (ou a existência) dos lembretes
+
+/** Marca o que precisa ser refeito na agenda depois de uma gravação. */
+function anotarAgenda_(agenda, acao, payload, resultado) {
+  if (acao === 'adicionar_plano' && resultado === 'adicionado' && payload.tipo) agenda.tipos[String(payload.tipo)] = true;
+  if (acao === 'salvar_config' && AGENDA_CONFIG.indexOf(String(payload.chave)) !== -1) agenda.tudo = true;
+}
+
+function atualizarAgenda_(agenda) {
+  if (!agenda.tudo && !Object.keys(agenda.tipos).length) return;
+  var props = PropertiesService.getScriptProperties();
+  try {
+    var planos = planosAtuais_();
+    var tipos = agenda.tudo ? Object.keys(planos) : Object.keys(agenda.tipos);
+    var agendaG = obterAgenda_();
+    var agora = new Date();
+    var existentes = eventosDoApp_(agendaG, agora);
+    if (agenda.tudo) {
+      // Também limpa tipos que têm lembrete e hoje não têm mais plano.
+      existentes.forEach(function (ev) {
+        var t = ev.getTag('rb_tipo');
+        if (tipos.indexOf(t) === -1) tipos.push(t);
+      });
+    }
+    var config = lerConfig_();
+    tipos.forEach(function (tipo) {
+      sincronizarTipo_(agendaG, tipo, planos[tipo] || [], existentes, config, agora);
+    });
+    gravarSituacaoAgenda_(props, agendaG);
+  } catch (err) {
+    var anterior = lerSituacaoAgenda_(props);
+    anterior.ok = false;
+    anterior.erro = String(err.message || err).slice(0, 200);
+    anterior.quando = isoAgora_();
+    props.setProperty('AGENDA_STATUS', JSON.stringify(anterior));
+  }
+}
+
+/** Eventos futuros criados por este script (têm a tag rb_tipo). */
+function eventosDoApp_(agendaG, agora) {
+  var fim = new Date(agora.getTime() + AGENDA_DIAS * 24 * 3600 * 1000);
+  // getEvents também traz o que está acontecendo agora; esse fica como está (já começou).
+  return agendaG.getEvents(agora, fim).filter(function (ev) {
+    return !!ev.getTag('rb_tipo') && ev.getStartTime().getTime() > agora.getTime();
+  });
+}
+
+/** Deixa na agenda exatamente os horários futuros do plano do tipo, com o título atual. */
+function sincronizarTipo_(agendaG, tipo, horarios, existentes, config, agora) {
+  var titulo = tituloLembrete_(tipo, config);
+  var futuros = titulo ? horarios.filter(function (t) { return t > agora.getTime(); }) : [];
+  var faltam = {};
+  futuros.forEach(function (t) { faltam[String(t)] = true; });
+  existentes.forEach(function (ev) {
+    if (ev.getTag('rb_tipo') !== tipo) return;
+    var chave = ev.getTag('rb_horario');
+    if (faltam[chave] && ev.getTitle() === titulo) delete faltam[chave]; // já está certo
+    else ev.deleteEvent();
+  });
+  futuros.forEach(function (t) {
+    if (!faltam[String(t)]) return;
+    var ev = agendaG.createEvent(titulo, new Date(t), new Date(t + AGENDA_DURACAO_MIN * 60000), {
+      description: 'Dose ' + (horarios.indexOf(t) + 1) + ' de ' + horarios.length + '. Registre no app quando der.\n' +
+        'Lembrete criado pelo app Rotina do bebê: muda sozinho quando o plano muda.'
+    });
+    ev.setTag('rb_tipo', tipo);
+    ev.setTag('rb_horario', String(t));
+    ev.removeAllReminders();
+    ev.addPopupReminder(0);
+  });
+}
+
+/** Título do lembrete; '' se o remédio não existe mais ou foi encerrado (aí os lembretes saem). */
+function tituloLembrete_(tipo, config) {
+  var nome = '';
+  var dose = '';
+  if (tipo === 'amoxicilina') {
+    nome = 'Amoxicilina';
+    var ml = String(config.amoxicilina_dose_ml || '').trim();
+    if (ml) dose = ml.replace('.', ',') + ' mL';
+  } else if (tipo.indexOf('remedio_') === 0) {
+    var lista = [];
+    try { lista = JSON.parse(config.remedios || '[]'); } catch (ignorado) {}
+    var id = tipo.slice('remedio_'.length);
+    var r = (Array.isArray(lista) ? lista : []).filter(function (x) { return x && String(x.id) === id; })[0];
+    if (!r || r.ativo === false || !String(r.nome || '').trim()) return '';
+    nome = String(r.nome).trim();
+    dose = String(r.dose || '').trim();
+  } else {
+    return '';
+  }
+  return '💊 ' + nome + (dose ? ' · ' + dose : '');
+}
+
+/** Planos ativos: { tipo: [ms...] }. Mesma regra do app (resolverPlanos): vale a linha mais recente de cada tipo. */
+function planosAtuais_() {
+  var ultimo = {};
+  lerLinhas_('planos').forEach(function (l, i) {
+    var criado = Date.parse(l.criado_em) || 0;
+    var atual = ultimo[l.tipo];
+    if (!atual || criado > atual.criado || (criado === atual.criado && i > atual.i)) ultimo[l.tipo] = { l: l, criado: criado, i: i };
+  });
+  var planos = {};
+  Object.keys(ultimo).forEach(function (tipo) {
+    var l = ultimo[tipo].l;
+    if (String(l.ativo).trim().toLowerCase() !== 'true') return;
+    var lista = [];
+    try { lista = JSON.parse(l.horarios || '[]'); } catch (ignorado) {}
+    planos[tipo] = (Array.isArray(lista) ? lista : [])
+      .map(function (h) { return typeof h === 'number' ? h : Date.parse(h); })
+      .filter(function (t) { return isFinite(t); })
+      .sort(function (a, b) { return a - b; });
+  });
+  return planos;
+}
+
+function obterAgenda_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('AGENDA_ID');
+  var agendaG = id ? CalendarApp.getCalendarById(id) : null;
+  if (!agendaG) {
+    agendaG = CalendarApp.createCalendar(AGENDA_NOME, {
+      timeZone: 'America/Sao_Paulo',
+      color: CalendarApp.Color.TEAL,
+      summary: 'Lembretes dos planos de horário do app Rotina do bebê. Não edite à mão: o app refaz sozinho.'
+    });
+    props.setProperty('AGENDA_ID', agendaG.getId());
+  }
+  return agendaG;
+}
+
+function lerSituacaoAgenda_(props) {
+  try { return JSON.parse(props.getProperty('AGENDA_STATUS') || '{}') || {}; } catch (e) { return {}; }
+}
+
+function gravarSituacaoAgenda_(props, agendaG) {
+  var inicios = eventosDoApp_(agendaG, new Date())
+    .map(function (ev) { return ev.getStartTime().getTime(); })
+    .sort(function (a, b) { return a - b; });
+  props.setProperty('AGENDA_STATUS', JSON.stringify({
+    ok: true,
+    lembretes: inicios.length,
+    proximo: inicios.length ? Utilities.formatDate(new Date(inicios[0]), 'America/Sao_Paulo', "yyyy-MM-dd'T'HH:mm:ssXXX") : '',
+    quando: isoAgora_()
+  }));
+}
+
+/** Para o app: { ok, lembretes, proximo, quando, erro? } ou null se a agenda nunca foi usada. */
+function situacaoAgenda_() {
+  var s = lerSituacaoAgenda_(PropertiesService.getScriptProperties());
+  return s.quando ? s : null;
 }
 
 // ---------------------------------------------------------------------------

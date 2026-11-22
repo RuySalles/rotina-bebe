@@ -114,6 +114,45 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
 - *Fase 4 (sincronização mais rápida):* o app envia vários registros num pedido só (ação `lote`) e baixa só os
   eventos novos (parâmetro `desde`). Enquanto o Web App não for republicado, o app percebe e volta ao jeito antigo
   (um registro por pedido e a planilha inteira a cada sincronização).
+- *Fase 10 (versão 5, lembretes no Google Agenda):* ao salvar ou encerrar um plano de horários, o script refaz os
+  lembretes na agenda "Rotina do bebê". **Esta versão precisa de uma autorização nova** — siga
+  [Lembretes no Google Agenda](#lembretes-no-google-agenda) abaixo, na ordem (autorizar antes de republicar).
+
+## Lembretes no Google Agenda
+
+Cada horário futuro de um plano de horários fixos (amoxicilina ou um remédio cadastrado com "Horários fixos") vira um
+evento de 10 minutos na agenda **Rotina do bebê**, com aviso na hora, por exemplo "💊 Vitamina · 2 gotas". Se o plano
+mudar, os lembretes mudam; se o plano ou o remédio for encerrado (ou excluído), os lembretes futuros somem. Os que já
+passaram ficam na agenda.
+
+**1. Autorizar e publicar (uma vez, no computador)** — nesta ordem:
+1. Cole o `Code.gs` novo no editor e salve.
+2. Na lista de funções, escolha **sincronizarAgenda** e clique em **Executar**. O Google pede uma permissão nova
+   (ver e editar suas agendas): **Revisar permissões → sua conta → Avançado → Acessar "…" → Permitir**.
+   No **Registro de execução** aparece `Agenda: {"ok":true,...}`; no Google Agenda surge a agenda **Rotina do bebê**.
+   > Se republicar antes deste passo, o Web App fica sem a permissão e o app mostra "Não foi possível sincronizar"
+   > até você rodar o **sincronizarAgenda** e autorizar. Nenhum registro se perde (ficam na fila do celular).
+3. Republique: **Implantar → Gerenciar implantações → lápis → Versão: Nova versão → Implantar**.
+4. No app, **Ajustes → Este celular → Sincronizar agora**: deve aparecer "Web App: versão 5" e, embaixo,
+   "Google Agenda: N lembretes · próximo …".
+
+**2. No seu celular** (a agenda é da sua conta): abra o app Google Agenda → menu ☰ → confira que **Rotina do bebê**
+está marcada. O aviso de cada lembrete já vem ligado (na hora).
+
+**3. Para sua esposa** (no computador, em [calendar.google.com](https://calendar.google.com)):
+1. Na lista à esquerda, passe o mouse em **Rotina do bebê** → ⋮ → **Configurações e compartilhamento**.
+2. Em **Compartilhar com pessoas específicas** → **Adicionar pessoas** → e-mail dela → permissão
+   **Ver todos os detalhes do evento** → **Enviar**.
+3. Ela aceita pelo e-mail (ou a agenda aparece sozinha no Google Agenda dela).
+4. **Importante:** o aviso dos lembretes é de cada pessoa. No celular dela: Google Agenda → ☰ → ⚙ Configurações →
+   **Rotina do bebê** → **Notificações padrão** → **Adicionar notificação** → **0 minutos antes** (ou "No horário").
+   No iPhone sem o app Google Agenda, assine pelo app Agenda: Ajustes do iPhone → Agenda → Contas → conta Google →
+   marque **Agendas**; os avisos seguem os "Alertas padrão" do iPhone (Ajustes → Agenda → Alertas Padrão).
+
+**Se algo der errado:** em **Ajustes → Este celular** aparece "Google Agenda: não foi possível atualizar os
+lembretes". Rode **sincronizarAgenda** no editor e veja a mensagem no **Registro de execução** (normalmente é a
+autorização). Rodar de novo é seguro: só cria o que falta e remove o que sobrou. Não edite nem apague os lembretes à
+mão; se apagar a agenda inteira, o script cria outra no próximo plano salvo (aí é preciso compartilhar de novo).
 
 **Atualizações do app:** chegam sozinhas. Ao abrir o app ou voltar para ele, o celular confere se há versão
 nova e recarrega (se alguém estiver digitando, aparece "Nova versão disponível · Atualizar" no topo).

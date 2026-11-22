@@ -21,7 +21,7 @@ const INTERVALO_SYNC_MS = 30 * 1000;
 const COMPLETA_A_CADA_MS = 10 * 60 * 1000;
 const LOTE_MAX = 40;
 // Versão do apps-script/Code.gs que este app espera (VERSAO_BACKEND lá). Ajustes avisa se a publicada for mais velha.
-export const VERSAO_BACKEND_ESPERADA = 4;
+export const VERSAO_BACKEND_ESPERADA = 5;
 
 /** Versão do Code.gs pela resposta: o número, ou deduzida (fase 4 publicada antes de ter número; 0 = anterior). */
 const versaoDaResposta = (json) => (Number.isFinite(json.versao_backend) ? json.versao_backend : Number.isFinite(json.linha_eventos) ? 4 : 0);
@@ -93,7 +93,8 @@ function linhasAtuais() {
 export function obterEstado() {
   return {
     ...linhasAtuais(),
-    sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null }
+    sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null,
+      agenda: servidor.agenda || null }
   };
 }
 
@@ -219,6 +220,7 @@ function aplicarLeitura(json) {
       config: json.config || {},
       linha_eventos: json.linha_eventos,
       versao_backend: versaoDaResposta(json),
+      agenda: json.agenda || null,
       ultima: agora
     };
   } else {
@@ -229,6 +231,7 @@ function aplicarLeitura(json) {
       // Web App antigo não manda linha_eventos: aí toda leitura continua completa, como antes.
       linha_eventos: Number.isFinite(json.linha_eventos) ? json.linha_eventos : null,
       versao_backend: versaoDaResposta(json),
+      agenda: json.agenda || null, // lembretes no Google Agenda (fase 10)
       completa: agora,
       ultima: agora
     };

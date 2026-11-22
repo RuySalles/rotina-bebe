@@ -25,8 +25,8 @@ algo) dizem isso em "Você vai precisar".
 | 6 | Organização das 3 abas (Início, Histórico, Ajustes) | ✅ |
 | 7 | Alimentação: leite, fruta ou refeição | ✅ |
 | 8 | Previsões de sono e de leite | ✅ |
-| 9 | Abrir o app sem internet | 🧪 |
-| 10 | Alertas no celular pelo Google Agenda | ⬜ |
+| 9 | Abrir o app sem internet | ✅ |
+| 10 | Alertas no celular pelo Google Agenda | 🧪 |
 | 11 | Esconder e reordenar botões | ⬜ |
 | 12 | Anotações livres | ⬜ |
 | 13 | Relatório para a consulta | ⬜ |
@@ -337,18 +337,28 @@ os registros quando a internet voltar. A atualização automática de versão co
 **Por quê:** por não ser de loja, o app não consegue tocar alarme sozinho de forma confiável (principalmente no iPhone).
 O Google Agenda consegue.
 
-**O que muda:** ao salvar um plano de horários (amoxicilina ou um remédio cadastrado), a planilha cria os eventos numa
-agenda própria ("Rotina do bebê"), com aviso no horário. Se o plano mudar ou for encerrado, os eventos são
-atualizados ou removidos. Vocês dois assinam essa agenda no celular.
+**O que muda:**
+- Ao salvar um plano de horários (amoxicilina ou um remédio cadastrado com "Horários fixos"), a planilha cria um
+  lembrete para cada horário futuro numa agenda própria, **Rotina do bebê**, com aviso na hora: "💊 Nome · dose".
+- Mudou o plano: só os horários que mudaram são trocados. Encerrou o plano, encerrou ou excluiu o remédio: os
+  lembretes futuros somem. Renomeou o remédio ou mudou a dose: o título dos lembretes acompanha. Os que já passaram
+  ficam na agenda.
+- Em **Ajustes → Este celular** aparece "Google Agenda: N lembretes · próximo …" (ou um aviso, se a agenda não pôde
+  ser atualizada). Se a agenda falhar, o plano é salvo do mesmo jeito.
+- Remédios "a cada X horas", "1 vez por dia" e "só se precisar" não geram lembrete (não têm horários marcados).
 
-**Você vai precisar:**
-- republicar o Web App (Implantar → Gerenciar implantações → editar → Nova versão) e autorizar o acesso à Agenda;
-- assinar a agenda "Rotina do bebê" no celular de vocês dois (eu explico o passo a passo).
+**Você vai precisar** (passo a passo no `SETUP.md`, seção "Lembretes no Google Agenda"):
+- no computador, colar o `Code.gs` novo, rodar **sincronizarAgenda** uma vez para autorizar o acesso à Agenda e só
+  **depois** republicar o Web App (Implantar → Gerenciar implantações → editar → Nova versão);
+- compartilhar a agenda "Rotina do bebê" com sua esposa e, no celular dela, ligar a notificação padrão dessa agenda
+  (o aviso é de cada pessoa; no seu já vem ligado).
 
 **Como testar:**
-- [ ] Salvar um plano de teste com um horário daqui a 10 minutos: o evento aparece na agenda e o celular avisa.
+- [ ] Em Ajustes → Este celular, depois de "Sincronizar agora": "Web App: versão 5" e a linha do Google Agenda.
+- [ ] Cadastrar "Teste 1" com **Horários fixos** e salvar um plano com um horário daqui a 10 minutos: o evento aparece
+      na agenda e os dois celulares avisam na hora.
 - [ ] Mudar o horário no plano: o evento muda na agenda.
-- [ ] Encerrar o plano: o evento some.
+- [ ] Encerrar o plano: o evento some. (Limpeza: excluir o "Teste 1".)
 - [ ] Registros e planos antigos continuam iguais.
 
 ---
@@ -461,4 +471,9 @@ orientação errada.
 - Fase 9 (feita): `sw.js` (modelo; `scripts/montar-site.sh` preenche a versão e a lista de `v/<sha>/`). Página: internet
   primeiro com prazo de 4 s; `v/<sha>/`: cópia; `versao.json` e a planilha nunca passam pela cópia. Só registra fora do
   modo "dev". Testar com `node tests/servidor.mjs _site 8090` (configuração "site-montado" no `.claude/launch.json`).
-- Fase 10: muda o `Code.gs` (retrocompatível): `CalendarApp` ao salvar plano. Atualizar o `SETUP.md`.
+- Fase 10 (feita): `Code.gs` versão 5 (retrocompatível). Depois de gravar (pedido simples ou lote),
+  `atualizarAgenda_` refaz os lembretes dos tipos cujo plano entrou (`adicionado`; reenvio da fila não mexe) ou de
+  todos, se mudou `config.remedios`/`amoxicilina_dose_ml`. Eventos do app têm as tags `rb_tipo`/`rb_horario`; só
+  eventos futuros são tocados; a agenda fica em `AGENDA_ID` e o resultado em `AGENDA_STATUS` (propriedades do
+  script), que a leitura devolve em `agenda` e o Ajustes mostra. Falha na agenda nunca impede a gravação.
+  Editor: `sincronizarAgenda()` (autoriza e refaz tudo).

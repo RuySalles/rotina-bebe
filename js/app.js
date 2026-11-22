@@ -336,6 +336,8 @@ function aoMudarEstado() {
     if (status) status.textContent = textoSyncDetalhado();
     const versaoBackend = document.getElementById('versao-backend');
     if (versaoBackend) versaoBackend.textContent = textoVersaoBackend();
+    const agenda = document.getElementById('agenda-google');
+    if (agenda) agenda.textContent = textoAgenda();
     return;
   }
   render();
@@ -401,6 +403,17 @@ function textoVersaoBackend() {
   return v < store.VERSAO_BACKEND_ESPERADA
     ? `Web App: ${nome} · republique para a versão ${store.VERSAO_BACKEND_ESPERADA} (veja o SETUP.md)`
     : `Web App: ${nome}`;
+}
+
+/** Lembretes dos planos no Google Agenda (fase 10): quantos há e o próximo, ou o problema. */
+function textoAgenda() {
+  const a = estado.sync.agenda;
+  if (!a) return (estado.sync.backend ?? 0) >= 5 ? 'Google Agenda: ainda sem lembretes (salve um plano de horários)' : '';
+  if (a.ok === false) return 'Google Agenda: não foi possível atualizar os lembretes (veja o SETUP.md)';
+  if (!a.lembretes) return 'Google Agenda: nenhum lembrete pela frente';
+  const t = Date.parse(a.proximo);
+  const prox = Number.isFinite(t) ? ` · próximo ${quandoCurto(t)}` : '';
+  return `Google Agenda: ${a.lembretes} ${a.lembretes === 1 ? 'lembrete' : 'lembretes'}${prox}`;
 }
 
 function navegacao() {
@@ -906,6 +919,7 @@ function conteudoCelular() {
       <button class="botao botao--leve" type="button" data-acao="sync">${ICONES.sync} Sincronizar agora</button>
       <p class="ajuda versao">Versão ${esc(VERSAO)} · o app se atualiza sozinho</p>
       <p class="ajuda versao" id="versao-backend">${esc(textoVersaoBackend())}</p>
+      <p class="ajuda versao" id="agenda-google">${esc(textoAgenda())}</p>
     </div>`;
 }
 

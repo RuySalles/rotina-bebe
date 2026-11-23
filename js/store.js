@@ -187,6 +187,7 @@ async function enviarLotes(completo) {
       json = await postar(corpo);
     } catch (e) {
       if (e.doServidor && e.message === 'acao_desconhecida') { servidorAntigo = true; return false; }
+      comPedido(e, corpo, true);
       if (!(corpo.c || corpo.h) || !recusaDoServidor(e)) throw e;
       // Recusou o pedido com carimbo / impressão digital: manda de novo do jeito de antes
       // (se a gravação já tinha entrado, o servidor ignora os ids repetidos).
@@ -194,7 +195,7 @@ async function enviarLotes(completo) {
       delete corpo.c;
       delete corpo.h;
       Object.assign(corpo, await pedidoDeLeitura(completo));
-      json = await postar(corpo);
+      json = await postar(corpo).catch((e2) => { throw comPedido(e2, corpo, true); });
     }
     const resultados = Array.isArray(json.resultados) ? json.resultados : [];
     // Para no primeiro item que falhou por um motivo passageiro: ele e os seguintes ficam na fila
@@ -238,9 +239,16 @@ async function pedidoDeLeitura(completo, tudo = false) {
 // Se a planilha recusar um pedido com carimbo ou impressão digital (c / h), o app segue do jeito de antes até ser
 // aberto de novo, e guarda o código do erro para Ajustes mostrar. Nada deixa de sincronizar por causa da fase 24.
 let atalhoDesligado = '';
-const recusaDoServidor = (e) => !e.definitivo && (e.doServidor || /^http_/.test(e.message) || e instanceof SyntaxError);
+// Também "Failed to fetch" (TypeError): uma página de erro do Google, sem a resposta do Code.gs, chega assim.
+// Sem internet não conta (aí o jeito de antes falharia igual).
+const recusaDoServidor = (e) => !e.definitivo && navigator.onLine !== false &&
+  (e.doServidor || /^http_/.test(e.message) || e instanceof SyntaxError || e instanceof TypeError);
+/** Qual pedido era, para o código em Ajustes dizer onde falhou. */
+const nomePedido = (p, envio) => [envio ? 'envio' : '', p.h ? 'conferência' : p.c ? 'carimbo' : p.desde ? 'só o novo' : envio ? '' : 'tudo']
+  .filter(Boolean).join(' + ');
+const comPedido = (e, p, envio) => { e.pedido = e.pedido || nomePedido(p, envio); return e; };
 function desligarAtalho(e) {
-  atalhoDesligado = e.message || 'erro';
+  atalhoDesligado = `${e.message || 'erro'} [${e.pedido || '?'}]`;
   console.warn('Leitura econômica recusada; seguindo do jeito de antes:', atalhoDesligado);
 }
 
@@ -324,6 +332,7 @@ async function baixar(completo, tudo = false) {
   try {
     json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`, method: 'GET' });
   } catch (e) {
+    comPedido(e, pedido, false);
     if ((pedido.c || pedido.h) && recusaDoServidor(e)) { desligarAtalho(e); return baixar(completo, tudo); }
     throw e;
   }
@@ -360,7 +369,7 @@ export function sincronizar(opcoes = {}) {
       definirSync(fila.length ? 'pendente' : 'ok');
     } catch (e) {
       const mensagem = e.message === 'chave_invalida' ? 'Link inválido' : navigator.onLine === false ? 'Sem internet' : 'Não foi possível sincronizar';
-      sync.codigo = String(e.message || e).slice(0, 120); // Ajustes mostra, para achar a causa
+      sync.codigo = `${String(e.message || e).slice(0, 120)}${e.pedido ? ` [${e.pedido}]` : ''}`; // Ajustes mostra, para achar a causa
       definirSync(fila.length && !e.definitivo ? 'pendente' : 'erro', mensagem);
     } finally {
       emAndamento = null;

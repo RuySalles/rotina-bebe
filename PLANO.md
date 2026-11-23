@@ -37,7 +37,7 @@ algo) dizem isso em "Você vai precisar".
 | 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | ✅ |
 | 19 | Aba Resumo (Histórico só com a lista) | Alta | ✅ |
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ✅ |
-| 21 | Gamificação: conquistas, meta da semana e marcos | Média | 🧪 |
+| 21 | Gamificação: conquistas, meta da semana e marcos | Média | ✅ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos

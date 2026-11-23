@@ -1,5 +1,5 @@
 import {
-  ms, isoSP, fmtHora, fmtData, fmtDuracao, chaveDia, limitesDia, minutosDentro, ritmoSono, preverSono, periodoRitmo
+  ms, isoSP, fmtHora, fmtData, fmtDuracao, fmtDuracaoCurta, chaveDia, limitesDia, minutosDentro, ritmoSono, preverSono, periodoRitmo
 } from '../regras.js';
 
 const MIN = 60 * 1000;
@@ -112,10 +112,25 @@ export default {
         t: prev.t,
         titulo: prev.noite ? 'Sono da noite' : 'Sono',
         detalhe: prev.noite
-          ? `costuma dormir por volta de ${fmtHora(prev.t)}`
-          : `costuma ficar ~${fmtDuracao(prev.minutos)} acordado ${prev.faixa}`,
+          ? 'hora de dormir de costume'
+          : `~${fmtDuracaoCurta(prev.minutos)} acordado ${prev.faixa}`,
         previsao: true
       }];
+    },
+
+    /**
+     * Estado atual para o card PRÓXIMO (fase 20): dormindo agora vem antes de qualquer previsão.
+     * Sono aberto há mais de 14h (esqueceram de marcar o despertar) não toma o card; fica o aviso no botão.
+     */
+    emCurso(ctx) {
+      const aberto = emAndamento(ctx);
+      if (!aberto || ctx.agora - aberto.t > LONGO_H * HORA) return null;
+      return {
+        titulo: `Dormindo há ${fmtDuracao((ctx.agora - aberto.t) / MIN)}`,
+        detalhe: `desde ${fmtHora(aberto.t)}`,
+        desde: aberto.t,
+        botao: 'Acordou'
+      };
     },
 
     /** Com um sono em andamento, o botão abre esse registro para marcar o despertar. */

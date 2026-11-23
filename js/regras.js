@@ -115,6 +115,27 @@ export function idadeTexto(nascimento, agora) {
   return resto ? `${p(anos, 'ano', 'anos')} e ${p(resto, 'mês', 'meses')}` : p(anos, 'ano', 'anos');
 }
 
+/**
+ * Faixa da tela inicial (fase 20). itens: [{ tipo, st (status), quietoPossivel, recente }] na ordem escolhida.
+ * O que tem alerta, aviso ou algo em andamento sobe (entre iguais, a ordem escolhida fica); quem é "só se precisar"
+ * (quietoPossivel), sem uso recente e sem nada a avisar, vai para a linha "Se precisar". → { linhas, quietos }
+ */
+export function organizarFaixa(itens) {
+  // Aviso de configuração (st.config, ex. "defina o máximo em Ajustes") não é urgência.
+  const peso = (st) => (st?.alerta ? 0 : st?.aviso && !st.config ? 1 : st?.ativo ? 2 : 3);
+  const ordenados = itens.map((x, i) => ({ ...x, i })).sort((a, b) => peso(a.st) - peso(b.st) || a.i - b.i);
+  const quieto = (x) => peso(x.st) === 3 && x.quietoPossivel && !x.recente;
+  return { linhas: ordenados.filter((x) => !quieto(x)), quietos: ordenados.filter(quieto) };
+}
+
+/** Forma curta para frases do card: 220 → "3h40"; 120 → "2h"; 45 → "45 min". */
+export function fmtDuracaoCurta(minutos) {
+  const m = Math.max(0, Math.round(minutos));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h}h${String(r).padStart(2, '0')}` : `${h}h`;
+}
+
 /** 134 → "2h 14min"; 45 → "45 min". */
 export function fmtDuracao(minutos) {
   const m = Math.max(0, Math.round(minutos));

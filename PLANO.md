@@ -35,8 +35,8 @@ algo) dizem isso em "Você vai precisar".
 | 16 | Consultas e retornos | Média | ✅ |
 | 17 | Anotações livres | Baixa | ✅ |
 | 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | ✅ |
-| 19 | Aba Resumo (Histórico só com a lista) | Alta | 🧪 |
-| 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ⬜ |
+| 19 | Aba Resumo (Histórico só com a lista) | Alta | ✅ |
+| 20 | Tela inicial: o que importa agora em primeiro lugar | Média | 🧪 |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
@@ -678,6 +678,16 @@ filtrado por Medidas, que já tem os gráficos de evolução. Relatório e Famí
   repetir o "próximo leite" (já está no card) e mostra o total do dia (ex. "830 mL hoje").
 - **Card PRÓXIMO mais curto:** "costuma ser a cada ~3h 40min nesse horário" vira "a cada ~3h40".
 
+**Como ficou:**
+- O card mostra **"Agora · Dormindo há 35 min · desde 20:45"** e o botão **Acordou**; a previsão do leite fica na
+  linha de baixo. Se houver um atraso (ex. remédio de horário fixo), o atraso continua no card. Sono esquecido aberto
+  há mais de 14h não toma o card (fica o aviso no botão Sono).
+- Faixa: alerta primeiro, depois aviso, depois o resto, mantendo a ordem de Ajustes → Tela inicial entre iguais.
+  Lembrete de configuração (ex. "Defina o máximo em 24h") não conta como urgência.
+- **"Se precisar"**: Febre, Tylenol e remédios "só se precisar" sem registro nos últimos 3 dias viram botões numa
+  linha só. Com uso recente ou com algo a avisar, voltam a ter linha própria.
+- Botão de Alimentação: "Hoje: 750 mL · 5 mamadeiras" no lugar do "Próximo leite". Sono: "~1h30 acordado de manhã".
+
 **Você vai precisar:** nada.
 
 **Como testar:**
@@ -746,6 +756,9 @@ não quiser pode esconder (Ajustes → Tela inicial).
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 20 (feita): `regras.emCurso?(ctx)` no contrato de tipo (o sono usa) e `cardEmCurso` no `app.js`;
+  `organizarFaixa` (puro, com testes) em `regras.js` ordena a faixa e separa os "quietos" (`linhaSePrecisar`);
+  `status.config` marca aviso que é só de configuração; `fmtDuracaoCurta`.
 - Fase 19 (feita): vista `resumo` no `app.js` (`vistaResumo`); a barra tem 4 abas; `relatorio` e `familia` contam como
   aba Resumo. O Histórico perdeu os cartões (Relatório, Família, Ritmo).
 - Fase 18 (feita): `js/resumo.js` (puro, com testes): `resumoPeriodo(ctx, tipos, inicio, fim)` (médias só com dias

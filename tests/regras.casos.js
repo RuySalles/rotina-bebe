@@ -3,7 +3,7 @@ import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   statusPlano, isoSP, deDataHoraSP, fmtHora, contarEmJanela, horaDepois,
   mediana, ritmoSono, preverSono, ritmoLeite, preverLeite, textoHoraDecimal,
-  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto, organizarFaixa, fmtDuracaoCurta
 } from '../js/regras.js';
 import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
@@ -298,7 +298,8 @@ export function casos({ grupo, teste }) {
     const ctx = montar([al('09:00', { itens: ['leite'], ml: 180 }), al('10:30', { itens: ['fruta'], quantidade: 'Banana' })], t('25', '11:00'));
     const p = alim.proximos(ctx)[0];
     igual([p.titulo, p.t], ['Leite', t('25', '12:00')]);
-    igual(alim.status(ctx).linhas, ['Leite 09:00 · 180 mL', 'Próximo leite 12:00', 'Fruta 10:30']);
+    // O botão mostra o total do dia; o próximo leite fica no card PRÓXIMO (fase 20).
+    igual(alim.status(ctx).linhas, ['Leite 09:00 · 180 mL', 'Hoje: 180 mL · 1 mamadeira', 'Fruta 10:30']);
   });
   teste('Depois de uma refeição, o próximo leite fica para 1h depois dela (se isso for mais tarde)', () => {
     const ctx = montar([al('09:00', { itens: ['leite'], ml: 180 }), al('11:40', { itens: ['refeicao'] })], t('25', '12:00'));
@@ -1065,6 +1066,30 @@ export function casos({ grupo, teste }) {
   teste('Idade a partir da data de nascimento', () => {
     igual(['2026-10-13', '2026-05-13', '2026-05-31', '2025-08-25', '2026-11-01'].map((n) => idadeTexto(n, t('25', '12:00'))),
       ['12 dias', '5 meses e 12 dias', '4 meses e 25 dias', '1 ano e 2 meses', '']);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Tela inicial: o que importa agora');
+  teste('Dormindo: o sono toma o card PRÓXIMO com o botão Acordou; esquecido aberto (14h+) não', () => {
+    const agora = t('25', '20:35');
+    const dormindo = ctxRel([linha('sono', T('25', '20:00'), {})], agora);
+    igual(TIPOS.sono.regras.emCurso(dormindo), { titulo: 'Dormindo há 35 min', detalhe: 'desde 20:00', desde: t('25', '20:00'), botao: 'Acordou' });
+    igual(TIPOS.sono.regras.emCurso(ctxRel([linha('sono', T('25', '04:00'), {})], agora)), null);
+    igual(TIPOS.sono.regras.emCurso(ctxRel([linha('sono', T('25', '18:00'), { fim: T('25', '19:00') })], agora)), null);
+  });
+  teste('Faixa: aviso sobe; só se precisar sem uso recente vai para "Se precisar"', () => {
+    const it = (id, st, quietoPossivel = false, recente = false) => ({ tipo: { id }, st, quietoPossivel, recente });
+    const r = organizarFaixa([
+      it('febre', { linhas: [] }, true), it('tylenol', { linhas: [] }, true, true), it('vacina', { aviso: true, linhas: [] }),
+      it('consulta', { linhas: [] }), it('remedio_x', { alerta: true, linhas: [] })
+    ]);
+    igual(r.linhas.map((x) => x.tipo.id), ['remedio_x', 'vacina', 'tylenol', 'consulta']);
+    igual(r.quietos.map((x) => x.tipo.id), ['febre']);
+    // Aviso de configuração não sobe e não impede de ficar quieto.
+    igual(organizarFaixa([it('vacina', { linhas: [] }), it('tylenol', { aviso: true, config: true, linhas: [] }, true)]).quietos.map((x) => x.tipo.id), ['tylenol']);
+  });
+  teste('Duração curta para o card', () => {
+    igual([220, 120, 45, 61].map(fmtDuracaoCurta), ['3h40', '2h', '45 min', '1h01']);
   });
 
   // ---------------------------------------------------------------------

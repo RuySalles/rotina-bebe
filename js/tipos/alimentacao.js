@@ -1,4 +1,4 @@
-import { proximaPorRecorrencia, fmtHora, fmtDuracao, numero, ritmoLeite, preverLeite, periodoRitmo } from '../regras.js';
+import { proximaPorRecorrencia, fmtHora, fmtDuracao, fmtDuracaoCurta, chaveDia, numero, ritmoLeite, preverLeite, periodoRitmo } from '../regras.js';
 
 // O que foi, em dados.itens (pode ser mais de um no mesmo registro): leite (com dados.ml), fruta, refeição
 // (papinha, sopa…). dados.quantidade guarda o texto do que comeu; dados.observacao, uma observação.
@@ -225,7 +225,12 @@ export default {
         linhas.push(temLeite(leite) ? `Leite ${fmtHora(leite.t)}${ml ? ` · ${ml} mL` : ''}` : `Última ${fmtHora(leite.t)}`);
       }
       if (tyl) linhas.push(`20–30 min após o Tylenol (${fmtHora(tyl.t + 20 * MIN)}–${fmtHora(tyl.t + 30 * MIN)})`);
-      else if (leite) { const pr = proximoLeite(ctx, leite); linhas.push(`Próximo leite ${pr.ritmo ? '~' : ''}${fmtHora(pr.t)}${pr.ritmo && pr.t < ctx.agora ? ' · já passou' : ''}`); }
+      else if (leite) {
+        // O próximo leite já está no card PRÓXIMO; aqui vai o total do dia (fase 20).
+        const hoje = ctx.doDia('alimentacao', chaveDia(ctx.agora)).filter(temLeite);
+        const ml = hoje.reduce((soma, e) => soma + (mlDe(e) || 0), 0);
+        if (hoje.length) linhas.push(`Hoje: ${ml ? `${ml} mL · ` : ''}${hoje.length} ${hoje.length === 1 ? 'mamadeira' : 'mamadeiras'}`);
+      }
       // Comida recente num registro separado (se foi junto com o leite, a linha do leite já basta).
       if (comida && comida.id !== leite?.id && (!leite || comida.t > leite.t - 6 * 60 * MIN)) {
         linhas.push(`${itensDe(comida).includes('refeicao') ? 'Refeição' : 'Fruta'} ${fmtHora(comida.t)}`);
@@ -252,8 +257,8 @@ export default {
           t: pr.t,
           titulo: 'Leite',
           detalhe: pr.refeicao
-            ? `costuma vir assim depois da refeição (${fmtHora(pr.refeicao.t)})`
-            : `costuma ser a cada ~${fmtDuracao(pr.minutos)} nesse horário`,
+            ? `pelo costume depois da refeição (${fmtHora(pr.refeicao.t)})`
+            : `a cada ~${fmtDuracaoCurta(pr.minutos)} nesse horário`,
           previsao: true
         }];
       }

@@ -85,7 +85,8 @@ export default {
       const linhas = [liberado ? 'Liberado agora (se febre ou dor)' : `Liberado a partir de ${fmtHora(liberadoEm)} (se febre ou dor)`];
       const max = ctx.numeroConfig('tylenol_max_24h');
       const n = dosesEm24h(ctx, ctx.agora);
-      if (max === null) return { linhas: [...linhas, 'Defina o máximo em 24h em Ajustes'], aviso: true };
+      // config: é um lembrete de configuração, não uma urgência (não sobe na faixa da tela inicial).
+      if (max === null) return { linhas: [...linhas, 'Defina o máximo em 24h em Ajustes'], aviso: true, config: true };
       if (n >= max) return { linhas: [...linhas, `Limite atingido: ${n} de ${max} em 24h`], alerta: true };
       return { linhas: [...linhas, `${n} de ${max} doses em 24h`] };
     },

@@ -24,10 +24,12 @@
 //   rotina?: true                         (botão grande no topo da tela inicial; os outros vão para a faixa compacta)
 //   regras?: {
 //     prioridade, usaPlano?, intervaloMinimoH?, recorrenciaH?,
-//     status(ctx) → { linhas, alerta?, aviso?, ok?, ativo? },   (ativo: algo em andamento, ex. dormindo)
+//     status(ctx) → { linhas, alerta?, aviso?, ok?, ativo?, config? },   (ativo: algo em andamento, ex. dormindo;
+//                                         config: o aviso é só de configuração e não sobe na faixa)
 //     proximos(ctx) → [{ t, titulo, detalhe, alerta?, informativo?, destaque?, diaInteiro? }],
 //       (destaque: primeira linha do "Depois", em destaque; diaInteiro: mostra "Hoje" em vez da hora;
 //        alemDe24h: entra mesmo depois das próximas 24h, ex. consulta daqui a 5 dias)
+//     emCurso?(ctx) → { titulo, detalhe?, botao } | null   (algo acontecendo agora, ex. dormindo: toma o card PRÓXIMO)
 //     registrarComo?(ctx) → { editarId, dados?, titulo? } | null   (o botão abre um registro existente)
 //     infoRegistro?(ctx, horario, editandoId) → texto,
 //     avisos?(ctx, horario, dados, editandoId) → [{ texto, confirmar? }],

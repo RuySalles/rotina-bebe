@@ -15,7 +15,7 @@ import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
   fmtHora, fmtData, fmtDataLonga, chaveDia, rotuloDia, contagem, somarDias, deDataHoraSP,
   numero, fmtNumero, ms, isoSP, horaDepois, fmtDuracao, textoHoraDecimal, RITMO_DIAS, minutos5,
-  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto
+  lerBotoesInicio, aplicarBotoesInicio, textoBotoesInicio, idadeTexto, organizarFaixa
 } from './regras.js';
 
 const app = document.getElementById('app');
@@ -458,12 +458,15 @@ function vistaInicio() {
   const agenda = montarAgenda(ctx, 24);
   const { principal } = escolherProximo(agenda);
   // Os próximos horários (no máximo 3) entram no próprio card, como "Depois". Destaques (ex. vacina hoje) primeiro.
-  const resto = agenda.filter((i) => i !== principal);
+  // Algo em andamento (ex. dormindo) toma o card, a não ser que haja um atraso (ex. remédio de horário fixo):
+  // aí a previsão principal desce para as linhas de baixo.
+  const emCurso = principal?.alerta ? null : LISTA_TIPOS.map((t) => ({ tipo: t, estado: t.regras?.emCurso?.(ctx) })).find((x) => x.estado);
+  const resto = agenda.filter((i) => emCurso || i !== principal);
   const depois = [...resto.filter((i) => i.destaque), ...resto.filter((i) => !i.destaque)].slice(0, 3);
   // Celular: PRÓXIMO, botões, faixa (uma coluna). Tela larga: PRÓXIMO e faixa à esquerda, botões à direita.
   return `
     <div class="inicio">
-      <div class="inicio-proximo">${cardProximo(principal, depois)}</div>
+      <div class="inicio-proximo">${emCurso ? cardEmCurso(emCurso, depois) : cardProximo(principal, depois)}</div>
       <section class="inicio-registrar" aria-label="Registrar">
         <div class="grade">${aplicarBotoesInicio(botoesPadrao().grandes, lerBotoesInicio(estado.config)).map(tile).join('')}</div>
       </section>
@@ -484,6 +487,25 @@ function listaDepois(itens) {
           <span>${esc(i.titulo)}</span>
         </li>`).join('')}
     </ul>`;
+}
+
+/** Card PRÓXIMO com o que está acontecendo agora (ex. "Dormindo há 35 min" e o botão Acordou). */
+function cardEmCurso({ tipo, estado }, depois = []) {
+  return `
+    <section class="proximo proximo--agora" ${estiloCor(tipo)}>
+      <div class="proximo-topo">
+        <span class="proximo-rotulo">Agora</span>
+      </div>
+      <div class="proximo-corpo">
+        <span class="icone icone--grande">${tipo.icone}</span>
+        <div class="proximo-textos">
+          <p class="proximo-titulo">${esc(estado.titulo)}</p>
+          <p class="proximo-detalhe">${esc(estado.detalhe || '')}</p>
+        </div>
+      </div>
+      <button class="botao botao--cheio botao--grande" data-acao="registrar" data-tipo="${tipo.id}">${esc(estado.botao)}</button>
+      ${listaDepois(depois)}
+    </section>`;
 }
 
 function cardProximo(item, depois = []) {
@@ -540,11 +562,40 @@ function faixaCompacta() {
   const naTela = botoesPadrao().faixa.filter((t) => !t.naInicio || t.naInicio(ctx));
   const tipos = aplicarBotoesInicio(naTela, lerBotoesInicio(estado.config));
   if (!tipos.length) return '';
-  return `<ul class="cartao lista faixa" aria-label="Remédios e saúde">${tipos.map(linhaFaixa).join('')}</ul>`;
+  // Fase 20: o que tem alerta ou aviso sobe (vacina perto, remédio na hora, febre recente), mantendo a ordem escolhida
+  // em Ajustes entre iguais. Febre e remédios "só se precisar" sem uso nos últimos dias ficam juntos numa linha só.
+  const { linhas: ativos, quietos } = organizarFaixa(tipos.map((tipo) => ({
+    tipo,
+    st: tipo.regras?.status ? tipo.regras.status(ctx) : { linhas: [] },
+    quietoPossivel: soSePrecisar(tipo),
+    recente: usadoHaPouco(tipo)
+  })));
+  const linhas = ativos.map((x) => linhaFaixa(x.tipo, x.st));
+  if (quietos.length) linhas.push(linhaSePrecisar(quietos.map((x) => x.tipo)));
+  return `<ul class="cartao lista faixa" aria-label="Remédios e saúde">${linhas.join('')}</ul>`;
 }
 
-function linhaFaixa(tipo) {
-  const st = tipo.regras?.status ? tipo.regras.status(ctx) : { linhas: [] };
+const DIAS_QUIETO = 3;
+/** Só se usa quando precisa: febre e remédios "só se precisar" (Tylenol e os cadastrados assim). */
+const soSePrecisar = (t) => t.id === 'febre' || t.id === 'tylenol' || t.remedio?.modo === 'se_precisar';
+const usadoHaPouco = (t) => ctx.doTipo(t.id).some((e) => e.t <= ctx.agora && ctx.agora - e.t <= DIAS_QUIETO * 24 * 3600000);
+
+/** Uma linha com os botões de quem está quieto: "Se precisar  [Febre +] [Tylenol +]". */
+function linhaSePrecisar(tipos) {
+  return `
+    <li class="faixa-se-precisar">
+      <span class="faixa-se-rotulo">Se precisar</span>
+      <span class="faixa-se-botoes">
+        ${tipos.map((t) => `
+          <button class="faixa-se-botao" data-acao="registrar" data-tipo="${t.id}" ${estiloCor(t)}>
+            <span class="icone icone--mini">${t.icone}</span>${esc(t.rotulo)}<span class="faixa-se-mais" aria-hidden="true">+</span>
+          </button>`).join('')}
+      </span>
+    </li>`;
+}
+
+function linhaFaixa(tipo, stPronto = null) {
+  const st = stPronto || (tipo.regras?.status ? tipo.regras.status(ctx) : { linhas: [] });
   const [forte = '', segunda = ''] = st.linhas || [];
   const classe = st.alerta ? 'faixa-item--alerta' : st.aviso ? 'faixa-item--aviso' : st.ativo ? 'faixa-item--ativo' : st.ok ? 'faixa-item--ok' : '';
   return `
@@ -553,7 +604,8 @@ function linhaFaixa(tipo) {
         <span class="icone icone--pequeno">${tipo.icone}</span>
         <span class="faixa-textos">
           <span class="faixa-rotulo">${esc(tipo.rotulo)}</span>
-          <span class="faixa-status"><span class="faixa-forte">${esc(forte)}</span>${segunda ? ` · ${esc(segunda)}` : ''}</span>
+          <span class="faixa-status faixa-forte">${esc(forte)}</span>
+          ${segunda ? `<span class="faixa-status faixa-segunda">${esc(segunda)}</span>` : ''}
         </span>
         <span class="faixa-mais" aria-hidden="true">+</span>
       </button>

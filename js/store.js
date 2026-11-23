@@ -22,7 +22,7 @@ const INTERVALO_SYNC_MS = 30 * 1000;
 const COMPLETA_A_CADA_MS = 10 * 60 * 1000;
 const LOTE_MAX = 40;
 // Versão do apps-script/Code.gs que este app espera (VERSAO_BACKEND lá). Ajustes avisa se a publicada for mais velha.
-export const VERSAO_BACKEND_ESPERADA = 9;
+export const VERSAO_BACKEND_ESPERADA = 10;
 
 /** Versão do Code.gs pela resposta: o número, ou deduzida (fase 4 publicada antes de ter número; 0 = anterior). */
 const versaoDaResposta = (json) => (Number.isFinite(json.versao_backend) ? json.versao_backend : Number.isFinite(json.linha_eventos) ? 4 : 0);
@@ -182,17 +182,17 @@ async function enviarLotes(completo) {
     const itens = fila.slice(0, LOTE_MAX);
     const corpo = { acao: 'lote', payload: { itens } };
     if (fila.length <= LOTE_MAX) Object.assign(corpo, await pedidoDeLeitura(completo));
+    delete corpo.carimbo; // gravação sempre muda o carimbo: não adianta mandar
     let json;
     try {
       json = await postar(corpo);
     } catch (e) {
       if (e.doServidor && e.message === 'acao_desconhecida') { servidorAntigo = true; return false; }
       comPedido(e, corpo, true);
-      if (!(corpo.c || corpo.h) || !recusaDoServidor(e)) throw e;
+      if (!corpo.h || !recusaDoServidor(e)) throw e;
       // Recusou o pedido com carimbo / impressão digital: manda de novo do jeito de antes
       // (se a gravação já tinha entrado, o servidor ignora os ids repetidos).
       desligarAtalho(e);
-      delete corpo.c;
       delete corpo.h;
       Object.assign(corpo, await pedidoDeLeitura(completo));
       json = await postar(corpo).catch((e2) => { throw comPedido(e2, corpo, true); });
@@ -231,12 +231,15 @@ const temLinha = () => Number.isFinite(servidor.linha_eventos) && servidor.linha
 async function pedidoDeLeitura(completo, tudo = false) {
   if (tudo || !temLinha()) return { desde: '' };
   const v8 = !atalhoDesligado && (servidor.versao_backend ?? 0) >= 8;
-  if (podeIncremental(completo)) return v8 && servidor.carimbo ? { desde: servidor.linha_eventos, c: servidor.carimbo } : { desde: servidor.linha_eventos };
+  // O carimbo vai como "carimbo" e só para a versão 10+: as versões 8 e 9 esperavam "c", nome reservado pelo Google
+  // (o pedido nem chegava ao Code.gs). Com elas, o dia a dia segue pedindo só o que é novo, como antes da fase 24.
+  const v10 = !atalhoDesligado && (servidor.versao_backend ?? 0) >= 10;
+  if (podeIncremental(completo)) return v10 && servidor.carimbo ? { desde: servidor.linha_eventos, carimbo: servidor.carimbo } : { desde: servidor.linha_eventos };
   const h = v8 ? await digitalEventos() : '';
   return h ? { desde: servidor.linha_eventos, h } : { desde: '' };
 }
 
-// Se a planilha recusar um pedido com carimbo ou impressão digital (c / h), o app segue do jeito de antes até ser
+// Se a planilha recusar um pedido com carimbo ou impressão digital (carimbo / h), o app segue do jeito de antes até ser
 // aberto de novo, e guarda o código do erro para Ajustes mostrar. Nada deixa de sincronizar por causa da fase 24.
 let atalhoDesligado = '';
 // Também "Failed to fetch" (TypeError): uma página de erro do Google, sem a resposta do Code.gs, chega assim.
@@ -244,7 +247,7 @@ let atalhoDesligado = '';
 const recusaDoServidor = (e) => !e.definitivo && navigator.onLine !== false &&
   (e.doServidor || /^http_/.test(e.message) || e instanceof SyntaxError || e instanceof TypeError);
 /** Qual pedido era, para o código em Ajustes dizer onde falhou. */
-const nomePedido = (p, envio) => [envio ? 'envio' : '', p.h ? 'conferência' : p.c ? 'carimbo' : p.desde ? 'só o novo' : envio ? '' : 'tudo']
+const nomePedido = (p, envio) => [envio ? 'envio' : '', p.h ? 'conferência' : p.carimbo ? 'carimbo' : p.desde ? 'só o novo' : envio ? '' : 'tudo']
   .filter(Boolean).join(' + ');
 const comPedido = (e, p, envio) => { e.pedido = e.pedido || nomePedido(p, envio); return e; };
 const ESPERA_NOVA_TENTATIVA_MS = 1500;
@@ -337,7 +340,7 @@ async function baixar(completo, tudo = false) {
     json = await pedir({ url, method: 'GET' });
   } catch (e) {
     comPedido(e, pedido, false);
-    if (!((pedido.c || pedido.h) && recusaDoServidor(e))) throw e;
+    if (!((pedido.carimbo || pedido.h) && recusaDoServidor(e))) throw e;
     // Pode ser uma falha passageira (do Google ou da internet): tenta o mesmo pedido mais uma vez, depois de uma
     // pausa, antes de desistir do modo econômico.
     await new Promise((ok) => setTimeout(ok, ESPERA_NOVA_TENTATIVA_MS));

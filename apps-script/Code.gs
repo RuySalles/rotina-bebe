@@ -16,10 +16,11 @@
  * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda);
  * 7 = fase 16 (lembrete das consultas marcadas no Google Agenda);
  * 8 = fase 24 (carimbo: "sem mudança" sem abrir a planilha; conferência por impressão digital em vez de carga completa);
- * 9 = fase 25 (busca do id pela planilha, cabeçalhos lidos uma vez por pedido, abas conferidas uma vez por versão).
+ * 9 = fase 25 (busca do id pela planilha, cabeçalhos lidos uma vez por pedido, abas conferidas uma vez por versão);
+ * 10 = correção da fase 24: o carimbo vai no parâmetro "carimbo" ("c" é reservado pelo Google e derrubava o pedido).
  * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 9;
+var VERSAO_BACKEND = 10;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -43,8 +44,9 @@ var CONFIG_PADRAO = {
  * das linhas seguintes, com parcial: true. Planos e config vêm sempre completos (são pequenos).
  * "linha_eventos" diz até que linha a aba eventos vai, para o próximo pedido.
  * Versão 8 (fase 24), parâmetros opcionais que o app antigo não manda (sem eles, tudo como antes):
- *   c = carimbo que o celular já tem: se ninguém gravou nada desde então, a resposta é só { sem_mudanca: true },
- *       sem nem abrir a planilha.
+ *   carimbo = carimbo que o celular já tem: se ninguém gravou nada desde então, a resposta é só
+ *       { sem_mudanca: true }, sem nem abrir a planilha. (Na versão 8 e 9 era "c", mas o Google reserva os nomes
+ *       "c" e "sid" nos Web Apps e recusa o pedido antes de chegar aqui. Nunca use esses nomes de parâmetro.)
  *   h = impressão digital (SHA-256 do JSON) dos eventos que o celular tem até a linha "desde": se bater, a resposta é
  *       a parcial com conferido: true; se não bater (mexeram direto na planilha), vem tudo, como na carga completa.
  * Toda resposta de leitura traz "carimbo".
@@ -54,7 +56,7 @@ function doGet(e) {
     CABECALHOS_ = {};
     var p = (e && e.parameter) || {};
     validarChave_(p.k);
-    return json_(leitura_(p.desde, { c: p.c, h: p.h }));
+    return json_(leitura_(p.desde, { c: p.carimbo, h: p.h }));
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   }

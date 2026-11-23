@@ -858,7 +858,14 @@ A coluna de ids, que crescia ~600 linhas por mês, não é mais lida a cada grav
 
 **Você vai precisar:** colar o Code.gs e republicar o Web App (aviso único, com o passo a passo, que vale para as
 fases 24 e 25). **Como testar:**
-- [ ] Ajustes → Este celular → Sincronizar agora: "Web App: versão 9", sem o aviso "republique".
+- [ ] Ajustes → Este celular → Sincronizar agora: "Web App: versão 10", sem o aviso "republique" e sem "Modo
+  econômico desligado".
+
+**Correção depois da republicação (23/11):** com a versão 9 no ar, a sincronização dava "Failed to fetch". Causa: o
+carimbo ia no parâmetro `c`, que o Google reserva nos Web Apps (com `sid`) e recusa antes de chegar ao script; a
+planilha simulada não tinha essa regra (agora tem). Code.gs versão 10 usa `carimbo`; o app só manda o carimbo para a
+versão 10+. Ficaram também duas proteções: se um pedido econômico falhar duas vezes seguidas, o app volta ao jeito
+antigo até ser aberto de novo, e Ajustes mostra o código do erro e qual pedido falhou.
 - [ ] Registrar num celular e ver aparecer no outro em até 30 s.
 - [ ] Modo avião, registrar 2 ou 3 coisas, tirar do modo avião: entram uma vez só, sem duplicar.
 - [ ] Fechar e abrir o app: abre na hora, com tudo lá (a conferência substitui a carga completa).

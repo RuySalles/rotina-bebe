@@ -133,6 +133,10 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
   inteira), os cabeçalhos são lidos uma vez por pedido e as abas são conferidas uma vez por versão (propriedade
   `ABAS_OK`, criada sozinha; **prepararPlanilha** sempre confere tudo). Não precisa de autorização nova nem de rodar
   nada pelo editor: cole o `Code.gs`, salve e republique.
+- *Correção (versão 10):* nas versões 8 e 9 o carimbo ia no parâmetro `c`, que o Google reserva nos Web Apps (junto
+  com `sid`): o pedido era recusado antes de chegar ao script ("Failed to fetch" no app, nenhuma falha em Execuções).
+  Agora vai como `carimbo`. Com a versão 8 ou 9 publicada, o app não manda o carimbo e sincroniza como antes da fase
+  24. Cole o `Code.gs` e republique. **Nunca use `c` nem `sid` como nome de parâmetro.**
 
 ## Lembretes no Google Agenda
 

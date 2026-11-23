@@ -25,7 +25,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   O "Em resumo" e os gráficos vêm de `js/resumo.js` (puro): só compara com o próprio bebê no período anterior
 - `js/imagem-relatorio.js` → o mesmo relatório desenhado em canvas (1 a 3 imagens) para o compartilhar do celular
 - `js/familia.js` → placar da família (só rotina conta; ponto do `autor`, quem registrou primeiro) + HTML da tela;
-  `js/imagem-familia.js` → imagem para o grupo (nunca temperatura nem remédios); `js/desenho.js` → canvas comum
+  `js/imagem-familia.js` → imagens para o grupo: placar, retrospectiva e linha do tempo (nunca temperatura, remédios
+  nem sintomas); `js/desenho.js` → canvas comum. `js/conquistas.js` → meta da semana, medalhas, marcos, retrospectiva
 - `js/grafico.js` → gráfico de evolução (SVG) para tipos com `evolucao(ctx)`, ex. `js/tipos/medidas.js` (peso em kg,
   altura e cabeça em cm; diferença desde a anterior; nunca comparar com curvas de crescimento)
 - `js/tipos/vacina.js` (próxima dose, aviso e lembrete), `js/tipos/consulta.js` (agendavel: marcada à frente) e

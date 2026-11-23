@@ -36,8 +36,8 @@ algo) dizem isso em "Você vai precisar".
 | 17 | Anotações livres | Baixa | ✅ |
 | 18 | Relatório para a pediatra: resumo primeiro, 30 e 60 dias | Alta | ✅ |
 | 19 | Aba Resumo (Histórico só com a lista) | Alta | ✅ |
-| 20 | Tela inicial: o que importa agora em primeiro lugar | Média | 🧪 |
-| 21 | Gamificação: conquistas, meta da semana e marcos | Média | ⬜ |
+| 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ✅ |
+| 21 | Gamificação: conquistas, meta da semana e marcos | Média | 🧪 |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -719,7 +719,29 @@ repetido, e de um jeito que também melhora os dados do relatório.
 **Regras que não mudam:** remédio, febre e vacina nunca dão ponto nem medalha; nada de notificação cobrando; quem
 não quiser pode esconder (Ajustes → Tela inicial).
 
+**Decidido no quiz (22/11):**
+- **Dia completo:** alimentação e fralda registradas de manhã (5–12h), à tarde (12–18h) e à noite (18–24h), e todo
+  sono com hora de acordar. A meta olha os últimos 7 dias inteiros (ontem para trás).
+- **Lugar:** meta da semana e medalhas na tela **Família participando**; a imagem do grupo mostra as medalhas novas.
+- **Retrospectiva:** botões na tela Família ("Retrospectiva de outubro" e "Novembro até agora"). Nada é enviado
+  sozinho.
+- **Marcos:** cartão **Marcos** na aba Resumo, com a linha do tempo (nascimento, cada mês completado e as anotações do
+  tipo Marco, com a idade) e o botão "Enviar para a família". No dia em que faz meses, a tela inicial mostra
+  "🎂 Hoje faz 5 meses!" no topo (toque abre a linha do tempo).
+
+**Como ficou:** 6 medalhas: 🌟 Estreia, 🛁 Primeiro banho, 🌙 Plantão da madrugada (registro entre 0h e 5h),
+🧷 Mestre das fraldas (50 trocas), 🍼 Cem mamadeiras, 📅 Semana inteira (7 dias seguidos). Cada pessoa (Pai e Mãe
+também) tem as suas; as conquistadas no período aparecem como "nova". A retrospectiva tem noite mais longa, recorde de
+leite, sono por dia, mamadeiras, fraldas e banhos do mês, quem registrou, marcos e medalhas do mês.
+
 **Você vai precisar:** nada (a data de nascimento vem da fase 18).
+
+**Como testar:**
+- [ ] Família → a meta da semana mostra 7 bolinhas; os dias completos batem com o Histórico.
+- [ ] Um parente que nunca registrou faz o primeiro registro: ganha "Estreia" (aparece como nova).
+- [ ] Família → Retrospectiva de outubro → WhatsApp: a imagem chega sem temperatura, remédios nem sintomas.
+- [ ] Resumo → Marcos: a linha do tempo mostra os meses e os marcos com a idade; "Enviar para a família" funciona.
+- [ ] No dia do mêsversário, aparece "Hoje faz N meses!" no topo da tela inicial.
 
 ---
 
@@ -759,6 +781,10 @@ não quiser pode esconder (Ajustes → Tela inicial).
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 21 (feita): `js/conquistas.js` (puro, com testes): `diaCompleto`, `metaSemana`, `CONQUISTAS` e
+  `conquistasPorPessoa` (pelo autor, só rotina), `medalhasNovas`, `mesesHoje`/`diaDoMes`/`textoMeses`,
+  `linhaDoTempo`, `retrospectiva` (usa `placarEntre`, que o `montarPlacar` passou a usar). Vista `marcos` no
+  `app.js`; imagens `imagemRetrospectiva` e `imagemLinhaDoTempo` em `js/imagem-familia.js`.
 - Fase 20 (feita): `regras.emCurso?(ctx)` no contrato de tipo (o sono usa) e `cardEmCurso` no `app.js`;
   `organizarFaixa` (puro, com testes) em `regras.js` ordena a faixa e separa os "quietos" (`linhaSePrecisar`);
   `status.config` marca aviso que é só de configuração; `fmtDuracaoCurta`.

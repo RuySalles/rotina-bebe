@@ -12,6 +12,7 @@ import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
 import { montarRelatorio, graficoTemperatura, diaCurto, padraoDoses, textoPadrao } from '../js/relatorio.js';
 import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 import { papel, porcentagens, montarPlacar } from '../js/familia.js';
+import { diaCompleto, metaSemana, conquistasPorPessoa, medalhasNovas, mesesHoje, textoMeses, diaDoMes, linhaDoTempo, retrospectiva, mesAnterior } from '../js/conquistas.js';
 import { fmtPeso, fmtCm, textoDiferencas, serie } from '../js/tipos/medidas.js';
 import { pendentes, avisosVacina, nomePendente } from '../js/tipos/vacina.js';
 import { diasParaMedia, numerosDoDia, resumoPeriodo, blocosResumo, comparar, seriesRelatorio, maiorSemCoco } from '../js/resumo.js';
@@ -1103,6 +1104,47 @@ export function casos({ grupo, teste }) {
   });
   teste('Duração curta para o card', () => {
     igual([220, 120, 45, 61].map(fmtDuracaoCurta), ['3h40', '2h', '45 min', '1h01']);
+  });
+
+  // ---------------------------------------------------------------------
+  grupo('Gamificação');
+  const quem = (nome, l) => ({ ...l, quem: nome });
+  teste('Dia completo: alimentação e fralda de manhã, à tarde e à noite, sem sono aberto', () => {
+    const base = ['08:00', '14:00', '20:00'].flatMap((h) => [linha('alimentacao', T('24', h), { itens: ['leite'], ml: 150 }), linha('fralda', T('24', h), { conteudo: 'Xixi' })]);
+    verdade(diaCompleto(ctxRel(base, t('25', '12:00')), '2026-10-24'), 'completo');
+    verdade(!diaCompleto(ctxRel(base.slice(0, 4), t('25', '12:00')), '2026-10-24'), 'sem a noite');
+    const aberto = [...base, linha('sono', T('24', '13:00'), {}), linha('sono', T('25', '09:00'), { fim: T('25', '10:00') })];
+    verdade(!diaCompleto(ctxRel(aberto, t('25', '12:00')), '2026-10-24'), 'sono sem hora de acordar');
+    igual(metaSemana(ctxRel(base, t('25', '12:00'))).completos, 1);
+  });
+  teste('Conquistas: estreia, banho, madrugada e semana inteira; remédio não conta', () => {
+    const linhasG = [quem('Vó Ana', linha('fralda', T('18', '03:30'), { conteudo: 'Xixi' })), quem('Vó Ana', linha('banho', T('19', '19:00'), {})),
+      ...['20', '21', '22', '23', '24'].map((d) => quem('Vó Ana', linha('fralda', T(d, '10:00'), { conteudo: 'Xixi' }))),
+      quem('Pai', linha('tylenol', T('24', '10:00'), { dose: '1,5 mL' }))];
+    const pessoas = conquistasPorPessoa(ctxRel(linhasG, t('25', '12:00')));
+    igual(pessoas.map((p) => p.nome), ['Vó Ana']);
+    igual(pessoas[0].medalhas.map((m) => m.id), ['estreia', 'madrugada', 'banho', 'semana']);
+    igual(medalhasNovas(pessoas, t('24', '00:00'), t('25', '12:00')).map((m) => [m.nome, m.id]), [['Vó Ana', 'semana']]);
+  });
+  teste('Aniversário de mês (inclusive dia 31) e linha do tempo com a idade de cada marco', () => {
+    igual(mesesHoje('2026-04-25', t('25', '12:00')), 6);
+    igual(mesesHoje('2026-04-24', t('25', '12:00')), null);
+    igual(diaDoMes('2026-08-31', 1), '2026-09-30');
+    igual([textoMeses(6), textoMeses(12), textoMeses(14)], ['Hoje faz 6 meses!', 'Hoje faz 1 ano!', 'Hoje faz 1 ano e 2 meses!']);
+    const lt = linhaDoTempo(ctxRel([linha('anotacao', T('20', '10:00'), { texto: 'Rolou sozinho', categoria: 'Marco' })], t('25', '12:00')), '2026-07-25');
+    igual(lt.map((i) => [i.tipo, i.texto, i.idade]), [['mes', 'Fez 3 meses', ''], ['marco', 'Rolou sozinho', '2 meses e 25 dias'], ['mes', 'Fez 2 meses', ''], ['mes', 'Fez 1 mês', ''], ['nascimento', 'Nasceu', '']]);
+  });
+  teste('Retrospectiva: recorde de leite, noite mais longa, marcos; mês anterior', () => {
+    const linhasR = [
+      linha('alimentacao', T('10', '08:00'), { itens: ['leite'], ml: 200 }), linha('alimentacao', T('10', '12:00'), { itens: ['leite'], ml: 200 }),
+      linha('alimentacao', T('12', '08:00'), { itens: ['leite'], ml: 150 }),
+      linha('sono', T('11', '20:00'), { fim: '2026-10-12T06:30:00-03:00' }), linha('sono', T('13', '21:00'), { fim: '2026-10-14T05:00:00-03:00' }),
+      linha('anotacao', T('15', '10:00'), { texto: 'Primeira papinha', categoria: 'Marco' }),
+      linha('febre', T('16', '10:00'), { temperatura: 38.5 })
+    ];
+    const r = retrospectiva(ctxRel(linhasR, t('25', '12:00')), Object.values(TIPOS), '2026-10');
+    igual([r.nome, r.recordeLeite, Math.round(r.noiteMaisLonga.min / 60 * 10) / 10, r.marcos.map((m) => m.texto), r.completo], ['outubro', { dia: '2026-10-10', ml: 400 }, 10.5, ['Primeira papinha'], false]);
+    igual(mesAnterior('2026-01'), '2025-12');
   });
 
   // ---------------------------------------------------------------------

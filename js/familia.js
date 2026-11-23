@@ -48,8 +48,11 @@ export function porcentagens(contagens) {
 export function montarPlacar(ctx, tiposRotina, nDias) {
   const hoje = chaveDia(ctx.agora);
   const dias = Array.from({ length: nDias }, (_, i) => somarDias(hoje, i - nDias + 1));
-  const inicio = deDataHoraSP(dias[0], '00:00');
-  const fim = ctx.agora;
+  return { dias, ...placarEntre(ctx, tiposRotina, deDataHoraSP(dias[0], '00:00'), ctx.agora) };
+}
+
+/** O mesmo placar para um intervalo qualquer [inicio, fim] (ex. um mês, na retrospectiva). */
+export function placarEntre(ctx, tiposRotina, inicio, fim) {
   const ids = new Set(tiposRotina.filter((t) => t.rotina && !t.remedio).map((t) => t.id));
   const registros = ctx.eventos.filter((e) => ids.has(e.tipo) && e.t >= inicio && e.t <= fim);
 
@@ -87,7 +90,7 @@ export function montarPlacar(ctx, tiposRotina, nDias) {
   ].filter(([, n]) => n).map(([id, n, um, varios]) => ({ id, n, rotulo: plural(n, um, varios) }));
 
   return {
-    dias, inicio, fim, total,
+    inicio, fim, total,
     grupos: GRUPOS.map((g) => ({ ...g, pontos: contagem[g.id], pct: pct[g.id] })),
     ranking,
     numeros,
@@ -118,7 +121,58 @@ export const NOTA_PONTOS = 'Contam alimentação, sono, fralda e banho, para que
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** opcoes: { nome, nDias, periodos: [[n, rotulo]], periodo: texto do período } */
-export function htmlPlacar(p, { nome, nDias, periodos, periodo }) {
+/** Fase 21: meta da semana (7 bolinhas, uma por dia). meta: metaSemana(ctx). */
+function secaoMeta(meta) {
+  if (!meta) return '';
+  const semana = new Intl.DateTimeFormat('pt-BR', { weekday: 'narrow', timeZone: 'America/Sao_Paulo' });
+  const completa = meta.completos === 7;
+  return `
+    <section class="cartao rel-secao meta-semana ${completa ? 'meta-semana--completa' : ''}">
+      <h3 class="rel-secao-titulo">Meta da semana</h3>
+      <p class="meta-texto">${completa ? 'Semana completa! 🎉' : `<strong>${meta.completos} de 7</strong> dias com a rotina completa`}</p>
+      <ol class="meta-dias">${meta.dias.map((d) => `
+        <li class="${d.completo ? 'meta-ok' : ''}" title="${esc(d.dia.split('-').reverse().slice(0, 2).join('/'))}${d.completo ? ' · completo' : ''}">
+          <span class="meta-bola">${d.completo ? '✓' : ''}</span>${esc(semana.format(Date.parse(`${d.dia}T12:00:00-03:00`)).toUpperCase())}
+        </li>`).join('')}</ol>
+      <p class="ajuda">Dia completo: alimentação e fralda registradas de manhã, à tarde e à noite, e todo sono com hora de acordar. Ontem para trás.</p>
+    </section>`;
+}
+
+/** Fase 21: medalhas de cada pessoa; as conquistadas no período aparecem como "nova". */
+function secaoConquistas(pessoas, inicio, fim, total) {
+  if (!pessoas?.length) return '';
+  return `
+    <section class="cartao rel-secao">
+      <h3 class="rel-secao-titulo">Conquistas</h3>
+      <ul class="conquistas">${pessoas.map((pe) => `
+        <li>
+          <p class="conquistas-nome">${esc(pe.nome)} <small>${pe.medalhas.length} de ${total}</small></p>
+          <p class="conquistas-medalhas">${pe.medalhas.map((m) => {
+            const nova = m.t >= inicio && m.t <= fim;
+            return `<span class="medalha ${nova ? 'medalha--nova' : ''}" title="${esc(`${m.descricao} · ${fmtData(m.t)}`)}">${m.emoji} ${esc(m.rotulo)}${nova ? ' <b>nova</b>' : ''}</span>`;
+          }).join('')}</p>
+        </li>`).join('')}</ul>
+      <p class="ajuda">Só a rotina conta (alimentação, sono, fralda e banho). Toque e segure numa medalha para ver quando foi.</p>
+    </section>`;
+}
+
+/** Fase 21: botões da retrospectiva (mês passado e o mês atual até hoje). meses: { anterior, atual } (AAAA-MM). */
+function secaoRetrospectiva(meses) {
+  if (!meses) return '';
+  const nome = (m) => ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][Number(m.slice(5, 7)) - 1];
+  return `
+    <section class="cartao rel-secao">
+      <h3 class="rel-secao-titulo">Retrospectiva do mês</h3>
+      <p class="ajuda">Uma imagem para o grupo com os destaques: noite mais longa, recorde de leite, marcos e quem mais ajudou.</p>
+      <div class="retro-botoes">
+        <button class="botao botao--cheio" data-acao="compartilhar-retro" data-mes="${meses.anterior}">Retrospectiva de ${esc(nome(meses.anterior))}</button>
+        <button class="botao botao--leve" data-acao="compartilhar-retro" data-mes="${meses.atual}">${esc(nome(meses.atual).replace(/^./, (c) => c.toUpperCase()))} até agora</button>
+      </div>
+    </section>`;
+}
+
+/** opcoes também (fase 21): meta (metaSemana), pessoas (conquistasPorPessoa), totalConquistas, meses ({ anterior, atual }). */
+export function htmlPlacar(p, { nome, nDias, periodos, periodo, meta, pessoas, totalConquistas, meses }) {
   const chips = periodos.map(([n, rotulo]) =>
     `<button class="chip ${n === nDias ? 'chip--ativo' : ''}" data-acao="periodo-familia" data-dias="${n}" aria-pressed="${n === nDias}">${esc(rotulo)}</button>`).join('');
   const barra = p.total
@@ -155,6 +209,7 @@ export function htmlPlacar(p, { nome, nDias, periodos, periodo }) {
         <h2 class="rel-titulo">${esc(tituloPlacar(nDias))}${nome ? ` · ${esc(nome)}` : ''}</h2>
         <p class="rel-periodo">${esc(periodo)}</p>
       </header>
+      ${secaoMeta(meta)}
       <section class="cartao rel-secao">
         <h3 class="rel-secao-titulo">Quem registrou a rotina</h3>
         ${p.total ? `<div class="placar-barra" role="img" aria-label="${esc(p.grupos.map((g) => `${g.rotulo} ${g.pct}%`).join(', '))}">${barra}</div>` : '<p class="vazio">Nenhum registro de rotina neste período.</p>'}
@@ -164,8 +219,10 @@ export function htmlPlacar(p, { nome, nDias, periodos, periodo }) {
         <h3 class="rel-secao-titulo">Ranking da família</h3>
         ${ranking}
       </section>
+      ${secaoConquistas(pessoas, p.inicio, p.fim, totalConquistas)}
       ${p.marcos.length ? `<section class="cartao rel-secao"><h3 class="rel-secao-titulo">Marcos</h3><ul class="placar-marcos">${p.marcos.map((m) => `<li><time>${esc(fmtData(m.t))}</time> ${esc(m.texto)}</li>`).join('')}</ul></section>` : ''}
       ${numeros ? `<section class="cartao rel-secao"><h3 class="rel-secao-titulo">No período</h3><ul class="placar-numeros">${numeros}</ul></section>` : ''}
+      ${secaoRetrospectiva(meses)}
       <p class="ajuda rel-nota">${esc(NOTA_PONTOS)} A imagem para a família não mostra temperatura, remédios nem sintomas (das anotações, só os marcos).</p>
     </div>`;
 }

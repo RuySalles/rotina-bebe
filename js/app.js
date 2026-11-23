@@ -9,7 +9,8 @@ import { ritmoDoLeite } from './tipos/alimentacao.js';
 import { montarRelatorio, htmlRelatorio, textoPeriodo, resolverPeriodo, PERIODO_PADRAO } from './relatorio.js';
 import { imagensRelatorio } from './imagem-relatorio.js';
 import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA, PERIODOS_FAMILIA } from './familia.js';
-import { imagemFamilia } from './imagem-familia.js';
+import { imagemFamilia, imagemRetrospectiva, imagemLinhaDoTempo } from './imagem-familia.js';
+import { metaSemana, conquistasPorPessoa, medalhasNovas, CONQUISTAS, mesesHoje, textoMeses, linhaDoTempo, retrospectiva, mesAnterior, quandoMarco } from './conquistas.js';
 import { graficoEvolucao } from './grafico.js';
 import {
   resolverEventos, resolverPlanos, criarContexto, montarAgenda, escolherProximo,
@@ -41,6 +42,7 @@ let TODOS_TIPOS = []; // inclui remédios encerrados (histórico e resumo)
 const ICONES = {
   inicio: '<svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 0 1 4 19z"/></svg>',
   historico: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  marcos: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.5 5.2 5.6.8-4 3.9.9 5.6-5-2.7-5 2.7.9-5.6-4-3.9 5.6-.8z"/></svg>',
   resumo: '<svg viewBox="0 0 24 24"><path d="M4.5 19.5h15"/><path d="M7 16v-4M12 16V7.5M17 16v-6.5"/></svg>',
   ajustes: '<svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
   lapis: '<svg viewBox="0 0 24 24"><path d="M15.5 5.5l3 3L8 19l-4 1 1-4z"/></svg>',
@@ -364,7 +366,7 @@ function aoMudarEstado() {
 
 function render() {
   ctx = contexto();
-  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'resumo' ? vistaResumo() : vista === 'relatorio' ? vistaRelatorio()
+  const corpo = vista === 'historico' ? vistaHistorico() : vista === 'resumo' ? vistaResumo() : vista === 'marcos' ? vistaMarcos() : vista === 'relatorio' ? vistaRelatorio()
     : vista === 'familia' ? vistaFamilia()
     : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
   const html = `
@@ -435,7 +437,7 @@ function textoAgenda() {
 }
 
 function navegacao() {
-  const aba = vista === 'relatorio' || vista === 'familia' ? 'resumo' : vista; // abrem de dentro do Resumo
+  const aba = ['relatorio', 'familia', 'marcos'].includes(vista) ? 'resumo' : vista; // abrem de dentro do Resumo
   const item = (id, rotulo) => `
     <button class="nav-item ${aba === id ? 'nav-item--ativo' : ''}" data-acao="vista" data-vista="${id}" ${aba === id ? 'aria-current="page"' : ''}>
       ${ICONES[id]}<span>${rotulo}</span>
@@ -468,7 +470,7 @@ function vistaInicio() {
   // Celular: PRÓXIMO, botões, faixa (uma coluna). Tela larga: PRÓXIMO e faixa à esquerda, botões à direita.
   return `
     <div class="inicio">
-      <div class="inicio-proximo">${emCurso ? cardEmCurso(emCurso, depois) : cardProximo(principal, depois)}</div>
+      <div class="inicio-proximo">${faixaFesta()}${emCurso ? cardEmCurso(emCurso, depois) : cardProximo(principal, depois)}</div>
       <section class="inicio-registrar" aria-label="Registrar">
         <div class="grade">${aplicarBotoesInicio(botoesPadrao().grandes, lerBotoesInicio(estado.config)).map(tile).join('')}</div>
       </section>
@@ -489,6 +491,13 @@ function listaDepois(itens) {
           <span>${esc(i.titulo)}</span>
         </li>`).join('')}
     </ul>`;
+}
+
+/** Fase 21: no dia em que o bebê faz meses, uma faixa de festa no topo (toque abre a linha do tempo). */
+function faixaFesta() {
+  const n = mesesHoje(estado.config.nascimento, ctx.agora);
+  if (!n) return '';
+  return `<button class="festa" data-acao="vista" data-vista="marcos">🎂 <strong>${esc(textoMeses(n))}</strong> <span>Ver a linha do tempo</span></button>`;
 }
 
 /** Card PRÓXIMO com o que está acontecendo agora (ex. "Dormindo há 35 min" e o botão Acordou). */
@@ -745,6 +754,14 @@ function vistaResumo() {
       ${cartaoRitmo() || '<p class="ajuda">O "Ritmo dele" aparece depois de alguns dias de registros de sono e de leite.</p>'}
       ${botaoRelatorio()}
       ${botaoFamilia()}
+      <button class="cartao rel-abrir" data-acao="vista" data-vista="marcos" style="--cor:#D4A72C">
+        <span class="icone icone--pequeno">${ICONES.marcos}</span>
+        <span class="bloco-textos">
+          <span class="bloco-titulo">Marcos</span>
+          <span class="bloco-detalhe">${esc(textoCartaoMarcos())}</span>
+        </span>
+        <span class="bloco-seta" aria-hidden="true"></span>
+      </button>
       ${medidas ? `
         <button class="cartao rel-abrir" data-acao="ver-historico" data-tipo="medidas" ${estiloCor(medidas)}>
           <span class="icone icone--pequeno">${medidas.icone}</span>
@@ -755,6 +772,53 @@ function vistaResumo() {
           <span class="bloco-seta" aria-hidden="true"></span>
         </button>` : ''}
     </div>`;
+}
+
+/** Linha de baixo do cartão Marcos: o último marco ou como começar. */
+function textoCartaoMarcos() {
+  const ultimo = linhaDoTempo(ctx, estado.config.nascimento).find((i) => i.tipo === 'marco');
+  if (ultimo) return `Último: ${ultimo.texto} · linha do tempo e imagem para o grupo`;
+  return 'Aniversários de mês e "primeira vez que…" (anotação do tipo Marco)';
+}
+
+/** Linha do tempo (fase 21): nascimento, meses completados e marcos, com a idade em cada um. */
+function vistaMarcos() {
+  const itens = linhaDoTempo(ctx, estado.config.nascimento);
+  const nome = String(estado.config.nome_bebe || '').trim();
+  const idade = idadeTexto(estado.config.nascimento, ctx.agora);
+  const semNascimento = !/^\d{4}-\d{2}-\d{2}$/.test(String(estado.config.nascimento || ''));
+  return `
+    <div class="relatorio marcos">
+      <div class="rel-barra">
+        <button class="botao botao--leve rel-voltar" data-acao="vista" data-vista="resumo">‹ Resumo</button>
+        ${itens.length ? '<span class="rel-acoes"><button class="botao botao--cheio rel-imagem" data-acao="compartilhar-marcos">Enviar para a família</button></span>' : ''}
+      </div>
+      <header class="rel-cabeca">
+        <p class="rel-sobre">Linha do tempo</p>
+        <h2 class="rel-titulo">${esc(nome || 'Rotina do bebê')}</h2>
+        ${idade ? `<p class="rel-idade">${esc(idade)}</p>` : ''}
+      </header>
+      ${semNascimento ? '<p class="ajuda">Preencha a data de nascimento em Ajustes → Bebê para ver os aniversários de mês e a idade em cada marco.</p>' : ''}
+      ${itens.length ? `
+        <ol class="cartao linha-tempo">${itens.map((it) => `
+          <li class="lt-${it.tipo}">
+            <span class="lt-ponto" aria-hidden="true"></span>
+            <p class="lt-texto">${esc(it.texto)}</p>
+            <p class="lt-quando">${esc(quandoMarco(it))}</p>
+          </li>`).join('')}</ol>` : '<p class="vazio vazio--grande">Nenhum marco ainda.</p>'}
+      <p class="ajuda rel-nota">Para guardar uma "primeira vez", use Anotações na tela inicial e escolha o tipo Marco.</p>
+    </div>`;
+}
+
+/** Imagem da linha do tempo para o grupo da família. */
+function compartilharMarcos(botao) {
+  const nomeBebe = String(estado.config.nome_bebe || '').trim();
+  const itens = linhaDoTempo(ctx, estado.config.nascimento);
+  return compartilharImagens(botao, {
+    chave: `marcos|${itens.length}`,
+    titulo: `Linha do tempo ${nomeBebe.split(/\s+/)[0]}`,
+    gerar: () => imagemLinhaDoTempo(itens, { nome: nomeBebe, idade: idadeTexto(estado.config.nascimento, ctx.agora) })
+  });
 }
 
 /** Registros marcados para a frente do tipo filtrado (agendavel, ex. consultas), antes da lista do Histórico. */
@@ -819,7 +883,25 @@ function vistaFamilia() {
     nome: String(estado.config.nome_bebe || '').trim(),
     nDias: diasFamilia,
     periodos: PERIODOS_FAMILIA,
-    periodo: textoPeriodo(p)
+    periodo: textoPeriodo(p),
+    meta: metaSemana(ctx),
+    pessoas: conquistasPorPessoa(ctx),
+    totalConquistas: CONQUISTAS.length,
+    meses: mesesRetrospectiva()
+  });
+}
+
+/** Retrospectiva: o mês passado e o mês atual (AAAA-MM). */
+const mesesRetrospectiva = () => { const atual = chaveDia(ctx.agora).slice(0, 7); return { anterior: mesAnterior(atual), atual }; };
+
+/** Imagem da retrospectiva do mês para o grupo da família (js/imagem-familia.js). */
+function compartilharRetrospectiva(botao, mes) {
+  const r = retrospectiva(ctx, Object.values(TIPOS), mes);
+  const nomeBebe = String(estado.config.nome_bebe || '').trim();
+  return compartilharImagens(botao, {
+    chave: `retro|${mes}`,
+    titulo: `Retrospectiva de ${r.nome} ${nomeBebe.split(/\s+/)[0]}`,
+    gerar: () => imagemRetrospectiva(r, { nome: nomeBebe })
   });
 }
 
@@ -830,7 +912,7 @@ function compartilharFamilia(botao) {
   return compartilharImagens(botao, {
     chave: `familia|${diasFamilia}`,
     titulo: `${tituloPlacar(diasFamilia)} ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(p)}`,
-    gerar: () => imagemFamilia(p, { nome: nomeBebe, nDias: diasFamilia, periodo: textoPeriodo(p) })
+    gerar: () => imagemFamilia(p, { nome: nomeBebe, nDias: diasFamilia, periodo: textoPeriodo(p), medalhas: medalhasNovas(conquistasPorPessoa(ctx), p.inicio, p.fim) })
   });
 }
 
@@ -1920,6 +2002,10 @@ app.addEventListener('click', async (e) => {
   } else if (acao === 'periodo-familia') {
     diasFamilia = Number(b.dataset.dias) || PERIODO_FAMILIA;
     render();
+  } else if (acao === 'compartilhar-marcos') {
+    compartilharMarcos(b);
+  } else if (acao === 'compartilhar-retro') {
+    compartilharRetrospectiva(b, b.dataset.mes);
   } else if (acao === 'compartilhar-familia') {
     compartilharFamilia(b);
   } else if (acao === 'filtro') {

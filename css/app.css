@@ -1190,6 +1190,38 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .graf-titulo { margin: 0 0 0.25rem; font-size: 0.875rem; font-weight: 600; color: var(--texto-2); }
 .graf-rotulo--leve { font-size: 12px; font-weight: 600; }
 .rel-tabela td.rel-antes, .rel-tabela th.rel-antes { color: var(--texto-2); }
+/* Gamificação (fase 21): meta da semana, medalhas, faixa de festa e linha do tempo */
+.meta-texto { margin: 0 0 0.75rem; font-size: 1rem; }
+.meta-semana--completa .meta-texto { font-weight: 700; color: var(--ok); font-size: 1.125rem; }
+.meta-dias { list-style: none; margin: 0 0 0.5rem; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; text-align: center; }
+.meta-dias li { display: grid; justify-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--texto-3); }
+.meta-bola { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; border: 2px dashed var(--linha); color: #fff; font-size: 0.9375rem; }
+.meta-ok { color: var(--texto-2); }
+.meta-ok .meta-bola { border: 0; background: var(--ok); }
+.conquistas { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.875rem; }
+.conquistas li + li { padding-top: 0.875rem; border-top: 1px solid var(--linha); }
+.conquistas-nome { margin: 0 0 0.375rem; font-weight: 650; }
+.conquistas-nome small { font-weight: 400; color: var(--texto-2); margin-left: 0.25rem; }
+.conquistas-medalhas { margin: 0; display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.medalha { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.625rem; border-radius: 999px; background: var(--superficie-2); font-size: 0.8125rem; font-weight: 600; }
+.medalha--nova { background: color-mix(in srgb, #D4A72C 22%, var(--superficie)); }
+.medalha b { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9a7413; }
+.retro-botoes { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.625rem; }
+.retro-botoes .botao { width: auto; flex: 1 1 12rem; }
+.festa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; width: 100%; margin-bottom: var(--espaco); padding: 0.75rem 1rem;
+  border-radius: var(--raio-p); background: color-mix(in srgb, #D4A72C 18%, var(--superficie)); color: var(--texto); text-align: left; font-size: 1rem; }
+.festa span { font-size: 0.8125rem; color: var(--texto-2); }
+.linha-tempo { list-style: none; margin: 0; padding: 1rem 1rem 0.25rem; }
+.linha-tempo li { position: relative; padding: 0 0 1rem 1.75rem; }
+.linha-tempo li::before { content: ""; position: absolute; left: 0.4375rem; top: 1.1rem; bottom: 0; width: 2px; background: var(--linha); }
+.linha-tempo li:last-child::before { display: none; }
+.lt-ponto { position: absolute; left: 0; top: 0.25rem; width: 1rem; height: 1rem; border-radius: 50%; background: var(--primaria); }
+.lt-marco .lt-ponto { background: #D4A72C; }
+.lt-nascimento .lt-ponto { background: #C2577A; }
+.lt-texto { margin: 0; font-weight: 500; }
+.lt-marco .lt-texto { font-weight: 650; }
+.lt-quando { margin: 0.125rem 0 0; font-size: 0.8125rem; color: var(--texto-2); }
+
 /* Aba Resumo (fase 19): cartões que abrem cada tela */
 .resumo-aba { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco); padding-top: 0.5rem; }
 .resumo-aba > * { min-width: 0; }

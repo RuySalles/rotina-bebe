@@ -29,8 +29,8 @@ function centro(cx, texto, x, y, cor, fonteCss) {
   cx.textAlign = 'left';
 }
 
-/** p: montarPlacar(...). opcoes: { nome, nDias, periodo }. → Blob png */
-export async function imagemFamilia(p, { nome, nDias, periodo }) {
+/** p: montarPlacar(...). opcoes: { nome, nDias, periodo, medalhas? (medalhasNovas do período, fase 21) }. → Blob png */
+export async function imagemFamilia(p, { nome, nDias, periodo, medalhas = [] }) {
   const c = medir();
   const larg = LARGURA - 2 * MARGEM;
   const interno = larg - 2 * PAD;
@@ -60,8 +60,11 @@ export async function imagemFamilia(p, { nome, nDias, periodo }) {
   c.font = fonte(400, 24);
   const linhasMarcos = marcos.map((m) => quebrar(c, m.texto, interno - 110, 2));
   const hMarcos = marcos.length ? PAD + 50 + linhasMarcos.reduce((s, l) => s + l.length * 32 + 14, 0) + PAD - 14 : 0;
+  // Medalhas novas do período (fase 21): até 6.
+  const novas = medalhas.slice(0, 6);
+  const hMedalhas = novas.length ? PAD + 50 + novas.length * 44 + PAD - 8 : 0;
   const hRod = 150;
-  const altura = hCab + hPlacar + ESPACO + hRanking + ESPACO + (hMarcos ? hMarcos + ESPACO : 0) + hNumeros + hRod;
+  const altura = hCab + hPlacar + ESPACO + hRanking + ESPACO + (hMedalhas ? hMedalhas + ESPACO : 0) + (hMarcos ? hMarcos + ESPACO : 0) + hNumeros + hRod;
 
   const canvas = document.createElement('canvas');
   canvas.width = LARGURA;
@@ -166,6 +169,12 @@ export async function imagemFamilia(p, { nome, nDias, periodo }) {
   }
   y += hRanking + ESPACO;
 
+  // ---- medalhas novas ----
+  if (hMedalhas) {
+    desenharMedalhas(cx, y, hMedalhas, 'Medalhas novas', novas, interno);
+    y += hMedalhas + ESPACO;
+  }
+
   // ---- marcos ----
   if (hMarcos) {
     cartao(cx, y, hMarcos);
@@ -191,5 +200,163 @@ export async function imagemFamilia(p, { nome, nDias, periodo }) {
   centro(cx, 'Valeu, família!', LARGURA / 2, y + 22, COR.primaria, fonte(600, 44, FONTE_TITULO));
   centro(cx, 'Contam alimentação, sono, fralda e banho.', LARGURA / 2, y + 90, COR.texto3, fonte(400, 20));
 
+  return paraBlob(canvas);
+}
+
+/** Cartão com medalhas: "🌙  Plantão da madrugada ........ Vó Ana". */
+function desenharMedalhas(cx, y, h, titulo, lista, interno) {
+  const x0 = MARGEM + PAD;
+  cartao(cx, y, h);
+  let ym = y + PAD;
+  escrever(cx, [titulo], x0, ym, 0, COR.texto, fonte(650, 32));
+  ym += 50;
+  for (const m of lista) {
+    escrever(cx, [`${m.emoji}  ${m.rotulo}`], x0, ym, 0, COR.texto, fonte(600, 26));
+    cx.textAlign = 'right';
+    escrever(cx, [m.nome], x0 + interno, ym + 2, 0, COR.texto2, fonte(400, 24));
+    cx.textAlign = 'left';
+    ym += 44;
+  }
+}
+
+/** Cartão com marcos: data à esquerda, texto à direita. linhas: texto já quebrado de cada marco. */
+function desenharMarcos(cx, y, h, titulo, marcos, linhas) {
+  const x0 = MARGEM + PAD;
+  cartao(cx, y, h);
+  let ym = y + PAD;
+  escrever(cx, [titulo], x0, ym, 0, COR.texto, fonte(650, 32));
+  ym += 50;
+  marcos.forEach((m, k) => {
+    bolinha(cx, x0 + 8, ym + 14, MEDALHAS[0], 7);
+    escrever(cx, [fmtData(m.t)], x0 + 26, ym, 0, COR.texto2, fonte(600, 22));
+    escrever(cx, linhas[k], x0 + 110, ym - 2, 32, COR.texto, fonte(400, 24));
+    ym += linhas[k].length * 32 + 14;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Retrospectiva do mês (fase 21)
+// ---------------------------------------------------------------------------
+
+const horasMin = (min) => { const h = Math.floor(min / 60), m = Math.round(min % 60); return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`; };
+const diaMes = (dia) => dia.split('-').reverse().slice(0, 2).join('/');
+
+/** r: retrospectiva(...). opcoes: { nome }. Sem temperatura, remédios nem sintomas. → Blob png */
+export async function imagemRetrospectiva(r, { nome }) {
+  const c = medir();
+  const larg = LARGURA - 2 * MARGEM;
+  const interno = larg - 2 * PAD;
+  const emojiNumero = { mamadeiras: '🥛', fraldas: '🧷', banhos: '🛁' };
+  const destaques = [
+    r.noiteMaisLonga && { emoji: '🌙', titulo: 'Noite mais longa', valor: horasMin(r.noiteMaisLonga.min), detalhe: fmtData(r.noiteMaisLonga.t) },
+    r.recordeLeite && { emoji: '🍼', titulo: 'Recorde de leite', valor: `${r.recordeLeite.ml} mL`, detalhe: diaMes(r.recordeLeite.dia) },
+    r.sonoPorDia && { emoji: '😴', titulo: 'Sono por dia', valor: horasMin(r.sonoPorDia * 60), detalhe: 'em média' },
+    ...r.placar.numeros.filter((n) => emojiNumero[n.id]).map((n) => ({
+      emoji: emojiNumero[n.id], titulo: n.rotulo.replace(/^./, (x) => x.toUpperCase()), valor: String(n.n), detalhe: 'no mês'
+    }))
+  ].filter(Boolean).slice(0, 6);
+  const colW = (larg - 24) / 2, hCartao = 150;
+  const hDestaques = Math.ceil(destaques.length / 2) * (hCartao + 20);
+  const top = r.placar.ranking[0];
+  const hAjuda = r.placar.total ? PAD + 50 + 40 + (top ? 40 : 0) + PAD : 0;
+  const marcos = r.marcos.slice(-4);
+  c.font = fonte(400, 24);
+  const linhasMarcos = marcos.map((m) => quebrar(c, m.texto, interno - 110, 2));
+  const hMarcos = marcos.length ? PAD + 50 + linhasMarcos.reduce((s, l) => s + l.length * 32 + 14, 0) + PAD - 14 : 0;
+  const medalhas = r.medalhas.slice(0, 5);
+  const hMedalhas = medalhas.length ? PAD + 50 + medalhas.length * 44 + PAD - 8 : 0;
+  const hCab = MARGEM + 34 + 74 + 40 + 16;
+  const soma = (h) => (h ? h + ESPACO : 0);
+  const altura = hCab + hDestaques + ESPACO + soma(hAjuda) + soma(hMarcos) + soma(hMedalhas) + 120;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = LARGURA;
+  canvas.height = Math.ceil(altura);
+  const cx = canvas.getContext('2d');
+  cx.fillStyle = COR.fundo;
+  cx.fillRect(0, 0, LARGURA, canvas.height);
+  const x0 = MARGEM + PAD;
+
+  let y = MARGEM;
+  escrever(cx, [`RETROSPECTIVA DE ${r.nome.toUpperCase()}${r.completo ? '' : ' (ATÉ AGORA)'}`], MARGEM, y, 0, COR.primaria, fonte(700, 24));
+  y += 34;
+  c.font = fonte(600, 60, FONTE_TITULO);
+  escrever(cx, quebrar(c, nome || 'Nosso bebê', larg, 1), MARGEM, y, 0, COR.texto, fonte(600, 60, FONTE_TITULO));
+  y += 74;
+  escrever(cx, [`${fmtData(r.inicio)} a ${fmtData(r.fim)}`], MARGEM, y, 0, COR.texto2, fonte(400, 26));
+  y = hCab;
+
+  destaques.forEach((d, i) => {
+    const xx = i % 2 ? MARGEM + colW + 24 : MARGEM;
+    const yy = y + Math.floor(i / 2) * (hCartao + 20);
+    cx.fillStyle = COR.superficie;
+    retanguloArredondado(cx, xx, yy, colW, hCartao, 28);
+    cx.fill();
+    cx.strokeStyle = COR.linha;
+    cx.lineWidth = 1.5;
+    cx.stroke();
+    escrever(cx, [`${d.emoji}  ${d.titulo}`], xx + 28, yy + 24, 0, COR.texto2, fonte(600, 22));
+    escrever(cx, [d.valor], xx + 28, yy + 58, 0, COR.texto, fonte(800, 46));
+    escrever(cx, [d.detalhe], xx + 28, yy + 112, 0, COR.texto3, fonte(400, 20));
+  });
+  y += hDestaques + ESPACO - 20;
+
+  if (hAjuda) {
+    cartao(cx, y, hAjuda);
+    let ya = y + PAD;
+    escrever(cx, ['Quem registrou a rotina'], x0, ya, 0, COR.texto, fonte(650, 32));
+    ya += 50;
+    escrever(cx, [r.placar.grupos.map((g) => `${g.rotulo} ${g.pct}%`).join('  ·  ')], x0, ya, 0, COR.texto, fonte(600, 28));
+    if (top) escrever(cx, [`Quem mais ajudou da família: ${top.nome}, ${textoRegistros(top.pontos)}`], x0, ya + 44, 0, COR.texto2, fonte(400, 24));
+    y += hAjuda + ESPACO;
+  }
+  if (hMarcos) { desenharMarcos(cx, y, hMarcos, 'Marcos do mês', marcos, linhasMarcos); y += hMarcos + ESPACO; }
+  if (hMedalhas) { desenharMedalhas(cx, y, hMedalhas, 'Medalhas do mês', medalhas, interno); y += hMedalhas + ESPACO; }
+  centro(cx, 'Valeu, família!', LARGURA / 2, y + 6, COR.primaria, fonte(600, 44, FONTE_TITULO));
+  centro(cx, 'Feito a partir dos registros do app.', LARGURA / 2, y + 70, COR.texto3, fonte(400, 20));
+  return paraBlob(canvas);
+}
+
+// ---------------------------------------------------------------------------
+// Linha do tempo dos marcos (fase 21)
+// ---------------------------------------------------------------------------
+
+/** itens: linhaDoTempo(...) (o mais recente primeiro). opcoes: { nome, idade }. Até 12 itens. → Blob png */
+export async function imagemLinhaDoTempo(itens, { nome, idade }) {
+  const c = medir();
+  const larg = LARGURA - 2 * MARGEM;
+  const interno = larg - 2 * PAD;
+  const lista = itens.slice(0, 12);
+  c.font = fonte(600, 26);
+  const linhas = lista.map((it) => quebrar(c, it.texto, interno - 60, 2));
+  const hLista = PAD + linhas.reduce((s, l) => s + l.length * 34 + 40, 0) + PAD - 10;
+  const hCab = MARGEM + 34 + 74 + (idade ? 40 : 0) + 16;
+  const altura = hCab + hLista + 110;
+  const canvas = document.createElement('canvas');
+  canvas.width = LARGURA;
+  canvas.height = Math.ceil(altura);
+  const cx = canvas.getContext('2d');
+  cx.fillStyle = COR.fundo;
+  cx.fillRect(0, 0, LARGURA, canvas.height);
+  let y = MARGEM;
+  escrever(cx, ['LINHA DO TEMPO'], MARGEM, y, 0, COR.primaria, fonte(700, 24));
+  y += 34;
+  escrever(cx, [nome || 'Nosso bebê'], MARGEM, y, 0, COR.texto, fonte(600, 60, FONTE_TITULO));
+  y += 74;
+  if (idade) escrever(cx, [idade], MARGEM, y, 0, COR.texto2, fonte(600, 26));
+  y = hCab;
+  cartao(cx, y, hLista);
+  const x0 = MARGEM + PAD;
+  let yi = y + PAD;
+  lista.forEach((it, k) => {
+    const cor = it.tipo === 'marco' ? MEDALHAS[0] : it.tipo === 'nascimento' ? '#C2577A' : COR.primaria;
+    const hItem = linhas[k].length * 34 + 40;
+    if (k < lista.length - 1) { cx.fillStyle = COR.linha; cx.fillRect(x0 + 13, yi + 28, 3, hItem - 8); }
+    bolinha(cx, x0 + 14, yi + 16, cor, 12);
+    escrever(cx, linhas[k], x0 + 48, yi, 34, COR.texto, fonte(it.tipo === 'marco' ? 650 : 500, 26));
+    escrever(cx, [[fmtData(it.t), it.idade].filter(Boolean).join(' · ')], x0 + 48, yi + linhas[k].length * 34, 0, COR.texto2, fonte(400, 21));
+    yi += hItem;
+  });
+  centro(cx, 'Feito a partir dos registros do app.', LARGURA / 2, y + hLista + 36, COR.texto3, fonte(400, 20));
   return paraBlob(canvas);
 }

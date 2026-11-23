@@ -14,10 +14,11 @@
  * js/store.js). O app mostra em Ajustes qual versão está publicada, para conferir se a republicação pegou.
  * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda);
  * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda);
- * 7 = fase 16 (lembrete das consultas marcadas no Google Agenda).
+ * 7 = fase 16 (lembrete das consultas marcadas no Google Agenda);
+ * 8 = fase 24 (carimbo: "sem mudança" sem abrir a planilha; conferência por impressão digital em vez de carga completa).
  * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 7;
+var VERSAO_BACKEND = 8;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -40,12 +41,18 @@ var CONFIG_PADRAO = {
  * Com "desde" (número da última linha de eventos que o celular já tem), devolve só os eventos
  * das linhas seguintes, com parcial: true. Planos e config vêm sempre completos (são pequenos).
  * "linha_eventos" diz até que linha a aba eventos vai, para o próximo pedido.
+ * Versão 8 (fase 24), parâmetros opcionais que o app antigo não manda (sem eles, tudo como antes):
+ *   c = carimbo que o celular já tem: se ninguém gravou nada desde então, a resposta é só { sem_mudanca: true },
+ *       sem nem abrir a planilha.
+ *   h = impressão digital (SHA-256 do JSON) dos eventos que o celular tem até a linha "desde": se bater, a resposta é
+ *       a parcial com conferido: true; se não bater (mexeram direto na planilha), vem tudo, como na carga completa.
+ * Toda resposta de leitura traz "carimbo".
  */
 function doGet(e) {
   try {
     var p = (e && e.parameter) || {};
     validarChave_(p.k);
-    return json_(leitura_(p.desde));
+    return json_(leitura_(p.desde, { c: p.c, h: p.h }));
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
   }
@@ -79,13 +86,15 @@ function doPost(e) {
         }
       });
       atualizarAgenda_(agenda);
+      if (resultados.some(function (r) { return r.ok && r.resultado !== 'ja_existia'; })) novoCarimbo_();
       var resposta = { ok: true, resultados: resultados, versao_backend: VERSAO_BACKEND };
-      if (corpo.desde !== undefined) resposta.leitura = leitura_(corpo.desde);
+      if (corpo.desde !== undefined) resposta.leitura = leitura_(corpo.desde, { h: corpo.h });
       return json_(resposta);
     }
     var resultado = gravar_(corpo.acao, payload);
     anotarAgenda_(agenda, corpo.acao, payload, resultado);
     atualizarAgenda_(agenda);
+    if (resultado !== 'ja_existia') novoCarimbo_();
     return json_({ ok: true, resultado: resultado, versao_backend: VERSAO_BACKEND });
   } catch (err) {
     return json_({ ok: false, erro: String(err.message || err) });
@@ -107,12 +116,28 @@ function gravar_(acao, payload, idsVistos) {
   }
 }
 
-/** desde: '' ou ausente = tudo; um número = só os eventos depois dessa linha da planilha. */
-function leitura_(desde) {
-  var ss = planilha_();
+/**
+ * desde: '' ou ausente = tudo; um número = só os eventos depois dessa linha da planilha.
+ * extra.c (carimbo) e extra.h (impressão digital): veja o doGet.
+ */
+function leitura_(desde, extra) {
+  extra = extra || {};
   var n = parseInt(desde, 10);
-  var parcial = String(desde === undefined || desde === null ? '' : desde) !== '' && isFinite(n) && n >= 1 &&
+  var temDesde = String(desde === undefined || desde === null ? '' : desde) !== '' && isFinite(n) && n >= 1;
+  var carimbo = carimbo_();
+  // Ninguém gravou nada desde o último pedido deste celular: responde sem abrir a planilha.
+  if (temDesde && !extra.h && extra.c && String(extra.c) === carimbo) {
+    return { ok: true, sem_mudanca: true, carimbo: carimbo, versao_backend: VERSAO_BACKEND };
+  }
+  var ss = planilha_();
+  var parcial = temDesde &&
     !!ss.getSheetByName('eventos') && !!ss.getSheetByName('planos') && !!ss.getSheetByName('config');
+  var conferido = false;
+  if (parcial && extra.h) {
+    // Conferência: os eventos até a linha "desde" são os mesmos que o celular tem?
+    conferido = digital_(JSON.stringify(lerLinhas_('eventos', 2, n))) === String(extra.h);
+    if (!conferido) parcial = false;
+  }
   if (!parcial) garantirAbas_();
   var ultima = ss.getSheetByName('eventos').getLastRow();
   var resposta = {
@@ -122,10 +147,36 @@ function leitura_(desde) {
     config: lerConfig_(),
     linha_eventos: ultima,
     versao_backend: VERSAO_BACKEND,
-    agenda: situacaoAgenda_()
+    agenda: situacaoAgenda_(),
+    carimbo: carimbo
   };
   if (parcial) resposta.parcial = true;
+  if (conferido) resposta.conferido = true;
   return resposta;
+}
+
+/**
+ * Carimbo: muda a cada gravação (e quando os lembretes da agenda são refeitos). Fica nas propriedades do script,
+ * que são lidas sem abrir a planilha. Uma edição feita direto na planilha não muda o carimbo: ela aparece na
+ * conferência que o app faz ao abrir e a cada 10 minutos.
+ */
+function carimbo_() {
+  var props = PropertiesService.getScriptProperties();
+  return props.getProperty('CARIMBO') || novoCarimbo_();
+}
+
+function novoCarimbo_() {
+  var c = Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  PropertiesService.getScriptProperties().setProperty('CARIMBO', c);
+  return c;
+}
+
+/** SHA-256 do texto (UTF-8) em hexadecimal: a mesma conta que o app faz com crypto.subtle. */
+function digital_(texto) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, texto, Utilities.Charset.UTF_8)
+    .map(function (b) { return ((b + 256) % 256).toString(16); })
+    .map(function (x) { return x.length < 2 ? '0' + x : x; })
+    .join('');
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +210,7 @@ function prepararPlanilha() {
   Object.keys(CONFIG_PADRAO).forEach(function (chave) {
     if (!(chave in config)) salvarConfig_(chave, CONFIG_PADRAO[chave]);
   });
+  novoCarimbo_();
   Logger.log('Planilha pronta.');
 }
 
@@ -190,6 +242,7 @@ function rodarSeed() {
   Object.keys(SEED.config || {}).forEach(function (chave) {
     if (!(chave in config) || config[chave] === '') salvarConfig_(chave, SEED.config[chave]);
   });
+  novoCarimbo_();
   Logger.log('Seed concluído. Linhas novas: ' + novos);
 }
 
@@ -260,6 +313,7 @@ function atualizarAgenda_(agenda) {
     anterior.quando = isoAgora_();
     props.setProperty('AGENDA_STATUS', JSON.stringify(anterior));
   }
+  novoCarimbo_(); // a situação da agenda (que o app mostra em Ajustes) mudou
 }
 
 /** Eventos futuros criados por este script (têm a tag rb_tipo). */
@@ -554,10 +608,14 @@ function cabecalho_(aba) {
   return aba.getRange(1, 1, 1, ultima).getDisplayValues()[0].map(function (c) { return String(c).trim(); });
 }
 
-/** Linhas da aba como objetos (pelo cabeçalho). aPartirDe: primeira linha da planilha a ler (padrão 2). */
-function lerLinhas_(nome, aPartirDe) {
+/**
+ * Linhas da aba como objetos (pelo cabeçalho). aPartirDe: primeira linha da planilha a ler (padrão 2);
+ * ate (opcional): última linha a ler.
+ */
+function lerLinhas_(nome, aPartirDe, ate) {
   var aba = planilha_().getSheetByName(nome);
   var ultimaLinha = aba.getLastRow();
+  if (ate) ultimaLinha = Math.min(ultimaLinha, ate);
   var inicio = Math.max(2, aPartirDe || 2);
   if (ultimaLinha < inicio) return [];
   var cab = cabecalho_(aba);

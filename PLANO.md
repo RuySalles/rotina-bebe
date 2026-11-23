@@ -39,8 +39,8 @@ algo) dizem isso em "Você vai precisar".
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ✅ |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ✅ |
 | 22 | Desempenho: tela mais leve | Alta | ✅ |
-| 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | 🧪 |
-| 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | ⬜ |
+| 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | ✅ |
+| 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | 🧪 |
 | 25 | Desempenho: planilha mais rápida | Média | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
@@ -821,6 +821,21 @@ continua abrindo sem internet.
 - Planos, config e agenda só vêm quando mudaram.
 - Retrocompatível: com o Web App antigo, o app continua funcionando como hoje. Code.gs versão 8.
 
+**Como ficou:** a conferência é a impressão digital (SHA-256) dos eventos que o celular tem; se bate, vem só o que é
+novo. Planos, config e agenda passaram a vir só quando o carimbo muda (antes vinham a cada 30 s). Medido com a planilha
+simulada (o `Code.gs` de verdade rodando no computador, 61 dias e 1.205 registros):
+
+| | Antes | Depois |
+|---|---|---|
+| Ao abrir o app e a cada 10 min | 270 KB (a planilha inteira) | 0,2 KB |
+| A cada 30 s, sem novidade | planos + config + agenda, abrindo a planilha | 78 bytes, sem abrir a planilha |
+| Com o app aberto por 1 hora, sem registros | ~1,6 MB | ~10 KB |
+
+Testado também: registro do outro celular chega na sincronização seguinte; registro deste celular sobe e confirma num
+pedido só; reenvio da fila não muda o carimbo; edição feita direto na planilha é percebida na conferência e vem tudo;
+app novo com o Web App antigo (versão 7) funciona como antes. Única diferença: edição feita **direto na planilha**
+aparece em até 10 min (ou ao abrir o app), não mais em 30 s; registros feitos pelo app continuam em até 30 s.
+
 **Você vai precisar:** republicar o Web App (no fim da fase 25, uma vez só). **Como testar:** Ajustes mostra
 "Web App: versão 9"; registrar num celular e ver aparecer no outro em até 30 s, como hoje.
 
@@ -870,6 +885,12 @@ passo, ao fim desta fase). **Como testar:** registrar sem internet e depois volt
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 24 (feita): Code.gs versão 8. `leitura_(desde, { c, h })`: com `c` igual ao `carimbo_()` (propriedade
+  `CARIMBO`, trocada por `novoCarimbo_()` a cada gravação que não seja `ja_existia`, no fim do `atualizarAgenda_` e no
+  seed) responde `{ sem_mudanca }` sem `planilha_()`; com `h`, compara `digital_(JSON.stringify(lerLinhas_('eventos',
+  2, desde)))` e responde parcial com `conferido: true` ou tudo. `lerLinhas_` ganhou `ate`. No `store.js`:
+  `pedidoDeLeitura(completo, tudo)` escolhe c / h / desde / tudo (c e h só com `versao_backend >= 8`);
+  `digitalEventos()` (crypto.subtle); `aplicarLeitura` trata `sem_mudanca` e `conferido` (vale como completa).
 - Fase 23 (feita): o `montar-site.sh` grava `v/<versao>/arquivos.json` ({ caminho: 16 letras do sha1 }). No `sw.js`,
   `deOutraVersao(url)` procura nas cópias `rb-*` um arquivo com a mesma impressão digital e devolve
   `semEndereco(r)` (Response nova, sem a URL antiga, para os imports relativos apontarem para a versão nova);

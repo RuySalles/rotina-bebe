@@ -124,6 +124,11 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
 - *Fase 16 (versão 7, consultas):* ao marcar, mudar ou apagar uma consulta, o script refaz os lembretes das consultas
   (evento de 1 hora na hora da consulta, com aviso na véspera e 2 horas antes). Também não precisa de autorização
   nova: cole o `Code.gs`, rode **sincronizarAgenda** uma vez e republique.
+- *Fase 24 (versão 8, menos dados móveis):* o script guarda um "carimbo" que muda a cada gravação (propriedade
+  `CARIMBO`, criada sozinha). Quando nada mudou, a resposta é só "sem mudança", sem abrir a planilha; ao abrir o app e
+  a cada 10 minutos, em vez de baixar a planilha inteira, o app manda uma impressão digital do que tem e só baixa
+  tudo se não bater. Não precisa de autorização nova. Uma edição feita **direto na planilha** aparece no app em até
+  10 minutos (ou ao abrir o app), não mais em 30 segundos. Enquanto não republicar, o app funciona como antes.
 
 ## Lembretes no Google Agenda
 

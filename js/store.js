@@ -22,7 +22,7 @@ const INTERVALO_SYNC_MS = 30 * 1000;
 const COMPLETA_A_CADA_MS = 10 * 60 * 1000;
 const LOTE_MAX = 40;
 // Versão do apps-script/Code.gs que este app espera (VERSAO_BACKEND lá). Ajustes avisa se a publicada for mais velha.
-export const VERSAO_BACKEND_ESPERADA = 7;
+export const VERSAO_BACKEND_ESPERADA = 8;
 
 /** Versão do Code.gs pela resposta: o número, ou deduzida (fase 4 publicada antes de ter número; 0 = anterior). */
 const versaoDaResposta = (json) => (Number.isFinite(json.versao_backend) ? json.versao_backend : Number.isFinite(json.linha_eventos) ? 4 : 0);
@@ -181,7 +181,7 @@ async function enviarLotes(completo) {
   while (fila.length) {
     const itens = fila.slice(0, LOTE_MAX);
     const corpo = { acao: 'lote', payload: { itens } };
-    if (fila.length <= LOTE_MAX) corpo.desde = podeIncremental(completo) ? servidor.linha_eventos : '';
+    if (fila.length <= LOTE_MAX) Object.assign(corpo, await pedidoDeLeitura(completo));
     let json;
     try {
       json = await postar(corpo);
@@ -209,14 +209,44 @@ async function enviarLotes(completo) {
 
 /** Dá para pedir só o que mudou? (senão, carga completa: de tempos em tempos ou se algo não bater) */
 function podeIncremental(completo) {
-  return !completo && Number.isFinite(servidor.linha_eventos) && servidor.linha_eventos >= 1 &&
-    Date.now() - (servidor.completa || 0) < COMPLETA_A_CADA_MS;
+  return !completo && temLinha() && Date.now() - (servidor.completa || 0) < COMPLETA_A_CADA_MS;
+}
+const temLinha = () => Number.isFinite(servidor.linha_eventos) && servidor.linha_eventos >= 1;
+
+/**
+ * O que pedir junto com a leitura (fase 24, Web App versão 8+):
+ *   - no dia a dia: desde + c (carimbo): se ninguém gravou nada, a resposta é só "sem mudança";
+ *   - ao abrir e a cada 10 min: desde + h (impressão digital do que o celular tem): se bater, vem só o que é novo,
+ *     em vez de baixar tudo de novo; se não bater, vem tudo.
+ * Com Web App mais antigo, como antes: desde (só o novo) ou nada (tudo).
+ */
+async function pedidoDeLeitura(completo, tudo = false) {
+  if (tudo || !temLinha()) return { desde: '' };
+  const v8 = (servidor.versao_backend ?? 0) >= 8;
+  if (podeIncremental(completo)) return v8 && servidor.carimbo ? { desde: servidor.linha_eventos, c: servidor.carimbo } : { desde: servidor.linha_eventos };
+  const h = v8 ? await digitalEventos() : '';
+  return h ? { desde: servidor.linha_eventos, h } : { desde: '' };
+}
+
+/** SHA-256 (hexadecimal) do JSON dos eventos guardados, a mesma conta do digital_ no Code.gs. '' se não der. */
+async function digitalEventos() {
+  try {
+    const bytes = new TextEncoder().encode(JSON.stringify(servidor.eventos));
+    const d = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  } catch { return ''; }
 }
 
 /** Junta a resposta do servidor ao que está guardado. Devolve false se precisar de carga completa. */
 function aplicarLeitura(json) {
   const agora = Date.now();
   const antes = servidor;
+  if (json.sem_mudanca) {
+    // Ninguém gravou nada (fase 24): só a hora e a versão.
+    servidor = { ...servidor, versao_backend: versaoDaResposta(json), carimbo: json.carimbo || servidor.carimbo, ultima: agora };
+    lsGravar(LS.ultima, String(agora));
+    return true;
+  }
   if (json.parcial) {
     // A aba encolheu (mexeram direto na planilha): não dá para confiar no incremental.
     if (!(json.linha_eventos >= servidor.linha_eventos)) return false;
@@ -230,6 +260,9 @@ function aplicarLeitura(json) {
       linha_eventos: json.linha_eventos,
       versao_backend: versaoDaResposta(json),
       agenda: json.agenda || null,
+      carimbo: json.carimbo || null,
+      // Conferência que bateu vale como carga completa (fase 24).
+      completa: json.conferido ? agora : servidor.completa,
       ultima: agora
     };
   } else {
@@ -241,6 +274,7 @@ function aplicarLeitura(json) {
       linha_eventos: Number.isFinite(json.linha_eventos) ? json.linha_eventos : null,
       versao_backend: versaoDaResposta(json),
       agenda: json.agenda || null, // lembretes no Google Agenda (fase 10)
+      carimbo: json.carimbo || null,
       completa: agora,
       ultima: agora
     };
@@ -266,12 +300,12 @@ function mudou(a, b, completa) {
     comoTexto(a.agenda) !== comoTexto(b.agenda);
 }
 
-async function baixar(completo) {
+async function baixar(completo, tudo = false) {
   const sep = urlBackend.includes('?') ? '&' : '?';
-  const inc = podeIncremental(completo);
-  const desde = inc ? `&desde=${servidor.linha_eventos}` : '';
-  const json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${desde}`, method: 'GET' });
-  if (!aplicarLeitura(json) && inc) await baixar(true);
+  const pedido = await pedidoDeLeitura(completo, tudo);
+  const extra = Object.entries(pedido).filter(([, v]) => v !== '').map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join('');
+  const json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`, method: 'GET' });
+  if (!aplicarLeitura(json) && extra) await baixar(true, true);
 }
 
 /**

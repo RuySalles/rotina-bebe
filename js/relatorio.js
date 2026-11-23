@@ -106,6 +106,11 @@ const semanaIntl = new Intl.DateTimeFormat('pt-BR', { weekday: 'short', timeZone
 export const diaCurto = (dia) =>
   `${semanaIntl.format(Date.parse(`${dia}T12:00:00-03:00`)).replace('.', '')} ${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
 const graus = (c) => `${fmtNumero(c)} °C`;
+/** Dia para colunas: dia da semana com largura fixa e a data com números alinhados ("sáb" e "dom" têm larguras diferentes). */
+export const diaCurtoHtml = (dia) => {
+  const [sem, data] = diaCurto(dia).split(' ');
+  return `<span class="dia-sem">${esc(sem)}</span> <span class="dia-num">${esc(data)}</span>`;
+};
 
 /** Período em texto: "20/11 a 22/11" (ou só "22/11"). */
 export function textoPeriodo(rel) {
@@ -207,7 +212,7 @@ function secaoDias(rel) {
     `<th scope="col" ${estiloCor(tipo)}><span class="rel-col"><span class="icone icone--mini">${tipo.icone}</span>${esc(tipo.rotulo)}</span></th>`).join('');
   const linhas = rel.diasTabela.map((dia, i) => `
     <tr>
-      <th scope="row">${esc(diaCurto(dia))}</th>
+      <th scope="row">${diaCurtoHtml(dia)}</th>
       ${rel.colunas.map(({ celulas }) => {
         const c = celulas[i];
         if (!c) return '<td class="rel-nada">—</td>';
@@ -351,7 +356,7 @@ function secaoRemedios(rel, agora) {
             <span class="rel-remedio-conta">${doses.length} ${tipo.id === 'vacina' ? (doses.length === 1 ? 'registro' : 'registros') : (doses.length === 1 ? 'dose' : 'doses')}</span></p>
           <dl class="rel-doses">
             ${porDia(doses).map(([dia, lista]) => `
-              <div><dt>${esc(diaCurto(dia))}</dt>
+              <div><dt>${diaCurtoHtml(dia)}</dt>
                 <dd>${lista.map((d) => `${esc(fmtHora(d.t))}${d.texto ? ` <span>(${esc(d.texto)})</span>` : ''}`).join(', ')}</dd></div>`).join('')}
           </dl>
         </div>`).join('')}
@@ -405,7 +410,7 @@ function secaoAnotacoes(rel) {
       <dl class="rel-anotacoes">
         ${anotacoesPorDia(rel).map(([dia, lista]) => `
           <div>
-            <dt>${esc(diaCurto(dia))}</dt>
+            <dt>${diaCurtoHtml(dia)}</dt>
             <dd><ul>${lista.map((a) => `
               <li class="${a.categoria === 'Sintoma' ? 'rel-alto' : ''}">
                 <time>${esc(fmtHora(a.t))}</time>

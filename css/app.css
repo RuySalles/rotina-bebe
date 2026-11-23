@@ -1326,3 +1326,6 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
   .rel-resumo-cartao { break-inside: auto; }
   @page { margin: 12mm; }
 }
+
+/* Fase 22: marca no fim do Histórico; quando a rolagem chega perto, entram mais dias. */
+.dias-mais { height: 0.0625rem; }

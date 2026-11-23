@@ -7,9 +7,10 @@ import { descreverAjuste } from './tipos/ajuste.js';
 import { ritmoDoSono } from './tipos/sono.js';
 import { ritmoDoLeite } from './tipos/alimentacao.js';
 import { montarRelatorio, htmlRelatorio, textoPeriodo, resolverPeriodo, PERIODO_PADRAO } from './relatorio.js';
-import { imagensRelatorio } from './imagem-relatorio.js';
 import { montarPlacar, htmlPlacar, tituloPlacar, GRUPOS, PERIODO_FAMILIA, PERIODOS_FAMILIA } from './familia.js';
-import { imagemFamilia, imagemRetrospectiva, imagemLinhaDoTempo } from './imagem-familia.js';
+// As imagens para compartilhar (canvas) só são carregadas no primeiro toque em "Enviar…" (fase 22).
+const imagemRelatorio = () => import('./imagem-relatorio.js');
+const imagemDaFamilia = () => import('./imagem-familia.js');
 import { metaSemana, conquistasPorPessoa, medalhasNovas, CONQUISTAS, mesesHoje, textoMeses, linhaDoTempo, retrospectiva, mesAnterior, quandoMarco } from './conquistas.js';
 import { graficoEvolucao } from './grafico.js';
 import {
@@ -64,11 +65,22 @@ const ICONES = {
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const maiuscula = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+// Fase 22: tipos, eventos e planos resolvidos só são recalculados quando os dados mudam (estado.revisao).
+let calculado = { revisao: null };
 function contexto() {
-  ({ mapa: TIPOS, visiveis: LISTA_TIPOS, todos: TODOS_TIPOS } = montarTipos(estado.config));
+  if (calculado.revisao !== estado.revisao || estado.revisao === undefined) {
+    const tipos = montarTipos(estado.config);
+    calculado = {
+      revisao: estado.revisao,
+      tipos,
+      eventos: resolverEventos(estado.eventos, tipos.mapa),
+      planos: resolverPlanos(estado.planos)
+    };
+  }
+  ({ mapa: TIPOS, visiveis: LISTA_TIPOS, todos: TODOS_TIPOS } = calculado.tipos);
   return criarContexto({
-    eventos: resolverEventos(estado.eventos, TIPOS),
-    planos: resolverPlanos(estado.planos),
+    eventos: calculado.eventos,
+    planos: calculado.planos,
     config: estado.config,
     agora: Date.now(),
     tipos: TIPOS
@@ -357,7 +369,18 @@ function aoMudarEstado() {
     if (agenda) agenda.textContent = textoAgenda();
     return;
   }
+  // Dados iguais e mesmo dia: só a bolinha de sincronização muda (fase 22). A tela inicial tem o próprio relógio.
+  if (estado.revisao === revisaoDesenhada && chaveDia(Date.now()) === diaDesenhado) {
+    atualizarPilula();
+    return;
+  }
   render();
+}
+
+function atualizarPilula() {
+  const pilula = document.getElementById('sync');
+  const html = pilulaSync();
+  if (pilula && pilula.outerHTML !== html) pilula.outerHTML = html;
 }
 
 // ---------------------------------------------------------------------------
@@ -366,6 +389,7 @@ function aoMudarEstado() {
 
 function render() {
   ctx = contexto();
+  if (vista !== 'historico') filtroDesenhado = null; // voltar ao Histórico começa de novo pelos primeiros dias
   const corpo = vista === 'historico' ? vistaHistorico() : vista === 'resumo' ? vistaResumo() : vista === 'marcos' ? vistaMarcos() : vista === 'relatorio' ? vistaRelatorio()
     : vista === 'familia' ? vistaFamilia()
     : vista === 'ajustes' ? vistaAjustes() : vistaInicio();
@@ -373,12 +397,19 @@ function render() {
     ${cabecalho()}
     <main class="conteudo">${corpo}${rodape()}</main>
     ${navegacao()}`;
+  revisaoDesenhada = estado.revisao;
+  diaDesenhado = chaveDia(ctx.agora);
   // Só troca o DOM quando algo mudou, para não "engolir" um toque no meio do redesenho.
-  if (html === ultimoHtml) return;
-  ultimoHtml = html;
+  // Se a única diferença é a bolinha de sincronização, troca só ela.
+  const semPilula = html.replace(pilulaSync(), '');
+  if (semPilula === ultimoHtml && app.querySelector('#sync')) return atualizarPilula();
+  ultimoHtml = semPilula;
   app.innerHTML = html;
+  depoisDeDesenhar();
 }
 let ultimoHtml = '';
+let revisaoDesenhada = null;
+let diaDesenhado = '';
 
 function cabecalho() {
   // Só o primeiro nome no topo (o completo continua em Ajustes), para não empurrar o card PRÓXIMO para baixo.
@@ -714,7 +745,7 @@ function vistaHistorico() {
     const r = filtrado?.resumoDia ? filtrado.resumoDia(ctx, dia) : null;
     return r ? [r.valor, r.detalhe].filter(Boolean).join(' · ') : `${lista.length} ${lista.length === 1 ? 'registro' : 'registros'}`;
   };
-  const blocos = [...dias.entries()].map(([dia, lista]) => `
+  const blocoDia = ([dia, lista]) => `
     <section class="secao">
       <h2 class="secao-titulo">${esc(maiuscula(rotuloDia(dia, ctx.agora)))} <span class="secao-conta">${esc(conta(dia, lista))}</span></h2>
       ${filtrado ? '' : totaisDoDia(dia)}
@@ -737,8 +768,41 @@ function vistaHistorico() {
             </li>`;
         }).join('')}
       </ul>
-    </section>`).join('');
-  return `<div class="chips">${chips}</div>${filtroHistorico ? cartaoMarcadas(filtrado) + cartaoEvolucao(filtrado) : ''}<div class="dias">${blocos}</div>`;
+    </section>`;
+  // Fase 22: desenha os primeiros dias e acrescenta os outros conforme a lista é rolada (o conteúdo é o mesmo).
+  if (filtroHistorico !== filtroDesenhado) { diasHistorico = DIAS_HISTORICO; filtroDesenhado = filtroHistorico; }
+  const todos = [...dias.entries()];
+  const semObservador = typeof IntersectionObserver === 'undefined';
+  const agora = semObservador ? todos : todos.slice(0, diasHistorico);
+  historicoRestante = { dias: todos.slice(agora.length), bloco: blocoDia };
+  const mais = historicoRestante.dias.length ? '<div class="dias-mais" data-mais-dias aria-hidden="true"></div>' : '';
+  return `<div class="chips">${chips}</div>${filtroHistorico ? cartaoMarcadas(filtrado) + cartaoEvolucao(filtrado) : ''}<div class="dias">${agora.map(blocoDia).join('')}</div>${mais}`;
+}
+
+const DIAS_HISTORICO = 7;   // dias desenhados de início
+const DIAS_A_MAIS = 14;     // dias acrescentados quando a rolagem chega perto do fim
+let diasHistorico = DIAS_HISTORICO;
+let filtroDesenhado = null; // filtro do Histórico na última vez (null = saiu do Histórico)
+let historicoRestante = { dias: [], bloco: null };
+let observadorDias = null;
+
+/** Depois de trocar a tela: liga o "acrescentar mais dias" do Histórico. */
+function depoisDeDesenhar() {
+  observadorDias?.disconnect();
+  observadorDias = null;
+  const marca = app.querySelector('[data-mais-dias]');
+  if (!marca) return;
+  observadorDias = new IntersectionObserver((entradas) => {
+    if (!entradas.some((e) => e.isIntersecting)) return;
+    const proximos = historicoRestante.dias.splice(0, DIAS_A_MAIS);
+    diasHistorico += proximos.length;
+    app.querySelector('.dias')?.insertAdjacentHTML('beforeend', proximos.map(historicoRestante.bloco).join(''));
+    ultimoHtml = ''; // a tela já não é a do último desenho
+    observadorDias.unobserve(marca);
+    if (historicoRestante.dias.length) observadorDias.observe(marca); // ainda perto do fim: chama de novo
+    else { marca.remove(); observadorDias.disconnect(); observadorDias = null; }
+  }, { rootMargin: '0px 0px 1500px 0px' });
+  observadorDias.observe(marca);
 }
 
 // ---------------------------------------------------------------------------
@@ -817,7 +881,7 @@ function compartilharMarcos(botao) {
   return compartilharImagens(botao, {
     chave: `marcos|${itens.length}`,
     titulo: `Linha do tempo ${nomeBebe.split(/\s+/)[0]}`,
-    gerar: () => imagemLinhaDoTempo(itens, { nome: nomeBebe, idade: idadeTexto(estado.config.nascimento, ctx.agora) })
+    gerar: async () => (await imagemDaFamilia()).imagemLinhaDoTempo(itens, { nome: nomeBebe, idade: idadeTexto(estado.config.nascimento, ctx.agora) })
   });
 }
 
@@ -901,7 +965,7 @@ function compartilharRetrospectiva(botao, mes) {
   return compartilharImagens(botao, {
     chave: `retro|${mes}`,
     titulo: `Retrospectiva de ${r.nome} ${nomeBebe.split(/\s+/)[0]}`,
-    gerar: () => imagemRetrospectiva(r, { nome: nomeBebe })
+    gerar: async () => (await imagemDaFamilia()).imagemRetrospectiva(r, { nome: nomeBebe })
   });
 }
 
@@ -912,15 +976,21 @@ function compartilharFamilia(botao) {
   return compartilharImagens(botao, {
     chave: `familia|${diasFamilia}`,
     titulo: `${tituloPlacar(diasFamilia)} ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(p)}`,
-    gerar: () => imagemFamilia(p, { nome: nomeBebe, nDias: diasFamilia, periodo: textoPeriodo(p), medalhas: medalhasNovas(conquistasPorPessoa(ctx), p.inicio, p.fim) })
+    gerar: async () => (await imagemDaFamilia()).imagemFamilia(p, { nome: nomeBebe, nDias: diasFamilia, periodo: textoPeriodo(p), medalhas: medalhasNovas(conquistasPorPessoa(ctx), p.inicio, p.fim) })
   });
 }
 
 /** Relatório para a consulta (js/relatorio.js): período à escolha, para mostrar no celular ou salvar em PDF. */
 /** Relatório do período escolhido e as opções de desenho (as mesmas para a tela, o PDF e a imagem). */
+let relatorioGuardado = { chave: '', periodo: null, rel: null };
 function relatorioAtual() {
-  const periodo = resolverPeriodo(ctx, diasRelatorio);
-  const rel = montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), periodo.nDias);
+  // Fase 22: o mesmo relatório é reaproveitado enquanto os dados, o período e o minuto não mudam.
+  const chave = `${estado.revisao}|${diasRelatorio}|${Math.floor(ctx.agora / 60000)}`;
+  if (relatorioGuardado.chave !== chave || estado.revisao === undefined) {
+    const p = resolverPeriodo(ctx, diasRelatorio);
+    relatorioGuardado = { chave, periodo: p, rel: montarRelatorio(ctx, ordenarTipos(TODOS_TIPOS), p.nDias) };
+  }
+  const { periodo, rel } = relatorioGuardado;
   const opcoes = {
     nome: String(estado.config.nome_bebe || '').trim(),
     idade: idadeTexto(estado.config.nascimento, ctx.agora),
@@ -969,7 +1039,7 @@ function compartilharRelatorio(botao) {
     chave: `relatorio|${diasRelatorio}`,
     titulo: `Relatório ${nomeBebe.split(/\s+/)[0]} ${textoPeriodo(rel)}`,
     planoB: 'Use "Salvar em PDF".',
-    gerar: () => imagensRelatorio(rel, opcoes)
+    gerar: async () => (await imagemRelatorio()).imagensRelatorio(rel, opcoes)
   });
 }
 

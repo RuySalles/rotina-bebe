@@ -14,7 +14,8 @@ const LS = {
   url: 'rb_url',
   apelido: 'rb_apelido',
   cache: 'rb_cache',
-  fila: 'rb_fila'
+  fila: 'rb_fila',
+  ultima: 'rb_ultima' // hora da última sincronização (fase 22: o cache só é regravado quando os dados mudam)
 };
 const INTERVALO_SYNC_MS = 30 * 1000;
 // De tempos em tempos baixa tudo de novo, para corrigir qualquer diferença (ex. mexeram direto na planilha).
@@ -45,7 +46,11 @@ const lsJson = (k, padrao) => {
 let urlBackend = '';
 let servidor = lsJson(LS.cache, { eventos: [], planos: [], config: {} });
 let fila = lsJson(LS.fila, []);
+servidor.ultima = Math.max(servidor.ultima || 0, Number(lsLer(LS.ultima)) || 0) || null;
 let sync = { estado: 'inicial', ultima: servidor.ultima || null, mensagem: '' };
+// Sobe sempre que eventos, planos, config, agenda ou a fila mudam (não muda com o estado da sincronização):
+// as telas usam para não refazer cálculos e desenho quando só a bolinha de sincronização mudou.
+let revisao = 1;
 let emAndamento = null;
 let outraRodada = false;     // algo entrou na fila durante a sincronização
 let pedirCompleta = false;   // pediram carga completa durante a sincronização
@@ -93,6 +98,7 @@ function linhasAtuais() {
 export function obterEstado() {
   return {
     ...linhasAtuais(),
+    revisao,
     sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null,
       agenda: servidor.agenda || null }
   };
@@ -144,6 +150,8 @@ const postar = (corpo) => pedir({
 });
 
 function tirarDaFila(n) {
+  if (!n) return;
+  revisao++;
   fila.splice(0, n);
   lsGravar(LS.fila, JSON.stringify(fila));
   avisar();
@@ -208,6 +216,7 @@ function podeIncremental(completo) {
 /** Junta a resposta do servidor ao que está guardado. Devolve false se precisar de carga completa. */
 function aplicarLeitura(json) {
   const agora = Date.now();
+  const antes = servidor;
   if (json.parcial) {
     // A aba encolheu (mexeram direto na planilha): não dá para confiar no incremental.
     if (!(json.linha_eventos >= servidor.linha_eventos)) return false;
@@ -236,8 +245,25 @@ function aplicarLeitura(json) {
       ultima: agora
     };
   }
-  lsGravar(LS.cache, JSON.stringify(servidor));
+  if (mudou(antes, servidor, !json.parcial)) {
+    revisao++;
+    lsGravar(LS.cache, JSON.stringify(servidor));
+  } else {
+    // Nada novo: continua com as listas de antes (mesmas referências) e só guarda a hora.
+    servidor = { ...servidor, eventos: antes.eventos, planos: antes.planos, config: antes.config };
+  }
+  lsGravar(LS.ultima, String(agora));
   return true;
+}
+
+const comoTexto = (v) => JSON.stringify(v ?? null);
+/** Os dados guardados mudaram? (completa: compara também a lista inteira de eventos) */
+function mudou(a, b, completa) {
+  if (a.eventos !== b.eventos &&
+    (completa ? comoTexto(a.eventos) !== comoTexto(b.eventos) : a.eventos.length !== b.eventos.length)) return true;
+  return a.linha_eventos !== b.linha_eventos || a.versao_backend !== b.versao_backend ||
+    comoTexto(a.planos) !== comoTexto(b.planos) || comoTexto(a.config) !== comoTexto(b.config) ||
+    comoTexto(a.agenda) !== comoTexto(b.agenda);
 }
 
 async function baixar(completo) {
@@ -299,6 +325,7 @@ export function iniciarSincronizacaoAutomatica() {
 }
 
 function enfileirar(acao, payload) {
+  revisao++;
   fila.push({ acao, payload });
   lsGravar(LS.fila, JSON.stringify(fila));
   avisar();

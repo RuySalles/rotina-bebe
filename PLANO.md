@@ -38,6 +38,10 @@ algo) dizem isso em "Você vai precisar".
 | 19 | Aba Resumo (Histórico só com a lista) | Alta | ✅ |
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ✅ |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ✅ |
+| 22 | Desempenho: tela mais leve | Alta | 🧪 |
+| 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | ⬜ |
+| 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | ⬜ |
+| 25 | Desempenho: planilha mais rápida | Média | ⬜ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -745,6 +749,80 @@ leite, sono por dia, mamadeiras, fraldas e banhos do mês, quem registrou, marco
 
 ---
 
+## Fases 22 a 25 — Desempenho e menos dados móveis (decidido em 23/11)
+
+**Por quê:** o app está completo e estável; agora é deixá-lo mais rápido e mais econômico **sem perder nada**. O que a
+leitura do código mostrou:
+- A cada 30 s, a resposta da planilha traz de novo todos os planos, toda a config e a situação da agenda, mesmo quando
+  nada mudou. Ao abrir o app e a cada 10 min, vem a aba eventos inteira, que só cresce.
+- Cada ciclo de 30 s redesenha a tela duas vezes ("sincronizando" e "ok"), recalcula todos os eventos do zero e regrava
+  o cache inteiro no celular, mesmo sem dado novo.
+- Cada versão publicada faz o celular baixar de novo todos os arquivos (~420 KB antes da compressão), mesmo os que não
+  mudaram.
+- Cada gravação na planilha confere as 3 abas, relê os cabeçalhos e lê a coluna id inteira para não repetir registro
+  (fica um pouco mais lenta a cada mês).
+
+**Antes de começar:** backup feito em 23/11 — tag `backup-antes-desempenho` no git (commit da fase 21 aprovada) e
+cópia completa em `E:\Trabalho\RotinaBebe-backups\2026-11-23-antes-desempenho\` (bundle do git, zip do código e o
+`Seed.gs`). Voltar tudo: `git reset --hard backup-antes-desempenho` e publicar.
+
+**Regra das 4 fases:** nenhuma muda o que aparece na tela nem o contrato da planilha. Cada fase mede antes e depois
+com os mesmos dados de teste (2 meses, ~1.100 registros) e anota os números aqui. A ordem deixa as duas fases que mexem
+no Code.gs para o fim, para uma republicação só (Code.gs versão 9).
+
+### Fase 22 — Tela mais leve · prioridade alta
+- Quando só a bolinha de sincronização muda, atualizar só ela (como já é feito em Ajustes), sem redesenhar a tela.
+- Reaproveitar os cálculos (eventos resolvidos, planos, tipos) enquanto os dados não mudarem; o relógio de 20 s da
+  tela inicial só refaz o que depende da hora.
+- Não regravar o cache do celular quando a resposta não trouxe nada novo.
+- Relatório, Família, imagens e gráficos carregados só quando forem abertos (a tela inicial abre mais rápido).
+
+**Como ficou (medido no computador com 61 dias de teste, 1.230 registros; no celular tudo é algumas vezes mais lento):**
+
+| | Antes | Depois |
+|---|---|---|
+| Abrir o Histórico | 150 ms, 1,1 MB de HTML, 20 mil elementos | 27 ms, 7 dias (2,1 mil elementos); os outros entram ao rolar |
+| Abrir o Relatório de novo (mesmo minuto) | 144 ms | 4 ms (a primeira abertura continua igual) |
+| Sincronização sem dado novo | tela redesenhada 2 vezes e cache de ~280 KB regravado | só a bolinha muda; nada é regravado |
+
+As imagens para compartilhar (relatório, família, retrospectiva, linha do tempo) só são carregadas no primeiro toque em
+"Enviar". Única diferença perceptível: no computador, o Ctrl+F do navegador só acha os dias já desenhados no Histórico.
+
+**Você vai precisar:** nada. **Como testar:**
+- [ ] Histórico → rolar até o fim: os dias vão aparecendo sem salto, até o primeiro registro.
+- [ ] Registrar algo num celular: aparece no outro em até 30 s, como antes; a bolinha mostra "Sincronizado às…".
+- [ ] Relatório → Enviar como imagem e Família → Enviar para o grupo continuam funcionando.
+- [ ] Sem internet: registrar, ver "Pendente", voltar a internet e ver sincronizar.
+
+### Fase 23 — Atualização do app sem baixar tudo de novo · prioridade média
+- O `montar-site.sh` gera uma lista com a impressão digital de cada arquivo; o service worker copia da versão anterior,
+  já guardada no celular, os que não mudaram, e só baixa os novos. Os endereços `v/<sha>/` continuam como estão.
+- Tirar do site publicado o que o celular nunca usa (ex. a pasta `tests/` fora do necessário).
+
+**Você vai precisar:** nada. **Como testar:** depois da publicação, o aviso "Nova versão" continua aparecendo e o app
+continua abrindo sem internet.
+
+### Fase 24 — Sincronizar sem peso (menos dados móveis) · prioridade alta
+- O servidor guarda um "carimbo" que muda a cada gravação. Se o celular já tem o carimbo atual, a resposta é só "sem
+  mudança", sem nem abrir a planilha (mais rápido e quase sem dados).
+- A carga completa (ao abrir e a cada 10 min) vira uma conferência barata: o servidor diz quantas linhas e uma soma de
+  conferência; só baixa tudo se não bater.
+- Planos, config e agenda só vêm quando mudaram.
+- Retrocompatível: com o Web App antigo, o app continua funcionando como hoje. Code.gs versão 8.
+
+**Você vai precisar:** republicar o Web App (no fim da fase 25, uma vez só). **Como testar:** Ajustes mostra
+"Web App: versão 9"; registrar num celular e ver aparecer no outro em até 30 s, como hoje.
+
+### Fase 25 — Planilha mais rápida · prioridade média
+- Procurar o id repetido com a busca da própria planilha, em vez de ler a coluna inteira.
+- Guardar os cabeçalhos das abas e conferir as abas só uma vez por versão do Code.gs (não a cada gravação).
+- Continua retrocompatível; Code.gs versão 9.
+
+**Você vai precisar:** colar o Code.gs, rodar `sincronizarAgenda` e republicar o Web App (aviso único, com o passo a
+passo, ao fim desta fase). **Como testar:** registrar sem internet e depois voltar: entra uma vez só, sem duplicar.
+
+---
+
 ## Notas técnicas (para quem for implementar)
 
 - Fase 1: guardar o id do último registro feito no aparelho e usar `store.apagarEvento(id)`; no despertar do sono,
@@ -781,6 +859,13 @@ leite, sono por dia, mamadeiras, fraldas e banhos do mês, quem registrou, marco
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 22 (feita): `obterEstado()` ganhou `revisao` (sobe quando eventos, planos, config, agenda ou a fila mudam; não
+  com o estado da sincronização). `aplicarLeitura` só regrava `rb_cache` se `mudou(...)`; a hora vai para `rb_ultima`.
+  No `app.js`: `contexto()` guarda tipos/eventos/planos resolvidos por `revisao`; `aoMudarEstado` só troca a bolinha
+  (`atualizarPilula`) se a revisão e o dia são os mesmos; `render()` compara o HTML sem a bolinha. Histórico:
+  `DIAS_HISTORICO` dias e depois `DIAS_A_MAIS` por vez (`depoisDeDesenhar`, IntersectionObserver na marca
+  `[data-mais-dias]`). `relatorioAtual()` reaproveita o relatório por revisão + período + minuto. `imagem-relatorio.js`
+  e `imagem-familia.js` entram por `import()` dentro de `gerar`.
 - Fase 21 (feita): `js/conquistas.js` (puro, com testes): `diaCompleto`, `metaSemana`, `CONQUISTAS` e
   `conquistasPorPessoa` (pelo autor, só rotina), `medalhasNovas`, `mesesHoje`/`diaDoMes`/`textoMeses`,
   `linhaDoTempo`, `retrospectiva` (usa `placarEntre`, que o `montarPlacar` passou a usar). Vista `marcos` no

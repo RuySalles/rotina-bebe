@@ -8,15 +8,33 @@
 //   - Os arquivos de v/<versao>/ nunca mudam: vêm da cópia, e o que faltar é buscado e guardado.
 //   - versao.json e a planilha (Google) nunca passam pela cópia: a atualização automática e os dados ficam iguais.
 //   - Ao ativar uma versão nova, apaga as cópias das versões antigas.
+//   - Fase 23: cada versão tem v/<versao>/arquivos.json com a impressão digital de cada arquivo. Um arquivo de outra
+//     versão que for igual a um já guardado vem dessa cópia, sem baixar de novo (ao carregar a versão nova e ao
+//     instalá-la). Só os arquivos que mudaram vêm da internet.
 
 const VERSAO = '__VERSAO__';
 const CACHE = `rb-${VERSAO}`;
 const ARQUIVOS = ['./', 'manifest.webmanifest', 'img/icone-180.png', 'img/icone-512.png' /* __ARQUIVOS__ */];
 const ESPERA_PAGINA_MS = 4000;
+const RE_VERSAO = /\/v\/([^/]+)\/(.+)$/; // …/v/<versao>/<caminho>
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(instalar().then(() => self.skipWaiting()));
 });
+
+/** Guarda os arquivos desta versão; os de v/<versao>/ iguais a uma cópia já guardada vêm dela. */
+async function instalar() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(ARQUIVOS.map(async (caminho) => {
+    const url = new URL(caminho, self.location);
+    const req = new Request(url.href);
+    if (url.pathname.includes(`/v/${VERSAO}/`)) {
+      const igual = (await caches.match(req)) || (await deOutraVersao(url));
+      if (igual) return cache.put(req, await semEndereco(igual));
+    }
+    await cache.add(req);
+  }));
+}
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -55,12 +73,62 @@ async function pagina(req) {
 async function arquivo(req, url) {
   const copia = await caches.match(req, { ignoreSearch: true });
   if (copia) return copia;
+  const igual = await deOutraVersao(url).catch(() => null);
+  if (igual) {
+    (await caches.open(CACHE)).put(req, igual.clone());
+    return igual;
+  }
   const resp = await fetch(req);
   if (resp.ok && url.pathname.includes('/v/')) {
     const c = await caches.open(CACHE);
     c.put(req, resp.clone());
   }
   return resp;
+}
+
+/**
+ * O mesmo arquivo, já guardado de outra versão (mesma impressão digital), ou null.
+ * url: …/v/<versao>/<caminho> pedido agora.
+ */
+async function deOutraVersao(url) {
+  const m = url.pathname.match(RE_VERSAO);
+  if (!m || m[2] === 'arquivos.json') return null;
+  const [, versao, caminho] = m;
+  const digital = (await manifesto(versao, false))[caminho];
+  if (!digital) return null;
+  for (const nome of await caches.keys()) {
+    const outra = nome.startsWith('rb-') ? nome.slice(3) : '';
+    if (!outra || outra === versao) continue;
+    if ((await manifesto(outra, true))[caminho] !== digital) continue;
+    const r = await caches.match(new URL(`v/${outra}/${caminho}`, self.location).href, { cacheName: nome });
+    if (r) return semEndereco(r);
+  }
+  return null;
+}
+
+/** arquivos.json de uma versão ({} se não houver). soCopia: só das cópias guardadas (versões antigas). */
+const manifestos = new Map();
+function manifesto(versao, soCopia) {
+  const chave = `${versao}|${soCopia}`;
+  if (!manifestos.has(chave)) {
+    const url = new URL(`v/${versao}/arquivos.json`, self.location).href;
+    const p = (async () => {
+      const r = (await caches.match(url)) || (soCopia ? null : await fetch(url));
+      if (!r || !r.ok) throw new Error('sem_manifesto');
+      return await r.clone().json();
+    })();
+    p.catch(() => manifestos.delete(chave)); // tenta de novo no próximo pedido
+    manifestos.set(chave, p);
+  }
+  return manifestos.get(chave).catch(() => ({}));
+}
+
+/**
+ * Cópia da resposta sem o endereço de origem: o navegador usa o endereço pedido, e os imports relativos
+ * de um módulo continuam apontando para a versão nova.
+ */
+async function semEndereco(r) {
+  return new Response(await r.blob(), { status: r.status, statusText: r.statusText, headers: r.headers });
 }
 
 function comPrazo(promessa, ms) {

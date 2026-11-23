@@ -38,8 +38,8 @@ algo) dizem isso em "Você vai precisar".
 | 19 | Aba Resumo (Histórico só com a lista) | Alta | ✅ |
 | 20 | Tela inicial: o que importa agora em primeiro lugar | Média | ✅ |
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ✅ |
-| 22 | Desempenho: tela mais leve | Alta | 🧪 |
-| 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | ⬜ |
+| 22 | Desempenho: tela mais leve | Alta | ✅ |
+| 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | 🧪 |
 | 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | ⬜ |
 | 25 | Desempenho: planilha mais rápida | Média | ⬜ |
 
@@ -797,7 +797,18 @@ As imagens para compartilhar (relatório, família, retrospectiva, linha do temp
 ### Fase 23 — Atualização do app sem baixar tudo de novo · prioridade média
 - O `montar-site.sh` gera uma lista com a impressão digital de cada arquivo; o service worker copia da versão anterior,
   já guardada no celular, os que não mudaram, e só baixa os novos. Os endereços `v/<sha>/` continuam como estão.
-- Tirar do site publicado o que o celular nunca usa (ex. a pasta `tests/` fora do necessário).
+- ~~Tirar do site publicado o que o celular nunca usa (ex. a pasta `tests/`)~~: ficou de fora, porque o celular nunca
+  baixa esses arquivos (não muda nada nos dados móveis).
+
+**Como ficou (simulado no computador: versão A instalada, depois a B com só o `resumo.js` mudado):**
+
+| | Antes | Depois |
+|---|---|---|
+| Atualizar para uma versão nova | todos os arquivos do app de novo (~400 KB), e às vezes duas vezes (ao abrir e ao instalar a cópia) | só o que mudou, mais a lista (~1 KB) e a página: 48 KB no teste |
+
+Continua abrindo sem internet depois da atualização. A economia completa começa na **segunda** atualização depois desta
+fase: a primeira ainda é carregada pelo service worker antigo que está no celular (mas a cópia já não é baixada duas
+vezes).
 
 **Você vai precisar:** nada. **Como testar:** depois da publicação, o aviso "Nova versão" continua aparecendo e o app
 continua abrindo sem internet.
@@ -859,6 +870,10 @@ passo, ao fim desta fase). **Como testar:** registrar sem internet e depois volt
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 23 (feita): o `montar-site.sh` grava `v/<versao>/arquivos.json` ({ caminho: 16 letras do sha1 }). No `sw.js`,
+  `deOutraVersao(url)` procura nas cópias `rb-*` um arquivo com a mesma impressão digital e devolve
+  `semEndereco(r)` (Response nova, sem a URL antiga, para os imports relativos apontarem para a versão nova);
+  usado no `arquivo()` (página da versão nova ainda com o service worker antigo) e no `instalar()`.
 - Fase 22 (feita): `obterEstado()` ganhou `revisao` (sobe quando eventos, planos, config, agenda ou a fila mudam; não
   com o estado da sincronização). `aplicarLeitura` só regrava `rb_cache` se `mudou(...)`; a hora vai para `rb_ultima`.
   No `app.js`: `contexto()` guarda tipos/eventos/planos resolvidos por `revisao`; `aoMudarEstado` só troca a bolinha

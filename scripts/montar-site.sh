@@ -27,6 +27,20 @@ for esperado in "v/$VERSAO/js/app.js" "v/$VERSAO/css/app.css" "content=\"$VERSAO
   grep -q "$esperado" "$DESTINO/index.html" || { echo "index.html sem: $esperado" >&2; exit 1; }
 done
 
+# Impressão digital de cada arquivo desta versão (fase 23): o service worker compara com a versão que o celular já
+# tem e reaproveita os arquivos iguais em vez de baixar de novo. Formato: {"js/app.js":"<16 letras do sha1>", ...}
+(
+  cd "$DESTINO/v/$VERSAO"
+  printf '{'
+  sep=''
+  while IFS= read -r f; do
+    printf '%s"%s":"%s"' "$sep" "${f#./}" "$(sha1sum "$f" | cut -c1-16)"
+    sep=','
+  done < <(find . -type f ! -name arquivos.json | sort)
+  printf '}\n'
+) > "$DESTINO/v/$VERSAO/arquivos.json"
+grep -q '"js/app.js":"[0-9a-f]\{16\}"' "$DESTINO/v/$VERSAO/arquivos.json" || { echo "arquivos.json sem js/app.js" >&2; exit 1; }
+
 # Service worker (abrir sem internet): versão e lista dos arquivos desta versão para guardar no celular.
 LISTA=$(cd "$DESTINO" && find "v/$VERSAO" -type f | sort | sed "s#.*#, '&'#" | tr -d '\n')
 sed -i \

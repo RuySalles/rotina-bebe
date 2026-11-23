@@ -18,7 +18,8 @@ Publicado no GitHub Pages (`.github/workflows/pages.yml`). Backend: Google Apps 
   mantenha exatamente `src="js/app.js"`, `href="css/app.css"` e `<meta name="versao" content="dev">` (o script
   falha se não encontrar). Imports entre módulos devem ser sempre relativos.
 - `sw.js` → service worker (abrir sem internet). É um modelo: o `montar-site.sh` troca `__VERSAO__` e a lista de
-  arquivos de `v/<sha>/`. Não registra em "dev". Para testar: monte em `_site` e use a configuração "site-montado".
+  arquivos de `v/<sha>/`; o `v/<sha>/arquivos.json` (impressão digital de cada arquivo) deixa o celular reaproveitar
+  os arquivos que não mudaram entre versões. Não registra em "dev". Para testar: monte em `_site` e use a configuração "site-montado".
 - `js/app.js` → telas e navegação: 4 abas (Início, Histórico, Resumo, Ajustes); só fala com `store.js` e `regras.js`
 - `js/store.js` → ÚNICO módulo que conversa com o backend (fila offline no localStorage)
 - `js/relatorio.js` → Relatório para a consulta (dados puros + HTML/SVG); aberto pelo Histórico, PDF via impressão.

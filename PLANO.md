@@ -632,6 +632,9 @@ dia. O relatório de hoje é bom para conferir, mas ruim para apresentar.
 - Em "Detalhes", a tabela dia a dia mostra no máximo os últimos 14 dias (em 30 e 60 dias, a visão por semana são os
   gráficos). No PDF, os detalhes começam numa página nova.
 - O placar da família ganhou períodos próprios: Hoje, 7 dias e 30 dias ("Rotina do mês").
+- **Ajuste depois do teste (22/11):** remédio de todo dia (ex. vitamina) vira uma linha nos Detalhes ("1 vez por dia
+  de 31/10 a 22/11 · 22 doses · entre 06:50 e 09:30"), com os dias fora do padrão (sem dose ou com dose a mais) e a
+  lista completa recolhida em "Ver dose por dose". Dia da semana e data alinhados nas listas.
 
 **Você vai precisar:** preencher a data de nascimento em Ajustes → Bebê.
 

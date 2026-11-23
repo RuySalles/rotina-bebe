@@ -9,7 +9,7 @@ import { TIPOS, montarTipos } from '../js/tipos/index.js';
 import { lerRemedios } from '../js/tipos/remedio.js';
 import { descreverAjuste } from '../js/tipos/ajuste.js';
 import { lerTextoAlimentacao } from '../js/tipos/alimentacao.js';
-import { montarRelatorio, graficoTemperatura, diaCurto } from '../js/relatorio.js';
+import { montarRelatorio, graficoTemperatura, diaCurto, padraoDoses, textoPadrao } from '../js/relatorio.js';
 import { paginar, alturaPedaco } from '../js/imagem-relatorio.js';
 import { papel, porcentagens, montarPlacar } from '../js/familia.js';
 import { fmtPeso, fmtCm, textoDiferencas, serie } from '../js/tipos/medidas.js';
@@ -836,6 +836,19 @@ export function casos({ grupo, teste }) {
     verdade(svg.includes('graf-limite') && svg.includes('febre 37,8'), 'linha do limite');
     igual((svg.match(/class="graf-dose"/g) || []).length, 1);
     verdade(svg.includes('25/10 09:00 · 38,6 °C'), 'valor de cada ponto no título');
+  });
+  teste('Remédio de todo dia vira uma linha, com os dias fora do padrão', () => {
+    const dose = (dia, hora) => ({ t: t(dia, hora), texto: 'Duas gotas' });
+    // 10 a 20/10, 1 por dia; sem dose no dia 15; duas no dia 18.
+    const doses = ['10', '11', '12', '13', '14', '16', '17', '18', '19', '20'].map((d) => dose(d, d === '13' ? '22:33' : '08:00'));
+    doses.splice(8, 0, dose('18', '20:00'));
+    const pd = padraoDoses(doses);
+    igual([pd.porDia, pd.de, pd.ate, pd.total, pd.horaMin, pd.horaMax], [1, '2026-10-10', '2026-10-20', 11, '08:00', '22:33']); // a dose das 20:00 do dia 18 (fora do padrão) não entra na faixa
+    igual(pd.excecoes.map((x) => [x.dia, x.doses.length]), [['2026-10-15', 0], ['2026-10-18', 2]]);
+    igual(textoPadrao(pd), '1 vez por dia de 10/10 a 20/10 · 11 doses · entre 08:00 e 22:33 (Duas gotas)');
+    // Poucos dias ou sem padrão: lista normal.
+    igual(padraoDoses(['10', '11', '12'].map((d) => dose(d, '08:00'))), null);
+    igual(padraoDoses(['10', '13', '16', '19', '22', '25'].map((d) => dose(d, '08:00'))), null);
   });
   teste('Dia da tabela sem "hoje/ontem" (o PDF pode ser lido depois)', () => {
     igual(diaCurto('2026-10-25'), 'dom 25/10');

@@ -336,16 +336,75 @@ export function graficoTemperatura(rel, antitermico = [], tipoAntitermico = null
     </figure>`;
 }
 
+const PADRAO_MIN_DIAS = 5;      // remédio com doses em pelo menos 5 dias pode virar uma linha só
+const PADRAO_MIN_PARTE = 0.7;   // ...se 70% dos dias têm o mesmo número de doses
+
+/** Doses agrupadas por dia: [[dia, [dose...]]], em ordem. */
+export function dosesPorDia(doses) {
+  const grupos = new Map();
+  for (const d of doses) {
+    const dia = chaveDia(d.t);
+    if (!grupos.has(dia)) grupos.set(dia, []);
+    grupos.get(dia).push(d);
+  }
+  return [...grupos.entries()];
+}
+
+/**
+ * Padrão diário de um remédio (ex. vitamina todo dia): do primeiro ao último dia com dose, quantas por dia é o mais
+ * comum e quais dias fogem dele (sem dose ou com outra quantidade). doses: [{ t, texto }] em ordem.
+ * → { porDia, de, ate, total, horaMin, horaMax, texto, excecoes: [{ dia, doses }] } ou null se não há padrão.
+ */
+export function padraoDoses(doses) {
+  const grupos = dosesPorDia(doses);
+  if (grupos.length < PADRAO_MIN_DIAS) return null;
+  const de = grupos[0][0], ate = grupos.at(-1)[0];
+  const contagem = new Map(grupos.map(([dia, lista]) => [dia, lista.length]));
+  const dias = [];
+  for (let d = de; d <= ate; d = somarDias(d, 1)) dias.push(d);
+  const freq = new Map();
+  for (const d of dias) { const n = contagem.get(d) || 0; freq.set(n, (freq.get(n) || 0) + 1); }
+  const [porDia, vezes] = [...freq].filter(([n]) => n > 0).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0];
+  if (vezes / dias.length < PADRAO_MIN_PARTE) return null;
+  // Faixa de horários só dos dias normais (a dose extra de um dia fora do padrão não estica a faixa).
+  const horas = grupos.filter(([, l]) => l.length === porDia).flatMap(([, l]) => l.map((d) => fmtHora(d.t))).sort();
+  const textos = [...new Set(doses.map((d) => d.texto || ''))];
+  return {
+    porDia, de, ate, total: doses.length,
+    horaMin: horas[0], horaMax: horas.at(-1),
+    texto: textos.length === 1 ? textos[0] : '',
+    excecoes: dias.filter((d) => (contagem.get(d) || 0) !== porDia)
+      .map((d) => ({ dia: d, doses: (grupos.find(([g]) => g === d)?.[1]) || [] }))
+  };
+}
+
+/** "1 vez por dia de 31/10 a 22/11 · 22 doses · entre 06:50 e 22:33 (Duas gotas)" */
+export function textoPadrao(pd) {
+  const dm = (dia) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+  const vezes = pd.porDia === 1 ? '1 vez por dia' : `${pd.porDia} vezes por dia`;
+  const horas = pd.horaMin === pd.horaMax ? `às ${pd.horaMin}` : `entre ${pd.horaMin} e ${pd.horaMax}`;
+  return `${vezes} de ${dm(pd.de)} a ${dm(pd.ate)} · ${pd.total} doses · ${horas}${pd.texto ? ` (${pd.texto})` : ''}`;
+}
+
 function secaoRemedios(rel, agora) {
   if (!rel.remedios.length) return '';
-  const porDia = (doses) => {
-    const grupos = new Map();
-    for (const d of doses) {
-      const dia = chaveDia(d.t);
-      if (!grupos.has(dia)) grupos.set(dia, []);
-      grupos.get(dia).push(d);
-    }
-    return [...grupos.entries()];
+  const listaDoses = (grupos, textoComum = '') => `
+    <dl class="rel-doses">
+      ${grupos.map(([dia, lista]) => `
+        <div><dt>${diaCurtoHtml(dia)}</dt>
+          <dd>${lista.length ? lista.map((d) => `${esc(fmtHora(d.t))}${d.texto && d.texto !== textoComum ? ` <span>(${esc(d.texto)})</span>` : ''}`).join(', ') : '<span>nenhuma dose</span>'}</dd></div>`).join('')}
+    </dl>`;
+  // Remédio de todo dia vira uma linha (e os dias fora do padrão); a lista completa fica recolhida embaixo.
+  const doRemedio = (tipo, doses) => {
+    const pd = tipo.id === 'vacina' ? null : padraoDoses(doses);
+    if (!pd) return listaDoses(dosesPorDia(doses));
+    return `
+      <p class="rel-padrao">${esc(textoPadrao(pd))}</p>
+      ${pd.excecoes.length ? `<p class="rel-padrao-fora">Fora do padrão:</p>${listaDoses(pd.excecoes.map((x) => [x.dia, x.doses]), pd.texto)}` : '<p class="rel-padrao-fora">Nenhum dia fora do padrão.</p>'}
+      <details class="rel-todas">
+        <summary>Ver dose por dose</summary>
+        ${listaDoses(dosesPorDia(doses), pd.texto)}
+      </details>`;
   };
   return `
     <section class="cartao rel-secao">
@@ -354,11 +413,7 @@ function secaoRemedios(rel, agora) {
         <div class="rel-remedio" ${estiloCor(tipo)}>
           <p class="rel-remedio-nome"><span class="icone icone--mini">${tipo.icone}</span>${esc(tipo.rotulo)}
             <span class="rel-remedio-conta">${doses.length} ${tipo.id === 'vacina' ? (doses.length === 1 ? 'registro' : 'registros') : (doses.length === 1 ? 'dose' : 'doses')}</span></p>
-          <dl class="rel-doses">
-            ${porDia(doses).map(([dia, lista]) => `
-              <div><dt>${diaCurtoHtml(dia)}</dt>
-                <dd>${lista.map((d) => `${esc(fmtHora(d.t))}${d.texto ? ` <span>(${esc(d.texto)})</span>` : ''}`).join(', ')}</dd></div>`).join('')}
-          </dl>
+          ${doRemedio(tipo, doses)}
         </div>`).join('')}
     </section>`;
 }

@@ -1105,7 +1105,7 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 }
 .rel-abrir .icone { color: var(--cor); }
 .rel-abrir:active { background: var(--superficie-2); }
-.relatorio { display: grid; gap: var(--espaco); }
+.relatorio { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco); }
 .rel-barra { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; margin-top: 0.5rem; }
 .rel-barra .botao { width: auto; min-height: 2.875rem; padding: 0 1.125rem; }
 .rel-acoes { display: flex; gap: 0.5rem; }
@@ -1213,7 +1213,7 @@ input:focus, textarea:focus { border-color: var(--cor); background: var(--superf
 .rel-graficos { display: grid; gap: 1.25rem; }
 @media (min-width: 700px) { .rel-graficos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .rel-graficos .grafico { margin: 0; max-width: none; }
-.rel-detalhes { display: grid; gap: var(--espaco); }
+.rel-detalhes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--espaco); min-width: 0; } /* a tabela larga rola dentro dela, sem alargar a página */
 .rel-detalhes > summary { list-style: none; cursor: pointer; padding: 0.875rem 1rem; font-weight: 650; display: flex; flex-wrap: wrap; gap: 0 0.5rem; align-items: baseline; }
 .rel-detalhes > summary::-webkit-details-marker { display: none; }
 .rel-detalhes > summary::after { content: "›"; margin-left: auto; color: var(--texto-3); transform: rotate(90deg); }

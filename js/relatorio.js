@@ -147,7 +147,7 @@ export function htmlRelatorio(rel, opcoes) {
         ${secaoResumo(rel)}
         ${secaoGraficos(rel, opcoes)}
         ${detalhes ? `
-          <details class="rel-detalhes" data-detalhes>
+          <details class="rel-detalhes" data-detalhes ${opcoes.detalhesAbertos ? 'open' : ''}>
             <summary class="cartao">Detalhes <span>dia a dia, temperaturas, doses, medidas e anotações</span></summary>
             ${detalhes}
           </details>` : ''}`}

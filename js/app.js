@@ -28,6 +28,8 @@ let vista = 'inicio';
 let filtroHistorico = '';
 let urlDoConfig = '';
 let limiteAjustes = 10; // itens visíveis no Histórico de ajustes
+let imprimindo = false;
+let detalhesAbertos = false; // "Detalhes" do relatório continuam abertos quando a tela se redesenha
 let diasRelatorio = PERIODO_PADRAO; // período do Relatório: 'consulta' (desde a última consulta) ou dias até hoje
 let diasFamilia = PERIODO_FAMILIA; // período do placar da família
 
@@ -846,7 +848,8 @@ function relatorioAtual() {
     agora: ctx.agora,
     tipoFebre: TIPOS.febre,
     tipoAntitermico: TIPOS.tylenol,
-    cores: { leite: TIPOS.alimentacao.cor, sono: TIPOS.sono.cor, cocos: TIPOS.fralda.cor, peso: TIPOS.medidas.cor }
+    cores: { leite: TIPOS.alimentacao.cor, sono: TIPOS.sono.cor, cocos: TIPOS.fralda.cor, peso: TIPOS.medidas.cor },
+    detalhesAbertos
   };
   return { rel, opcoes };
 }
@@ -859,10 +862,11 @@ function vistaRelatorio() {
 /** Abre a impressão do navegador (onde dá para "Salvar como PDF"), com um nome de arquivo que diz o período. */
 function imprimirRelatorio() {
   const { rel } = relatorioAtual();
-  // O PDF leva tudo: abre os "Detalhes" só durante a impressão.
+  // O PDF leva tudo: abre os "Detalhes" só durante a impressão (sem mudar a escolha de quem está vendo).
   const fechados = [...document.querySelectorAll('[data-detalhes]:not([open])')];
+  imprimindo = true;
   fechados.forEach((d) => { d.open = true; });
-  window.addEventListener('afterprint', () => fechados.forEach((d) => { d.open = false; }), { once: true });
+  window.addEventListener('afterprint', () => { fechados.forEach((d) => { d.open = false; }); setTimeout(() => { imprimindo = false; }, 0); }, { once: true });
   const nome = String(estado.config.nome_bebe || '').trim().split(/\s+/)[0];
   const antes = document.title;
   document.title = `Relatório ${nome} ${textoPeriodo(rel)}`.replace(/\//g, '-').replace(/\s+/g, ' ').trim();
@@ -1871,6 +1875,11 @@ folha.addEventListener('click', (e) => {
 // ---------------------------------------------------------------------------
 // Ações (delegação de eventos)
 // ---------------------------------------------------------------------------
+
+// O "toggle" do <details> não sobe pela árvore: escuta na captura.
+app.addEventListener('toggle', (e) => {
+  if (e.target.matches?.('[data-detalhes]') && !imprimindo) detalhesAbertos = e.target.open;
+}, true);
 
 app.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-acao]');

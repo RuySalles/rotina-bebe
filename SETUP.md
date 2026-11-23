@@ -129,6 +129,10 @@ funcionando juntos; só ficam mais rápidos depois de republicar):
   a cada 10 minutos, em vez de baixar a planilha inteira, o app manda uma impressão digital do que tem e só baixa
   tudo se não bater. Não precisa de autorização nova. Uma edição feita **direto na planilha** aparece no app em até
   10 minutos (ou ao abrir o app), não mais em 30 segundos. Enquanto não republicar, o app funciona como antes.
+- *Fase 25 (versão 9, planilha mais rápida):* o id repetido é procurado com a busca da planilha (sem ler a coluna
+  inteira), os cabeçalhos são lidos uma vez por pedido e as abas são conferidas uma vez por versão (propriedade
+  `ABAS_OK`, criada sozinha; **prepararPlanilha** sempre confere tudo). Não precisa de autorização nova nem de rodar
+  nada pelo editor: cole o `Code.gs`, salve e republique.
 
 ## Lembretes no Google Agenda
 

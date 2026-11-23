@@ -41,7 +41,7 @@ algo) dizem isso em "Você vai precisar".
 | 22 | Desempenho: tela mais leve | Alta | ✅ |
 | 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | ✅ |
 | 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | 🧪 |
-| 25 | Desempenho: planilha mais rápida | Média | ⬜ |
+| 25 | Desempenho: planilha mais rápida | Média | 🧪 |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
@@ -844,8 +844,24 @@ aparece em até 10 min (ou ao abrir o app), não mais em 30 s; registros feitos 
 - Guardar os cabeçalhos das abas e conferir as abas só uma vez por versão do Code.gs (não a cada gravação).
 - Continua retrocompatível; Code.gs versão 9.
 
-**Você vai precisar:** colar o Code.gs, rodar `sincronizarAgenda` e republicar o Web App (aviso único, com o passo a
-passo, ao fim desta fase). **Como testar:** registrar sem internet e depois voltar: entra uma vez só, sem duplicar.
+**Como ficou (planilha simulada, 1.212 registros; cada leitura ou busca é uma ida e volta à planilha do Google):**
+
+| Pedido | Versão 8 | Versão 9 |
+|---|---|---|
+| 1 registro (com a leitura junto) | 9 leituras, 1.254 células | 4 leituras + 1 busca, 24 células |
+| Registro reenviado pela fila | 9 leituras, 1.255 células | 4 leituras + 1 busca, 24 células |
+| Salvar um ajuste | 4 leituras | 1 leitura |
+| Lote grande (sem internet, 10 registros) | 14 leituras | 2 leituras (lê a coluna de ids uma vez, como antes) |
+
+A coluna de ids, que crescia ~600 linhas por mês, não é mais lida a cada gravação. Nenhum id duplicado nos testes
+(reenvio, repetido dentro do lote, lote grande).
+
+**Você vai precisar:** colar o Code.gs e republicar o Web App (aviso único, com o passo a passo, que vale para as
+fases 24 e 25). **Como testar:**
+- [ ] Ajustes → Este celular → Sincronizar agora: "Web App: versão 9", sem o aviso "republique".
+- [ ] Registrar num celular e ver aparecer no outro em até 30 s.
+- [ ] Modo avião, registrar 2 ou 3 coisas, tirar do modo avião: entram uma vez só, sem duplicar.
+- [ ] Fechar e abrir o app: abre na hora, com tudo lá (a conferência substitui a carga completa).
 
 ---
 
@@ -885,6 +901,10 @@ passo, ao fim desta fase). **Como testar:** registrar sem internet e depois volt
 - Fase 11 (feita): `config.inicio_botoes` = JSON { ordem, ocultos } ('' = padrão); `lerBotoesInicio`,
   `aplicarBotoesInicio` e `textoBotoesInicio` em `regras.js` (com testes). No `app.js`, `botoesPadrao()` dá a ordem
   padrão (grandes e faixa) e a escolha é aplicada por cima. Sem mudança no `store.js` nem no `Code.gs`.
+- Fase 25 (feita): Code.gs versão 9. `adicionarSemRepetir_` busca o id com `createTextFinder(id).matchCase(true)
+  .matchEntireCell(true)` na coluna id; em lote com mais de 5 itens (`idsVistos._lerColuna`) lê a coluna uma vez.
+  `cabecalho_(aba, nome)` guarda em `CABECALHOS_` (zerado no início do doGet/doPost). `garantirAbas_(forcar)` pula a
+  conferência dos cabeçalhos se a propriedade `ABAS_OK` = JSON de `ABAS` e as 3 abas existem.
 - Fase 24 (feita): Code.gs versão 8. `leitura_(desde, { c, h })`: com `c` igual ao `carimbo_()` (propriedade
   `CARIMBO`, trocada por `novoCarimbo_()` a cada gravação que não seja `ja_existia`, no fim do `atualizarAgenda_` e no
   seed) responde `{ sem_mudanca }` sem `planilha_()`; com `h`, compara `digital_(JSON.stringify(lerLinhas_('eventos',

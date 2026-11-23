@@ -15,10 +15,11 @@
  * Histórico: 4 = fase 4 (lote e leitura incremental); 5 = fase 10 (lembretes no Google Agenda);
  * 6 = fase 15 (lembrete da próxima dose de vacina no Google Agenda);
  * 7 = fase 16 (lembrete das consultas marcadas no Google Agenda);
- * 8 = fase 24 (carimbo: "sem mudança" sem abrir a planilha; conferência por impressão digital em vez de carga completa).
+ * 8 = fase 24 (carimbo: "sem mudança" sem abrir a planilha; conferência por impressão digital em vez de carga completa);
+ * 9 = fase 25 (busca do id pela planilha, cabeçalhos lidos uma vez por pedido, abas conferidas uma vez por versão).
  * Antes disso não havia número.
  */
-var VERSAO_BACKEND = 8;
+var VERSAO_BACKEND = 9;
 
 var ABAS = {
   eventos: ['id', 'tipo', 'horario', 'dados', 'quem', 'criado_em', 'apagado', 'substitui_id', 'schema_version'],
@@ -50,6 +51,7 @@ var CONFIG_PADRAO = {
  */
 function doGet(e) {
   try {
+    CABECALHOS_ = {};
     var p = (e && e.parameter) || {};
     validarChave_(p.k);
     return json_(leitura_(p.desde, { c: p.c, h: p.h }));
@@ -66,6 +68,7 @@ function doGet(e) {
  */
 function doPost(e) {
   var lock = LockService.getScriptLock();
+  CABECALHOS_ = {};
   try {
     // Chega como text/plain para evitar o preflight de CORS.
     var corpo = JSON.parse((e && e.postData && e.postData.contents) || '{}');
@@ -75,7 +78,8 @@ function doPost(e) {
     var payload = corpo.payload || {};
     var agenda = { tipos: {}, tudo: false };
     if (corpo.acao === 'lote') {
-      var idsVistos = {};
+      // Lote grande (muitos registros feitos sem internet): lê a coluna de ids uma vez em vez de buscar um por um.
+      var idsVistos = { _lerColuna: (payload.itens || []).length > 5 };
       var resultados = (payload.itens || []).map(function (item) {
         try {
           var r = gravar_(item && item.acao, (item && item.payload) || {}, idsVistos);
@@ -205,7 +209,7 @@ function trocarChave() {
 
 /** Cria as abas e os valores padrão de config. Pode rodar quantas vezes quiser. */
 function prepararPlanilha() {
-  garantirAbas_();
+  garantirAbas_(true);
   var config = lerConfig_();
   Object.keys(CONFIG_PADRAO).forEach(function (chave) {
     if (!(chave in config)) salvarConfig_(chave, CONFIG_PADRAO[chave]);
@@ -582,12 +586,21 @@ function planilha_() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
-/** Cria abas que faltam e acrescenta, no final, colunas que faltam. Nunca renomeia nem reordena. */
-function garantirAbas_() {
+/**
+ * Cria abas que faltam e acrescenta, no final, colunas que faltam. Nunca renomeia nem reordena.
+ * Fase 25: depois de conferir uma vez as colunas desta versão (propriedade ABAS_OK), só confere se as abas existem,
+ * sem reler os cabeçalhos a cada pedido. forcar: confere tudo (prepararPlanilha).
+ */
+function garantirAbas_(forcar) {
   var ss = planilha_();
+  var props = PropertiesService.getScriptProperties();
+  var assinatura = JSON.stringify(ABAS);
+  if (!forcar && props.getProperty('ABAS_OK') === assinatura &&
+      Object.keys(ABAS).every(function (nome) { return !!ss.getSheetByName(nome); })) return;
   Object.keys(ABAS).forEach(function (nome) {
     var colunas = ABAS[nome];
     var aba = ss.getSheetByName(nome);
+    delete CABECALHOS_[nome];
     if (!aba) {
       aba = ss.insertSheet(nome);
       aba.getRange(1, 1, 1, colunas.length).setNumberFormat('@').setValues([colunas]).setFontWeight('bold');
@@ -600,12 +613,20 @@ function garantirAbas_() {
       aba.getRange(1, existentes.length + 1, 1, faltando.length).setNumberFormat('@').setValues([faltando]).setFontWeight('bold');
     }
   });
+  CABECALHOS_ = {};
+  props.setProperty('ABAS_OK', assinatura);
 }
 
-function cabecalho_(aba) {
+// Cabeçalhos já lidos neste pedido (fase 25): cada aba é lida uma vez só. Zerado no início do doGet e do doPost.
+var CABECALHOS_ = {};
+
+/** Nomes das colunas. nome (opcional): guarda para os próximos usos neste pedido. */
+function cabecalho_(aba, nome) {
+  if (nome && CABECALHOS_[nome]) return CABECALHOS_[nome];
   var ultima = aba.getLastColumn();
-  if (ultima === 0) return [];
-  return aba.getRange(1, 1, 1, ultima).getDisplayValues()[0].map(function (c) { return String(c).trim(); });
+  var cab = ultima === 0 ? [] : aba.getRange(1, 1, 1, ultima).getDisplayValues()[0].map(function (c) { return String(c).trim(); });
+  if (nome) CABECALHOS_[nome] = cab;
+  return cab;
 }
 
 /**
@@ -618,7 +639,7 @@ function lerLinhas_(nome, aPartirDe, ate) {
   if (ate) ultimaLinha = Math.min(ultimaLinha, ate);
   var inicio = Math.max(2, aPartirDe || 2);
   if (ultimaLinha < inicio) return [];
-  var cab = cabecalho_(aba);
+  var cab = cabecalho_(aba, nome);
   var valores = aba.getRange(inicio, 1, ultimaLinha - inicio + 1, cab.length).getDisplayValues();
   return valores
     .filter(function (linha) { return linha.join('') !== ''; })
@@ -631,23 +652,31 @@ function lerLinhas_(nome, aPartirDe, ate) {
 
 /**
  * Acrescenta uma linha, ignorando se o id já existe (reenvio da fila offline).
- * idsVistos (opcional, usado no lote): guarda os ids de cada aba já lidos neste pedido, para não reler a coluna.
+ * idsVistos (opcional, usado no lote): ids de cada aba já conferidos ou gravados neste pedido.
+ * Fase 25: o id é procurado com a busca da própria planilha (não precisa trazer a coluna inteira, que só cresce).
+ * Num lote grande (idsVistos._lerColuna, ex. muitos registros feitos sem internet), lê a coluna uma vez só, como antes.
  */
 function adicionarSemRepetir_(nome, payload, idsVistos) {
   if (!payload || !payload.id) throw new Error('id_obrigatorio');
   var aba = planilha_().getSheetByName(nome);
-  var cab = cabecalho_(aba);
+  var cab = cabecalho_(aba, nome);
   var colId = cab.indexOf('id') + 1;
   var ultimaLinha = aba.getLastRow();
-  var ids = idsVistos && idsVistos[nome];
-  if (!ids) {
-    ids = {};
+  var id = String(payload.id);
+  var ids = (idsVistos && idsVistos[nome]) || {};
+  if (idsVistos) idsVistos[nome] = ids;
+  if (idsVistos && idsVistos._lerColuna && !ids._colunaLida) {
     if (ultimaLinha >= 2) {
       aba.getRange(2, colId, ultimaLinha - 1, 1).getDisplayValues().forEach(function (l) { ids[l[0]] = true; });
     }
-    if (idsVistos) idsVistos[nome] = ids;
+    ids._colunaLida = true;
   }
-  if (ids[String(payload.id)]) return 'ja_existia';
+  if (ids[id]) return 'ja_existia';
+  if (!ids._colunaLida && ultimaLinha >= 2 &&
+      aba.getRange(2, colId, ultimaLinha - 1, 1).createTextFinder(id).matchCase(true).matchEntireCell(true).findNext()) {
+    ids[id] = true;
+    return 'ja_existia';
+  }
   var linha = cab.map(function (c) {
     var v = payload[c];
     if (v === undefined || v === null) return '';
@@ -655,7 +684,7 @@ function adicionarSemRepetir_(nome, payload, idsVistos) {
     return String(v);
   });
   aba.getRange(ultimaLinha + 1, 1, 1, cab.length).setNumberFormat('@').setValues([linha]);
-  ids[String(payload.id)] = true;
+  ids[id] = true;
   return 'adicionado';
 }
 

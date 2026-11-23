@@ -100,7 +100,7 @@ export function obterEstado() {
     ...linhasAtuais(),
     revisao,
     sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null,
-      agenda: servidor.agenda || null }
+      agenda: servidor.agenda || null, atalho: atalhoDesligado }
   };
 }
 
@@ -187,7 +187,14 @@ async function enviarLotes(completo) {
       json = await postar(corpo);
     } catch (e) {
       if (e.doServidor && e.message === 'acao_desconhecida') { servidorAntigo = true; return false; }
-      throw e;
+      if (!(corpo.c || corpo.h) || !recusaDoServidor(e)) throw e;
+      // Recusou o pedido com carimbo / impressão digital: manda de novo do jeito de antes
+      // (se a gravação já tinha entrado, o servidor ignora os ids repetidos).
+      desligarAtalho(e);
+      delete corpo.c;
+      delete corpo.h;
+      Object.assign(corpo, await pedidoDeLeitura(completo));
+      json = await postar(corpo);
     }
     const resultados = Array.isArray(json.resultados) ? json.resultados : [];
     // Para no primeiro item que falhou por um motivo passageiro: ele e os seguintes ficam na fila
@@ -222,10 +229,19 @@ const temLinha = () => Number.isFinite(servidor.linha_eventos) && servidor.linha
  */
 async function pedidoDeLeitura(completo, tudo = false) {
   if (tudo || !temLinha()) return { desde: '' };
-  const v8 = (servidor.versao_backend ?? 0) >= 8;
+  const v8 = !atalhoDesligado && (servidor.versao_backend ?? 0) >= 8;
   if (podeIncremental(completo)) return v8 && servidor.carimbo ? { desde: servidor.linha_eventos, c: servidor.carimbo } : { desde: servidor.linha_eventos };
   const h = v8 ? await digitalEventos() : '';
   return h ? { desde: servidor.linha_eventos, h } : { desde: '' };
+}
+
+// Se a planilha recusar um pedido com carimbo ou impressão digital (c / h), o app segue do jeito de antes até ser
+// aberto de novo, e guarda o código do erro para Ajustes mostrar. Nada deixa de sincronizar por causa da fase 24.
+let atalhoDesligado = '';
+const recusaDoServidor = (e) => !e.definitivo && (e.doServidor || /^http_/.test(e.message) || e instanceof SyntaxError);
+function desligarAtalho(e) {
+  atalhoDesligado = e.message || 'erro';
+  console.warn('Leitura econômica recusada; seguindo do jeito de antes:', atalhoDesligado);
 }
 
 /** SHA-256 (hexadecimal) do JSON dos eventos guardados, a mesma conta do digital_ no Code.gs. '' se não der. */
@@ -304,7 +320,13 @@ async function baixar(completo, tudo = false) {
   const sep = urlBackend.includes('?') ? '&' : '?';
   const pedido = await pedidoDeLeitura(completo, tudo);
   const extra = Object.entries(pedido).filter(([, v]) => v !== '').map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join('');
-  const json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`, method: 'GET' });
+  let json;
+  try {
+    json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`, method: 'GET' });
+  } catch (e) {
+    if ((pedido.c || pedido.h) && recusaDoServidor(e)) { desligarAtalho(e); return baixar(completo, tudo); }
+    throw e;
+  }
   if (!aplicarLeitura(json) && extra) await baixar(true, true);
 }
 
@@ -338,6 +360,7 @@ export function sincronizar(opcoes = {}) {
       definirSync(fila.length ? 'pendente' : 'ok');
     } catch (e) {
       const mensagem = e.message === 'chave_invalida' ? 'Link inválido' : navigator.onLine === false ? 'Sem internet' : 'Não foi possível sincronizar';
+      sync.codigo = String(e.message || e).slice(0, 120); // Ajustes mostra, para achar a causa
       definirSync(fila.length && !e.definitivo ? 'pendente' : 'erro', mensagem);
     } finally {
       emAndamento = null;

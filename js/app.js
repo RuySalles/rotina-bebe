@@ -441,7 +441,10 @@ function textoSyncDetalhado() {
   const partes = [];
   if (s.ultima) partes.push(`Última sincronização: ${quandoCurto(s.ultima)}`);
   if (s.pendentes) partes.push(`${s.pendentes} registro(s) esperando internet`);
-  if (s.estado === 'erro' && s.mensagem) partes.push(s.mensagem);
+  if ((s.estado === 'erro' || s.estado === 'pendente') && s.codigo && s.mensagem !== 'Sem internet') partes.push(`${s.mensagem || 'Erro'} (código: ${s.codigo})`);
+  else if (s.estado === 'erro' && s.mensagem) partes.push(s.mensagem);
+  // Leitura econômica (fase 24) recusada pela planilha: sincroniza do jeito de antes; o código ajuda a achar a causa.
+  if (s.atalho) partes.push(`Modo econômico desligado até abrir o app de novo (código: ${s.atalho})`);
   return partes.join(' · ') || 'Ainda não sincronizado';
 }
 

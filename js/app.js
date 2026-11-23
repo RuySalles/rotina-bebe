@@ -445,6 +445,7 @@ function textoSyncDetalhado() {
   else if (s.estado === 'erro' && s.mensagem) partes.push(s.mensagem);
   // Leitura econômica (fase 24) recusada pela planilha: sincroniza do jeito de antes; o código ajuda a achar a causa.
   if (s.atalho) partes.push(`Modo econômico desligado até abrir o app de novo (código: ${s.atalho})`);
+  if (s.recuperadas?.n) partes.push(`${s.recuperadas.n} ${s.recuperadas.n === 1 ? 'falha passageira resolvida' : 'falhas passageiras resolvidas'} na 2ª tentativa (última: ${s.recuperadas.ultima})`);
   return partes.join(' · ') || 'Ainda não sincronizado';
 }
 

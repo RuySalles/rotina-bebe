@@ -100,7 +100,7 @@ export function obterEstado() {
     ...linhasAtuais(),
     revisao,
     sync: { ...sync, pendentes: fila.length, backend: Number.isFinite(servidor.versao_backend) ? servidor.versao_backend : null,
-      agenda: servidor.agenda || null, atalho: atalhoDesligado }
+      agenda: servidor.agenda || null, atalho: atalhoDesligado, recuperadas: falhasRecuperadas }
   };
 }
 
@@ -247,8 +247,11 @@ const recusaDoServidor = (e) => !e.definitivo && navigator.onLine !== false &&
 const nomePedido = (p, envio) => [envio ? 'envio' : '', p.h ? 'conferência' : p.c ? 'carimbo' : p.desde ? 'só o novo' : envio ? '' : 'tudo']
   .filter(Boolean).join(' + ');
 const comPedido = (e, p, envio) => { e.pedido = e.pedido || nomePedido(p, envio); return e; };
-function desligarAtalho(e) {
-  atalhoDesligado = `${e.message || 'erro'} [${e.pedido || '?'}]`;
+const ESPERA_NOVA_TENTATIVA_MS = 1500;
+// Pedidos econômicos que falharam uma vez e deram certo na segunda tentativa (Ajustes mostra, para diagnóstico).
+let falhasRecuperadas = { n: 0, ultima: '' };
+function desligarAtalho(e, tentativas = 1) {
+  atalhoDesligado = `${e.message || 'erro'} [${e.pedido || '?'}${tentativas > 1 ? `, ${tentativas} tentativas` : ''}]`;
   console.warn('Leitura econômica recusada; seguindo do jeito de antes:', atalhoDesligado);
 }
 
@@ -328,13 +331,25 @@ async function baixar(completo, tudo = false) {
   const sep = urlBackend.includes('?') ? '&' : '?';
   const pedido = await pedidoDeLeitura(completo, tudo);
   const extra = Object.entries(pedido).filter(([, v]) => v !== '').map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join('');
+  const url = `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`;
   let json;
   try {
-    json = await pedir({ url: `${urlBackend}${sep}k=${encodeURIComponent(lerChave())}${extra}`, method: 'GET' });
+    json = await pedir({ url, method: 'GET' });
   } catch (e) {
     comPedido(e, pedido, false);
-    if ((pedido.c || pedido.h) && recusaDoServidor(e)) { desligarAtalho(e); return baixar(completo, tudo); }
-    throw e;
+    if (!((pedido.c || pedido.h) && recusaDoServidor(e))) throw e;
+    // Pode ser uma falha passageira (do Google ou da internet): tenta o mesmo pedido mais uma vez, depois de uma
+    // pausa, antes de desistir do modo econômico.
+    await new Promise((ok) => setTimeout(ok, ESPERA_NOVA_TENTATIVA_MS));
+    try {
+      json = await pedir({ url, method: 'GET' });
+      falhasRecuperadas = { n: falhasRecuperadas.n + 1, ultima: `${e.message} [${e.pedido}]` };
+    } catch (e2) {
+      comPedido(e2, pedido, false);
+      if (!recusaDoServidor(e2)) throw e2;
+      desligarAtalho(e2, 2);
+      return baixar(completo, tudo);
+    }
   }
   if (!aplicarLeitura(json) && extra) await baixar(true, true);
 }

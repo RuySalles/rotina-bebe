@@ -40,8 +40,8 @@ algo) dizem isso em "Você vai precisar".
 | 21 | Gamificação: conquistas, meta da semana e marcos | Média | ✅ |
 | 22 | Desempenho: tela mais leve | Alta | ✅ |
 | 23 | Desempenho: atualização do app sem baixar tudo de novo | Média | ✅ |
-| 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | 🧪 |
-| 25 | Desempenho: planilha mais rápida | Média | 🧪 |
+| 24 | Desempenho: sincronizar sem peso (menos dados móveis) | Alta | ✅ |
+| 25 | Desempenho: planilha mais rápida | Média | ✅ |
 
 **Revisão de 22/11 (depois de 1 mês de uso):** a ordem foi refeita olhando os registros do mês. Quase todos os
 registros são de alimentação, sono, fralda e banho, mas os primeiros botões da tela são remédios; houve sonos
